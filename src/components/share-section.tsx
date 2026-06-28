@@ -2,18 +2,26 @@
 
 import { useCallback, useState } from "react";
 
+import { recordShare } from "@/app/actions/share";
+
 /**
  * "Comparte esta solicitud" (Figma 20:2 / 30:16798).
  * Four circular share affordances: WhatsApp / Instagram / X / Copiar link.
- * Builds share-intent URLs only — no `share_event` write (out of scope).
+ * Each affordance builds its share-intent URL AND records a `share_event` via
+ * the `recordShare` server action (fire-and-forget — the share UX never awaits
+ * analytics; `.catch(() => {})` swallows a failed RPC so it never surfaces as an
+ * unhandled promise rejection).
  * Client Component: needs window.location + navigator.clipboard/share.
  * URLs are resolved at click time so there is no SSR/hydration mismatch.
  */
 export function ShareSection({
+  requestId,
   title,
   message,
   path,
 }: {
+  /** Request id, threaded into `recordShare` for the analytics event. */
+  requestId: string;
   /** Section title, e.g. "Comparte esta solicitud". */
   title?: string;
   /** Pre-built share text (without the URL). */
@@ -34,7 +42,8 @@ export function ShareSection({
 
   const shareWhatsApp = useCallback(() => {
     open(`https://wa.me/?text=${encodeURIComponent(`${message} ${absoluteUrl()}`)}`);
-  }, [open, message, absoluteUrl]);
+    recordShare(requestId, "whatsapp").catch(() => {});
+  }, [open, message, absoluteUrl, requestId]);
 
   const shareX = useCallback(() => {
     open(
@@ -42,17 +51,19 @@ export function ShareSection({
         message,
       )}&url=${encodeURIComponent(absoluteUrl())}`,
     );
-  }, [open, message, absoluteUrl]);
+    recordShare(requestId, "x").catch(() => {});
+  }, [open, message, absoluteUrl, requestId]);
 
   const copyLink = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(absoluteUrl());
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      recordShare(requestId, "copy_link").catch(() => {});
     } catch {
       // Clipboard unavailable (e.g. insecure context) — no-op.
     }
-  }, [absoluteUrl]);
+  }, [absoluteUrl, requestId]);
 
   const shareInstagram = useCallback(async () => {
     // Instagram has no web share-intent URL; use the Web Share API when
@@ -60,13 +71,15 @@ export function ShareSection({
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ title: message, text: message, url: absoluteUrl() });
+        recordShare(requestId, "instagram").catch(() => {});
         return;
       } catch {
         // user cancelled or unsupported — fall through to copy
       }
     }
+    // Fallback path records "copy_link" via copyLink itself.
     void copyLink();
-  }, [message, absoluteUrl, copyLink]);
+  }, [message, absoluteUrl, copyLink, requestId]);
 
   return (
     <section>
