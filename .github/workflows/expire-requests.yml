@@ -1,0 +1,20 @@
+name: Expire requests
+
+# Vercel Hobby caps cron jobs at once/day, so the 5-minute expiry runs from a
+# GitHub Actions schedule that calls the secured /api/cron endpoint in prod.
+# (On Vercel Pro this could move to a native `vercel.json` cron instead.)
+# Scheduled workflows only run from the default branch (main).
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  expire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger expiry endpoint
+        run: |
+          curl -fsS --max-time 60 -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://venemed.vercel.app/api/cron/expire-requests
