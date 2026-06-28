@@ -4,26 +4,42 @@ import type { ReactNode } from "react";
 /**
  * Detail top bar (Figma 20:2): back arrow + centered title + optional trailing
  * action (e.g. external/share icon). Server-renderable.
+ *
+ * Pass `backHref={null}` for screens with no back affordance (e.g. the center
+ * status screens "Casi listo" / "Estado del registro"). When `align` is
+ * "start" the title is left-aligned (back-office headers) instead of centered.
  */
 export function AppBar({
   title,
   backHref = "/solicitudes",
   trailing,
+  align = "center",
 }: {
   title: string;
-  backHref?: string;
+  backHref?: string | null;
   trailing?: ReactNode;
+  align?: "center" | "start";
 }) {
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-neutral-100 bg-surface px-4">
-      <Link
-        href={backHref}
-        aria-label="Volver"
-        className="-ml-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-700 hover:bg-neutral-100"
+      {backHref ? (
+        <Link
+          href={backHref}
+          aria-label="Volver"
+          className="-ml-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-700 hover:bg-neutral-100"
+        >
+          <BackArrow />
+        </Link>
+      ) : (
+        <span className="h-9 w-9" />
+      )}
+      <h1
+        className={`text-base font-semibold text-neutral-900 ${
+          align === "start" ? "mr-auto pl-1" : ""
+        }`}
       >
-        <BackArrow />
-      </Link>
-      <h1 className="text-base font-semibold text-neutral-900">{title}</h1>
+        {title}
+      </h1>
       <span className="inline-flex h-9 w-9 items-center justify-center">
         {trailing}
       </span>
