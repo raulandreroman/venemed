@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeneMed — Cron &amp; Scheduled Jobs (v1)</title>
+<style>
+  :root {
+    --bg: #faf8f3;
+    --paper: #ffffff;
+    --ink: #1c1c1c;
+    --ink-soft: #4a4a4a;
+    --ink-faint: #8a8a8a;
+    --rule: #e8e4dc;
+    --accent: #b8451f;
+    --accent-soft: #d97844;
+    --code-bg: #f4f0e8;
+    --code-ink: #2a2a2a;
+    --code-string: #87672f;
+    --code-key: #b8451f;
+    --code-num: #2c5f7c;
+    --code-bool: #7c4dff;
+    --code-null: #999;
+    --kbd-bg: #ede7d9;
+    --table-stripe: #f9f5ec;
+    --warn-bg: #fff4e6;
+    --warn-rule: #ddb47a;
+    --good-bg: #eef4ea;
+    --good-rule: #9ec18a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+  }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 24px 32px 32px;
+    background: var(--paper);
+    border-right: 1px solid var(--rule);
+    font-size: 13px;
+  }
+  nav.toc .label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 14px 0;
+  }
+  nav.toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: section;
+  }
+  nav.toc li {
+    counter-increment: section;
+    margin: 0;
+  }
+  nav.toc a {
+    display: block;
+    padding: 7px 10px 7px 36px;
+    margin-left: -10px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-radius: 4px;
+    position: relative;
+    transition: background 0.12s, color 0.12s;
+  }
+  nav.toc a::before {
+    content: counter(section);
+    position: absolute;
+    left: 10px;
+    top: 7px;
+    width: 18px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  nav.toc a:hover {
+    background: var(--code-bg);
+    color: var(--ink);
+  }
+  main {
+    padding: 56px 64px 120px 56px;
+    max-width: 920px;
+  }
+  header.doc-head {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-head .eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  header.doc-head h1 {
+    font-size: 30px;
+    line-height: 1.2;
+    margin: 0 0 14px 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  header.doc-head .meta {
+    color: var(--ink-faint);
+    font-size: 13px;
+  }
+  header.doc-head .status-pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-rule);
+    color: #7a4a13;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-right: 8px;
+  }
+  h2 {
+    margin: 56px 0 16px 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink);
+  }
+  h2 .num {
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+    margin-right: 12px;
+    font-weight: 500;
+  }
+  h3 {
+    margin: 28px 0 10px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  h4 {
+    margin: 20px 0 6px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  ul, ol { padding-left: 24px; margin: 0 0 14px 0; }
+  li { margin-bottom: 4px; }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 14px 0 18px 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  pre code {
+    background: transparent;
+    padding: 0;
+    font-size: inherit;
+    color: var(--code-ink);
+    white-space: pre;
+  }
+  .json .k { color: var(--code-key); }
+  .json .s { color: var(--code-string); }
+  .json .n { color: var(--code-num); }
+  .json .b { color: var(--code-bool); }
+  .json .null { color: var(--code-null); font-style: italic; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0 22px 0;
+    font-size: 13.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    background: var(--code-bg);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  tbody tr:nth-child(even) td { background: var(--table-stripe); }
+  blockquote {
+    border-left: 3px solid var(--accent-soft);
+    background: var(--warn-bg);
+    margin: 16px 0;
+    padding: 12px 16px;
+    border-radius: 0 4px 4px 0;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  .filepath {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+    word-break: break-all;
+  }
+  strong { font-weight: 600; color: var(--ink); }
+  em { font-style: italic; color: var(--ink-soft); }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  a:hover { border-bottom-color: var(--accent); }
+  .effort {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--good-bg);
+    border: 1px solid var(--good-rule);
+    color: #3d5a2a;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--rule); }
+    main { padding: 32px 24px 80px 24px; }
+  }
+
+  /* Annotation layer */
+  .note-highlight {
+    background: linear-gradient(transparent 62%, #f9e58a 62%);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .note-highlight:hover {
+    background: linear-gradient(transparent 50%, #f5d04a 50%);
+  }
+  #note-add-btn {
+    position: absolute;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    z-index: 1000;
+    font-family: inherit;
+  }
+  #note-add-btn::before { content: '＋'; font-size: 14px; font-weight: 400; }
+  .fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: inherit;
+  }
+  .fab:hover { background: var(--accent); }
+  #fab-badge {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: white;
+    border-radius: 999px;
+    min-width: 20px;
+    height: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 6px;
+  }
+  #notes-panel {
+    position: fixed;
+    top: 0; right: 0;
+    width: 380px;
+    max-width: 90vw;
+    height: 100vh;
+    background: var(--paper);
+    border-left: 1px solid var(--rule);
+    box-shadow: -8px 0 30px rgba(0,0,0,0.06);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+  }
+  #notes-panel.open { transform: translateX(0); }
+  .notes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .notes-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
+  #notes-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--ink-faint);
+    padding: 4px 8px;
+    font-family: inherit;
+  }
+  .notes-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .notes-actions button {
+    flex: 1;
+    padding: 7px 10px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink-soft);
+    border-radius: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .notes-actions button:hover { background: var(--code-bg); color: var(--ink); }
+  #notes-clear { color: #b04a4a; }
+  #notes-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+  }
+  .notes-empty {
+    color: var(--ink-faint);
+    text-align: center;
+    padding: 40px 16px;
+    font-size: 13px;
+    font-style: italic;
+  }
+  .notes-group { margin-bottom: 24px; }
+  .notes-group h4 {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin: 0 0 10px 0;
+  }
+  .notes-item {
+    padding: 12px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    background: var(--bg);
+    transition: border-color 0.12s;
+  }
+  .notes-item:hover { border-color: var(--accent-soft); }
+  .notes-item-quote {
+    font-size: 12px;
+    color: var(--ink-faint);
+    border-left: 2px solid #f9e58a;
+    padding-left: 8px;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+  .notes-item-text {
+    font-size: 13.5px;
+    color: var(--ink);
+    white-space: pre-wrap;
+    line-height: 1.45;
+  }
+  .notes-item-time {
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-top: 6px;
+  }
+  #note-composer {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(28,28,28,0.4);
+    z-index: 1200;
+    align-items: center;
+    justify-content: center;
+  }
+  .composer-card {
+    background: var(--paper);
+    border-radius: 10px;
+    width: 520px;
+    max-width: 90vw;
+    padding: 22px 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .composer-card .eyebrow {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  #note-context {
+    font-size: 13px;
+    color: var(--ink-soft);
+    border-left: 3px solid #f9e58a;
+    background: var(--warn-bg);
+    padding: 10px 12px;
+    border-radius: 0 4px 4px 0;
+    margin: 10px 0 14px 0;
+    font-style: italic;
+    max-height: 110px;
+    overflow-y: auto;
+  }
+  .note-kind-group {
+    border: none;
+    padding: 0;
+    margin: 0 0 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .note-kind-group label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .note-kind-group label:hover { color: var(--ink); }
+  .note-kind-group input[type="radio"] { margin: 0; accent-color: var(--accent); }
+  .note-kind-group .hint { color: var(--ink-faint); font-size: 12px; }
+  .notes-item-kind {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 9px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .notes-item-kind.edit {
+    background: var(--good-bg);
+    color: #3d5a2a;
+    border: 1px solid var(--good-rule);
+  }
+  .notes-item-kind.question {
+    background: var(--warn-bg);
+    color: #7a4a13;
+    border: 1px solid var(--warn-rule);
+  }
+  #note-text {
+    width: 100%;
+    min-height: 110px;
+    padding: 10px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    box-sizing: border-box;
+    color: var(--ink);
+    background: var(--paper);
+  }
+  #note-text:focus { outline: 2px solid var(--accent-soft); outline-offset: -1px; }
+  .composer-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    justify-content: flex-end;
+  }
+  .composer-actions button {
+    padding: 8px 14px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    border: 1px solid var(--rule);
+  }
+  #note-save {
+    background: var(--ink);
+    color: white;
+    border-color: var(--ink);
+  }
+  #note-save:hover { background: var(--accent); border-color: var(--accent); }
+  #note-cancel { background: var(--paper); color: var(--ink-soft); }
+  #note-cancel:hover { background: var(--code-bg); }
+  #note-delete {
+    background: var(--paper);
+    color: #b04a4a;
+    margin-right: auto;
+    display: none;
+  }
+  #note-delete.visible { display: inline-block; }
+  #note-delete:hover { background: #fce8e8; }
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 1300;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc">
+    <p class="label">Contents</p>
+    <ol>
+      <li><a href="#s1">Purpose &amp; scope</a></li>
+      <li><a href="#s2">Jobs overview</a></li>
+      <li><a href="#s3">The `expire-requests` job</a></li>
+      <li><a href="#s4">Route handler &amp; security</a></li>
+      <li><a href="#s5">Vercel cron configuration</a></li>
+      <li><a href="#s6">Interaction with the request lifecycle</a></li>
+      <li><a href="#s7">Cache revalidation</a></li>
+      <li><a href="#s8">Observability &amp; failure handling</a></li>
+      <li><a href="#s9">Testing</a></li>
+      <li><a href="#s10">Edge cases &amp; correctness</a></li>
+      <li><a href="#s11">Future jobs (out of v1 scope)</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc-head" id="preface">
+      <div class="eyebrow">VeneMed</div>
+      <h1>Cron &amp; Scheduled Jobs (v1)</h1>
+      <div class="meta"><span class="status-pill">draft. Last updated 2026-06-28</span>Implementation spec for VeneMed's scheduled jobs. Expands the expiry-cron callout in <span class="filepath">docs/specs/data-model.md</span> §5. Related to the request lifecycle.</div>
+    </header>
+
+    <section id="s1">
+      <h2><span class="num">1</span>Purpose &amp; scope</h2>
+      <p>VeneMed's core promise is that aid requests <strong>stop circulating the moment their time window closes</strong> — that's what prevents waste and center overload. A request's window is data (<code>expires_at</code>), but <em>something</em> has to flip the row to <code>expired</code> when the clock runs out. That's the job of the <strong>expiry cron</strong>.</p>
+<p>This spec defines the scheduled jobs: what they do, how they're scheduled on Vercel, how the endpoints are secured, how they interact with the request lifecycle, and how we know when they fail. In scope for v1: the <strong>expire-requests</strong> job. Out of scope: center reminder nudges, data cleanup, analytics rollups (listed as future jobs in §10).</p>
+<blockquote><p><strong>Why this matters more than a typical cron:</strong> if this job silently stops, expired requests keep showing as active and donors keep being sent to closed centers — the exact failure VeneMed exists to prevent. So observability (§8) is a first-class requirement, not an afterthought.</p></blockquote>
+    </section>
+
+    <section id="s2">
+      <h2><span class="num">2</span>Jobs overview</h2>
+      <table><thead><tr><th>Job</th><th>Schedule</th><th>Purpose</th></tr></thead><tbody><tr><td><code>expire-requests</code></td><td>every 5 min (<code>*/5 * * * *</code>)</td><td>Flip <code>active</code>/<code>paused</code> requests whose <code>expires_at</code> has passed to <code>expired</code>; audit + revalidate caches</td></tr><tr><td><em>health-check (optional)</em></td><td>every 15 min</td><td>Alert if any request is past-due but still <code>active</code> (i.e. the expiry job failed) — see §8</td></tr></tbody></table>
+<p>Vercel Pro allows arbitrary cron frequency (Hobby is once/day) — we're on Pro, so 5-minute cadence is fine.</p>
+    </section>
+
+    <section id="s3">
+      <h2><span class="num">3</span>The <code>expire-requests</code> job</h2>
+      <p>The single mutation, idempotent and concurrency-safe (the <code>WHERE</code> clause means a second concurrent run flips nothing extra):</p>
+<pre><code>UPDATE request
+SET status = &#x27;expired&#x27;, closed_at = now(), closed_reason = &#x27;expired&#x27;
+WHERE status IN (&#x27;active&#x27;, &#x27;paused&#x27;) AND expires_at &lt; now()
+RETURNING id, center_id;</code></pre>
+<ul><li><strong><code>RETURNING</code></strong> gives us the flipped rows so we can (a) write audit events and (b) revalidate exactly the affected caches.</li><li><strong>Audit:</strong> bulk-insert one <code>moderation_event</code> per flipped row — <code>{ actor_user_id: null, subject_type: &#x27;request&#x27;, subject_id: id, action: &#x27;expired_by_cron&#x27; }</code>.</li><li><strong>Idempotent by construction:</strong> re-running never double-processes; a row already <code>expired</code>/<code>closed</code> is excluded by the <code>WHERE</code>.</li><li><strong>Batching:</strong> at v1 volumes (dozens of centers) the set is tiny. If it ever grows, cap per run (<code>... LIMIT 500</code>) and let the next tick continue — but log when we hit the cap (no silent truncation).</li></ul>
+<p><strong>Both <code>kind</code> values are handled</strong> — there's no <code>kind</code> filter, so <code>surplus</code> ("no enviar") notices expire on the same schedule as <code>need</code> requests. <strong><code>paused</code> is included</strong> so a paused request's window keeps elapsing (pausing stops circulation, not the clock); <code>paused</code> is unused in the v1 UI but kept in the query for correctness/future.</p>
+    </section>
+
+    <section id="s4">
+      <h2><span class="num">4</span>Route handler &amp; security</h2>
+      <p>The job is an App Router route handler. <strong>It must be unforgeable</strong> — a public trigger could mass-expire requests.</p>
+<ul><li>Vercel automatically sends <code>Authorization: Bearer $CRON_SECRET</code> to cron-invoked routes when <code>CRON_SECRET</code> is set. The handler <strong>rejects any request without the matching secret</strong> (401).</li><li>Accept <code>GET</code> (Vercel cron uses GET). Return a small JSON summary (<code>{ expired: N }</code>) and proper status codes.</li><li>Use the <strong>direct (non-pooled) DB connection</strong> for the batch write, or the pooled one with care; keep the work in one transaction.</li></ul>
+<pre><code>// src/app/api/cron/expire-requests/route.ts
+import { NextResponse } from &quot;next/server&quot;;
+import { expireDueRequests } from &quot;@/db/jobs&quot;;
+
+export const dynamic = &quot;force-dynamic&quot;; // never cached
+export const maxDuration = 60;
+
+export async function GET(req: Request) {
+  const auth = req.headers.get(&quot;authorization&quot;);
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new NextResponse(&quot;Unauthorized&quot;, { status: 401 });
+  }
+  const { expired } = await expireDueRequests(); // runs the UPDATE + audit + revalidation
+  return NextResponse.json({ ok: true, expired });
+}</code></pre>
+<p><code>CRON_SECRET</code> is a new env var — add to Vercel (all environments) and <code>.env.example</code>.</p>
+    </section>
+
+    <section id="s5">
+      <h2><span class="num">5</span>Vercel cron configuration</h2>
+      <p>Declared in <span class="filepath">vercel.ts</span> (preferred) — the schedule + path:</p>
+<pre><code>// vercel.ts
+import { type VercelConfig } from &quot;@vercel/config/v1&quot;;
+
+export const config: VercelConfig = {
+  crons: [{ path: &quot;/api/cron/expire-requests&quot;, schedule: &quot;*/5 * * * *&quot; }],
+};</code></pre>
+<p>Cron jobs only run against the <strong>production</strong> deployment. For preview/local testing, trigger the endpoint manually with the secret (see §9).</p>
+    </section>
+
+    <section id="s6">
+      <h2><span class="num">6</span>Interaction with the request lifecycle</h2>
+      <ul><li><strong>"Extender ventana" (extend window)</strong> — the center action sets <code>expires_at</code> to a later time on an <code>active</code> request. The cron simply won't match it until the new time passes. No special-casing needed. Extending an already-<code>expired</code> request is <strong>not</strong> supported in v1 (<code>expired</code> is terminal — the center creates a new request instead). <em>(Confirm copy with design.)</em></li><li><strong><code>closed</code> vs <code>expired</code></strong> — <code>closed</code> is a deliberate center action (<code>fulfilled</code>/<code>cancelled</code>); <code>expired</code> is the cron acting on a lapsed window. Both are terminal and both render via the donor "closed" detail view. The cron only ever produces <code>expired</code>.</li><li><strong>Pause/resume</strong> — not in v1 UI; if a request is ever <code>paused</code>, its window still elapses and the cron expires it on schedule.</li></ul>
+    </section>
+
+    <section id="s7">
+      <h2><span class="num">7</span>Cache revalidation</h2>
+      <p>Donor reads are cached for the surge (<code>revalidate = 60</code>), so an expired request would naturally drop off the list within ≤60 s. The cron should <strong>revalidate immediately</strong> for correctness so a donor never opens a just-expired request as active:</p>
+<ul><li>After a successful run that flipped ≥1 row, call <code>revalidateTag(&quot;active-requests&quot;)</code>, <code>revalidateTag(&quot;landing-stats&quot;)</code>, and <code>revalidateTag(\</code>request:\${id}\<code>)</code> for each flipped id.</li><li>This requires the donor data-access layer (<span class="filepath">src/db/queries.ts</span>) to tag its cached reads with those tags — <strong>dependency to wire up when integrating</strong> (the donor slice currently uses time-based <code>revalidate</code>; add tags).</li><li>The landing <strong>"actualizado hace X"</strong> stat reads from the same cached aggregate; revalidating <code>landing-stats</code> keeps it honest.</li></ul>
+    </section>
+
+    <section id="s8">
+      <h2><span class="num">8</span>Observability &amp; failure handling</h2>
+      <p>A silently-dead expiry job is the worst-case failure, so:</p>
+<ul><li><strong>Log every run</strong> — count flipped, duration. Emit to Vercel logs + PostHog (<code>cron_expire_requests</code> event with <code>{ expired, ms }</code>).</li><li><strong>Alert on error</strong> — wrap the handler; on throw, capture to PostHog/Sentry and return 500 (Vercel surfaces failed cron runs in the dashboard).</li><li><strong>Liveness / staleness check (recommended)</strong> — a second cron (every 15 min) that counts requests where <code>status=&#x27;active&#x27; AND expires_at &lt; now() - interval &#x27;15 minutes&#x27;</code>. Any such row means the expiry job isn't running → <strong>alert</strong>. This catches a stuck/disabled cron that the happy-path logs wouldn't.</li><li><strong>Dashboard</strong> — a PostHog insight on <code>expired</code> per run to eyeball cadence.</li></ul>
+    </section>
+
+    <section id="s9">
+      <h2><span class="num">9</span>Testing</h2>
+      <ul><li><strong>Unit:</strong> <code>expireDueRequests()</code> against a seeded row with <code>expires_at</code> in the past → asserts status flip + one <code>moderation_event</code> + correct return count.</li><li><strong>Manual trigger:</strong> <code>curl -H &quot;Authorization: Bearer $CRON_SECRET&quot; https://&lt;deploy&gt;/api/cron/expire-requests</code> to run on demand in preview/prod.</li><li><strong>Auth:</strong> request without/with-wrong secret → 401.</li><li><strong>Idempotency:</strong> run twice back-to-back → second run flips 0.</li></ul>
+    </section>
+
+    <section id="s10">
+      <h2><span class="num">10</span>Edge cases &amp; correctness</h2>
+      <ul><li><strong>Timezones:</strong> all timestamps are <code>timestamptz</code>; Postgres <code>now()</code> is tz-aware → comparisons are UTC-correct. No app-side clock involved in the flip.</li><li><strong>Concurrent runs / overlap:</strong> the <code>WHERE</code> clause makes overlapping invocations safe; no locking needed at this scale.</li><li><strong>Clock skew:</strong> the DB is the single clock (we use SQL <code>now()</code>, not JS <code>Date.now()</code>), so app/server skew is irrelevant.</li><li><strong>Empty runs:</strong> flipping 0 rows is normal and cheap; skip revalidation when 0.</li></ul>
+    </section>
+
+    <section id="s11">
+      <h2><span class="num">11</span>Future jobs (out of v1 scope)</h2>
+      <ul><li><strong>Pre-expiry nudge</strong> — WhatsApp message to a center N hours before its window closes ("¿Extender o finalizar?").</li><li><strong>Stat recompute</strong> — if landing stats move off live aggregates to a materialized snapshot.</li><li><strong>Retention cleanup</strong> — archive/anonymize very old <code>closed</code>/<code>expired</code> requests.</li></ul>
+    </section>
+
+  </main>
+</div>
+
+<button id="note-add-btn" type="button">Add note</button>
+
+<button class="fab" id="fab-notes" type="button" title="Open notes panel">
+  <span id="fab-badge">0</span>
+  Notes
+</button>
+
+<aside id="notes-panel" aria-hidden="true">
+  <div class="notes-header">
+    <h3>Your notes</h3>
+    <button id="notes-close" type="button" aria-label="Close">&#10005;</button>
+  </div>
+  <div class="notes-actions">
+    <button id="notes-copy" type="button" title="Copy markdown to clipboard">Copy MD</button>
+    <button id="notes-export" type="button" title="Download as .md file">Download</button>
+    <button id="notes-clear" type="button" title="Delete all notes">Clear</button>
+  </div>
+  <div id="notes-list"></div>
+</aside>
+
+<div id="note-composer" role="dialog" aria-modal="true">
+  <div class="composer-card">
+    <div class="eyebrow">Note &middot; <span id="note-section-label"></span></div>
+    <div id="note-context"></div>
+    <fieldset class="note-kind-group" aria-label="Note type">
+      <label><input type="radio" name="note-kind" value="edit" checked> Edit suggestion <span class="hint">— change the spec</span></label>
+      <label><input type="radio" name="note-kind" value="question"> Question <span class="hint">— answer in chat, leave spec alone</span></label>
+    </fieldset>
+    <textarea id="note-text" placeholder="What's on your mind about this? (Saved to this browser; export when ready to share back.)"></textarea>
+    <div class="composer-actions">
+      <button id="note-delete" type="button">Delete</button>
+      <button id="note-cancel" type="button">Cancel</button>
+      <button id="note-save" type="button">Save (&#8984;&crarr;)</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  const STORAGE_KEY = 'venemed-cron-jobs';
+  const DOC_TITLE = 'VeneMed — Cron & Scheduled Jobs (v1)';
+  const SECTIONS = {"preface": "Preface", "s1": "Purpose & scope", "s2": "Jobs overview", "s3": "The `expire-requests` job", "s4": "Route handler & security", "s5": "Vercel cron configuration", "s6": "Interaction with the request lifecycle", "s7": "Cache revalidation", "s8": "Observability & failure handling", "s9": "Testing", "s10": "Edge cases & correctness", "s11": "Future jobs (out of v1 scope)"};
+
+  let notes = [];
+  try { notes = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { notes = []; }
+  // Migrate notes from before the "kind" field existed: default to 'edit'.
+  for (const n of notes) if (!n.kind) n.kind = 'edit';
+
+  const $ = (id) => document.getElementById(id);
+  const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  function persist() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+    updateBadge();
+  }
+
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove('show'), 1600);
+  }
+
+  function getSectionForNode(node) {
+    // Walk up looking for any element whose id is a registered SECTIONS key.
+    // This covers both <section id="sN"> bodies and the <header id="preface">
+    // doc head — so highlights in the title/meta block attach to "preface"
+    // instead of falling through to the 'unknown' orphan bucket.
+    while (node && node !== document.body) {
+      if (node.nodeType === 1 && node.id && SECTIONS[node.id]) {
+        return { id: node.id, title: SECTIONS[node.id] };
+      }
+      node = node.parentNode;
+    }
+    // Safety net: if nothing matched (e.g. SECTIONS didn't register a preface,
+    // or markup changed), bucket the note under 'unknown'. renderList and
+    // buildMarkdown both render unknown-bucketed notes under "Preface /
+    // unsectioned" so they remain visible.
+    return { id: 'unknown', title: 'Unknown' };
+  }
+
+  function showAddButton(selection) {
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (!rect.width) return;
+    const btn = $('note-add-btn');
+    btn.style.display = 'inline-flex';
+    btn.style.top = (window.scrollY + rect.top - 42) + 'px';
+    btn.style.left = (window.scrollX + rect.left + rect.width / 2 - 55) + 'px';
+  }
+  function hideAddButton() { $('note-add-btn').style.display = 'none'; }
+
+  document.addEventListener('selectionchange', () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim().length < 3) {
+      hideAddButton();
+      return;
+    }
+    const anchor = sel.anchorNode;
+    if (!anchor || !(anchor.parentElement || anchor).closest || !(anchor.parentElement || anchor).closest('main')) {
+      hideAddButton();
+      return;
+    }
+    if ((anchor.parentElement || anchor).closest('.note-highlight')) {
+      hideAddButton();
+      return;
+    }
+    showAddButton(sel);
+  });
+
+  $('note-add-btn').addEventListener('mousedown', (e) => { e.preventDefault(); });
+  $('note-add-btn').addEventListener('click', () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const text = sel.toString().trim();
+    const section = getSectionForNode(sel.anchorNode);
+    openComposer({ selectedText: text, sectionId: section.id, sectionTitle: section.title });
+    hideAddButton();
+  });
+
+  function openComposer(context, existingNote = null) {
+    const modal = $('note-composer');
+    modal.style.display = 'flex';
+    $('note-context').textContent = '"' + context.selectedText + '"';
+    $('note-section-label').textContent = context.sectionTitle;
+    const ta = $('note-text');
+    ta.value = existingNote ? existingNote.noteText : '';
+    modal.dataset.sectionId = context.sectionId;
+    modal.dataset.sectionTitle = context.sectionTitle;
+    modal.dataset.selectedText = context.selectedText;
+    modal.dataset.editingId = existingNote ? existingNote.id : '';
+    const kind = existingNote ? (existingNote.kind || 'edit') : 'edit';
+    const radio = document.querySelector('input[name="note-kind"][value="' + kind + '"]');
+    if (radio) radio.checked = true;
+    $('note-delete').classList.toggle('visible', !!existingNote);
+    setTimeout(() => ta.focus(), 30);
+  }
+  function closeComposer() { $('note-composer').style.display = 'none'; }
+
+  $('note-save').addEventListener('click', saveNote);
+  $('note-text').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveNote(); }
+  });
+  function saveNote() {
+    const modal = $('note-composer');
+    const text = $('note-text').value.trim();
+    if (!text) { $('note-text').focus(); return; }
+    const kindEl = document.querySelector('input[name="note-kind"]:checked');
+    const kind = kindEl ? kindEl.value : 'edit';
+    const editingId = modal.dataset.editingId;
+    if (editingId) {
+      const n = notes.find(x => x.id === editingId);
+      if (n) { n.noteText = text; n.kind = kind; n.updatedAt = new Date().toISOString(); }
+    } else {
+      notes.push({
+        id: uid(),
+        sectionId: modal.dataset.sectionId,
+        sectionTitle: modal.dataset.sectionTitle,
+        selectedText: modal.dataset.selectedText,
+        noteText: text,
+        kind: kind,
+        createdAt: new Date().toISOString()
+      });
+    }
+    persist();
+    applyHighlights();
+    closeComposer();
+    toast(editingId ? 'Note updated' : 'Note saved');
+  }
+
+  $('note-cancel').addEventListener('click', closeComposer);
+  $('note-composer').addEventListener('click', (e) => {
+    if (e.target.id === 'note-composer') closeComposer();
+  });
+  $('note-delete').addEventListener('click', () => {
+    const editingId = $('note-composer').dataset.editingId;
+    if (!editingId) { closeComposer(); return; }
+    notes = notes.filter(x => x.id !== editingId);
+    persist();
+    applyHighlights();
+    closeComposer();
+    toast('Note deleted');
+  });
+
+  function findAndWrap(rootEl, text, noteId) {
+    const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => {
+        const p = n.parentElement;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        if (p.closest('.note-highlight')) return NodeFilter.FILTER_REJECT;
+        if (['SCRIPT', 'STYLE'].includes(p.tagName)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    let node;
+    while (node = walker.nextNode()) {
+      const idx = node.nodeValue.indexOf(text);
+      if (idx !== -1) {
+        const range = document.createRange();
+        range.setStart(node, idx);
+        range.setEnd(node, idx + text.length);
+        const span = document.createElement('span');
+        span.className = 'note-highlight';
+        span.dataset.noteId = noteId;
+        try { range.surroundContents(span); return true; } catch (e) { return false; }
+      }
+    }
+    return false;
+  }
+
+  function clearHighlights() {
+    document.querySelectorAll('.note-highlight').forEach(el => {
+      const parent = el.parentNode;
+      while (el.firstChild) parent.insertBefore(el.firstChild, el);
+      parent.removeChild(el);
+      parent.normalize();
+    });
+  }
+
+  function applyHighlights() {
+    clearHighlights();
+    for (const n of notes) {
+      // Prefer the note's own sectionId; fall back to scanning the whole
+      // <main> + <header> so orphan-bucketed notes ('unknown', or notes whose
+      // section disappeared after a re-render) still get rehighlighted instead
+      // of silently losing their yellow highlight.
+      const section = $(n.sectionId) || document.querySelector('main') || document.body;
+      findAndWrap(section, n.selectedText, n.id);
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const hl = e.target.closest('.note-highlight');
+    if (!hl) return;
+    e.stopPropagation();
+    const note = notes.find(x => x.id === hl.dataset.noteId);
+    if (!note) return;
+    openComposer({
+      selectedText: note.selectedText,
+      sectionId: note.sectionId,
+      sectionTitle: note.sectionTitle
+    }, note);
+  });
+
+  function renderList() {
+    const list = $('notes-list');
+    if (notes.length === 0) {
+      list.innerHTML = '<div class="notes-empty">No notes yet.<br>Select any text to add one.</div>';
+      return;
+    }
+    const bySection = {};
+    for (const n of notes) (bySection[n.sectionId] = bySection[n.sectionId] || []).push(n);
+
+    const renderGroup = (title, items) => {
+      let g = '<div class="notes-group">';
+      g += '<h4>&sect; ' + escapeHtml(title) + '</h4>';
+      for (const n of items) {
+        const quoteShort = n.selectedText.length > 140 ? n.selectedText.slice(0, 140) + '…' : n.selectedText;
+        const when = new Date(n.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const kind = n.kind || 'edit';
+        const kindLabel = kind === 'question' ? 'Question' : 'Edit';
+        g += '<div class="notes-item" data-note-id="' + n.id + '">';
+        g += '<span class="notes-item-kind ' + kind + '">' + kindLabel + '</span>';
+        g += '<div class="notes-item-quote">"' + escapeHtml(quoteShort) + '"</div>';
+        g += '<div class="notes-item-text">' + escapeHtml(n.noteText) + '</div>';
+        g += '<div class="notes-item-time">' + when + '</div>';
+        g += '</div>';
+      }
+      g += '</div>';
+      return g;
+    };
+
+    let html = '';
+    const renderedIds = new Set();
+    for (const sid of Object.keys(SECTIONS)) {
+      if (!bySection[sid]) continue;
+      html += renderGroup(SECTIONS[sid], bySection[sid]);
+      renderedIds.add(sid);
+    }
+    // Orphan notes (sectionId not in SECTIONS — e.g. highlights in the header/meta block)
+    for (const sid of Object.keys(bySection)) {
+      if (renderedIds.has(sid)) continue;
+      html += renderGroup('Preface / unsectioned', bySection[sid]);
+      renderedIds.add(sid);
+    }
+    list.innerHTML = html;
+    list.querySelectorAll('.notes-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const note = notes.find(x => x.id === el.dataset.noteId);
+        if (!note) return;
+        const hl = document.querySelector('.note-highlight[data-note-id="' + note.id + '"]');
+        if (hl) hl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => openComposer({
+          selectedText: note.selectedText,
+          sectionId: note.sectionId,
+          sectionTitle: note.sectionTitle
+        }, note), 350);
+      });
+    });
+
+    // Invariant: every note in storage MUST be rendered somewhere in the
+    // panel. If this diverges, the badge count will disagree with what the
+    // user sees in the panel — exactly the bug class the orphan-render
+    // fallback above exists to prevent. Log loudly so regressions are visible.
+    const renderedCount = list.querySelectorAll('.notes-item').length;
+    if (renderedCount !== notes.length) {
+      const renderedIdSet = new Set(
+        Array.from(list.querySelectorAll('.notes-item')).map(el => el.dataset.noteId)
+      );
+      const missing = notes.filter(n => !renderedIdSet.has(n.id));
+      console.warn(
+        '[annotated-spec] renderList invariant violated: ' +
+        renderedCount + ' rendered vs ' + notes.length + ' in storage. ' +
+        'Missing note sectionIds: ' +
+        JSON.stringify(missing.map(n => n.sectionId))
+      );
+    }
+  }
+
+  function togglePanel() {
+    const panel = $('notes-panel');
+    const open = panel.classList.toggle('open');
+    if (open) { renderList(); panel.setAttribute('aria-hidden', 'false'); }
+    else { panel.setAttribute('aria-hidden', 'true'); }
+  }
+  $('fab-notes').addEventListener('click', togglePanel);
+  $('notes-close').addEventListener('click', togglePanel);
+
+  function buildMarkdown() {
+    const stamp = new Date().toISOString();
+    let md = '# Notes on ' + DOC_TITLE + '\n\n';
+    md += '> Generated: ' + stamp + '\n';
+    md += '> Total notes: ' + notes.length + '\n\n';
+    if (notes.length === 0) return md + '_No notes yet._\n';
+
+    const bySection = {};
+    for (const n of notes) (bySection[n.sectionId] = bySection[n.sectionId] || []).push(n);
+
+    const emitGroup = (heading, items) => {
+      md += '## ' + heading + '\n\n';
+      for (const n of items) {
+        const when = new Date(n.createdAt).toLocaleString();
+        const kind = n.kind || 'edit';
+        const kindLabel = kind === 'question' ? 'Question (answer in chat, do not edit the spec)' : 'Edit suggestion (change the spec)';
+        md += '### ' + when + '\n\n';
+        md += '**Type:** ' + kindLabel + '\n\n';
+        md += '**Selected text:**\n\n';
+        md += '> ' + n.selectedText.replace(/\n/g, '\n> ') + '\n\n';
+        md += '**Note:**\n\n';
+        md += n.noteText + '\n\n';
+        md += '---\n\n';
+      }
+    };
+
+    const emittedIds = new Set();
+    for (const sid of Object.keys(SECTIONS)) {
+      if (!bySection[sid]) continue;
+      emitGroup('§' + sid.replace('s', '') + ' — ' + SECTIONS[sid], bySection[sid]);
+      emittedIds.add(sid);
+    }
+    // Orphan notes (sectionId not in SECTIONS — e.g. highlights in the header/meta block)
+    for (const sid of Object.keys(bySection)) {
+      if (emittedIds.has(sid)) continue;
+      emitGroup('Preface / unsectioned', bySection[sid]);
+      emittedIds.add(sid);
+    }
+    return md;
+  }
+
+  $('notes-export').addEventListener('click', () => {
+    if (notes.length === 0) { toast('No notes to export'); return; }
+    const md = buildMarkdown();
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'venemed-cron-scheduled-jobs-v1-notes-' + new Date().toISOString().slice(0, 10) + '.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Downloaded');
+  });
+
+  $('notes-copy').addEventListener('click', async () => {
+    if (notes.length === 0) { toast('No notes to copy'); return; }
+    const md = buildMarkdown();
+    try {
+      await navigator.clipboard.writeText(md);
+      toast('Copied to clipboard');
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = md;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      toast('Copied to clipboard');
+    }
+  });
+
+  $('notes-clear').addEventListener('click', () => {
+    if (notes.length === 0) { toast('Nothing to clear'); return; }
+    if (!confirm('Delete all ' + notes.length + ' note' + (notes.length === 1 ? '' : 's') + '? This cannot be undone.')) return;
+    notes = [];
+    persist();
+    applyHighlights();
+    renderList();
+    toast('Cleared');
+  });
+
+  function updateBadge() {
+    const badge = $('fab-badge');
+    badge.textContent = notes.length;
+    badge.style.display = notes.length > 0 ? 'inline-flex' : 'none';
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeComposer();
+      const panel = $('notes-panel');
+      if (panel.classList.contains('open')) togglePanel();
+      hideAddButton();
+    }
+  });
+
+  applyHighlights();
+  updateBadge();
+})();
+</script>
+</body>
+</html>

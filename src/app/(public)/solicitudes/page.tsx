@@ -1,0 +1,135 @@
+import type { Metadata } from "next";
+
+import {
+  getActiveRequests,
+  type RequestFilters,
+  type RequestSort,
+} from "@/db/queries";
+import { categoryLabel, centerTypeLabel } from "@/lib/format";
+import { AppBar, Chip, RequestCard } from "@/components/ui";
+
+import { SearchBox } from "./_components/search-box";
+import { SortToggle } from "./_components/sort-toggle";
+
+export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "Solicitudes activas · VeneMed",
+  description:
+    "Solicitudes activas de centros de salud verificados. Encuentra qué necesitan y compártelo.",
+};
+
+type SearchParams = {
+  search?: string;
+  city?: string;
+  type?: string;
+  category?: string;
+  sort?: string;
+};
+
+function uniqueSorted(values: (string | null | undefined)[]): string[] {
+  return Array.from(
+    new Set(values.filter((v): v is string => Boolean(v))),
+  ).sort((a, b) => a.localeCompare(b, "es"));
+}
+
+export default async function SolicitudesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const sp = await searchParams;
+
+  const sort: RequestSort = sp.sort === "urgency" ? "urgency" : "recent";
+  const filters: RequestFilters = {
+    search: sp.search,
+    city: sp.city,
+    type: sp.type,
+    category: sp.category,
+    sort,
+  };
+
+  // Two cached calls: facets from the full active feed (so chips never
+  // disappear while filtering) + the filtered list shown to the donor.
+  const [allActive, requests] = await Promise.all([
+    getActiveRequests({}),
+    getActiveRequests(filters),
+  ]);
+
+  const cities = uniqueSorted(allActive.map((r) => r.city));
+  const types = uniqueSorted(allActive.map((r) => r.centerType));
+  const categories = uniqueSorted(allActive.flatMap((r) => r.categories ?? []));
+
+  const hasFilters = Boolean(
+    sp.search || sp.city || sp.type || sp.category,
+  );
+
+  return (
+    <>
+      <AppBar title="Solicitudes activas" backHref="/" />
+
+      {/* Filtros */}
+      <section className="flex flex-col gap-3 border-b border-neutral-200 bg-surface p-6">
+        <SearchBox />
+
+        {(cities.length > 0 ||
+          types.length > 0 ||
+          categories.length > 0) && (
+          <div className="-mx-6 flex gap-2 overflow-x-auto px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {cities.map((city) => (
+              <Chip key={`city-${city}`} param="city" value={city} label={city} />
+            ))}
+            {types.map((type) => (
+              <Chip
+                key={`type-${type}`}
+                param="type"
+                value={type}
+                label={centerTypeLabel(type)}
+              />
+            ))}
+            {categories.map((cat) => (
+              <Chip
+                key={`cat-${cat}`}
+                param="category"
+                value={cat}
+                label={categoryLabel(cat)}
+              />
+            ))}
+          </div>
+        )}
+
+        <SortToggle />
+      </section>
+
+      {/* Lista */}
+      <section className="flex flex-1 flex-col gap-3 px-6 py-4">
+        {requests.length > 0 ? (
+          requests.map((request) => (
+            <RequestCard key={request.id} request={request} />
+          ))
+        ) : (
+          <EmptyState hasFilters={hasFilters} />
+        )}
+      </section>
+
+      <div className="h-8 shrink-0" />
+    </>
+  );
+}
+
+function EmptyState({ hasFilters }: { hasFilters: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-neutral-300 px-6 py-12 text-center">
+      <p className="text-base font-semibold text-primary">
+        {hasFilters
+          ? "No hay solicitudes que coincidan"
+          : "No hay solicitudes activas"}
+      </p>
+      <p className="max-w-[260px] text-sm text-neutral-500">
+        {hasFilters
+          ? "Prueba con otros filtros o limpia la búsqueda."
+          : "Vuelve pronto: los centros publican nuevas solicitudes con frecuencia."}
+      </p>
+    </div>
+  );
+}
