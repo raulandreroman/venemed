@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeneMed — Data Model (v1)</title>
+<style>
+  :root {
+    --bg: #faf8f3;
+    --paper: #ffffff;
+    --ink: #1c1c1c;
+    --ink-soft: #4a4a4a;
+    --ink-faint: #8a8a8a;
+    --rule: #e8e4dc;
+    --accent: #b8451f;
+    --accent-soft: #d97844;
+    --code-bg: #f4f0e8;
+    --code-ink: #2a2a2a;
+    --code-string: #87672f;
+    --code-key: #b8451f;
+    --code-num: #2c5f7c;
+    --code-bool: #7c4dff;
+    --code-null: #999;
+    --kbd-bg: #ede7d9;
+    --table-stripe: #f9f5ec;
+    --warn-bg: #fff4e6;
+    --warn-rule: #ddb47a;
+    --good-bg: #eef4ea;
+    --good-rule: #9ec18a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+  }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 24px 32px 32px;
+    background: var(--paper);
+    border-right: 1px solid var(--rule);
+    font-size: 13px;
+  }
+  nav.toc .label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 14px 0;
+  }
+  nav.toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: section;
+  }
+  nav.toc li {
+    counter-increment: section;
+    margin: 0;
+  }
+  nav.toc a {
+    display: block;
+    padding: 7px 10px 7px 36px;
+    margin-left: -10px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-radius: 4px;
+    position: relative;
+    transition: background 0.12s, color 0.12s;
+  }
+  nav.toc a::before {
+    content: counter(section);
+    position: absolute;
+    left: 10px;
+    top: 7px;
+    width: 18px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  nav.toc a:hover {
+    background: var(--code-bg);
+    color: var(--ink);
+  }
+  main {
+    padding: 56px 64px 120px 56px;
+    max-width: 920px;
+  }
+  header.doc-head {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-head .eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  header.doc-head h1 {
+    font-size: 30px;
+    line-height: 1.2;
+    margin: 0 0 14px 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  header.doc-head .meta {
+    color: var(--ink-faint);
+    font-size: 13px;
+  }
+  header.doc-head .status-pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-rule);
+    color: #7a4a13;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-right: 8px;
+  }
+  h2 {
+    margin: 56px 0 16px 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink);
+  }
+  h2 .num {
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+    margin-right: 12px;
+    font-weight: 500;
+  }
+  h3 {
+    margin: 28px 0 10px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  h4 {
+    margin: 20px 0 6px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  ul, ol { padding-left: 24px; margin: 0 0 14px 0; }
+  li { margin-bottom: 4px; }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 14px 0 18px 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  pre code {
+    background: transparent;
+    padding: 0;
+    font-size: inherit;
+    color: var(--code-ink);
+    white-space: pre;
+  }
+  .json .k { color: var(--code-key); }
+  .json .s { color: var(--code-string); }
+  .json .n { color: var(--code-num); }
+  .json .b { color: var(--code-bool); }
+  .json .null { color: var(--code-null); font-style: italic; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0 22px 0;
+    font-size: 13.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    background: var(--code-bg);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  tbody tr:nth-child(even) td { background: var(--table-stripe); }
+  blockquote {
+    border-left: 3px solid var(--accent-soft);
+    background: var(--warn-bg);
+    margin: 16px 0;
+    padding: 12px 16px;
+    border-radius: 0 4px 4px 0;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  .filepath {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+    word-break: break-all;
+  }
+  strong { font-weight: 600; color: var(--ink); }
+  em { font-style: italic; color: var(--ink-soft); }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  a:hover { border-bottom-color: var(--accent); }
+  .effort {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--good-bg);
+    border: 1px solid var(--good-rule);
+    color: #3d5a2a;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--rule); }
+    main { padding: 32px 24px 80px 24px; }
+  }
+
+  /* Annotation layer */
+  .note-highlight {
+    background: linear-gradient(transparent 62%, #f9e58a 62%);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .note-highlight:hover {
+    background: linear-gradient(transparent 50%, #f5d04a 50%);
+  }
+  #note-add-btn {
+    position: absolute;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    z-index: 1000;
+    font-family: inherit;
+  }
+  #note-add-btn::before { content: '＋'; font-size: 14px; font-weight: 400; }
+  .fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: inherit;
+  }
+  .fab:hover { background: var(--accent); }
+  #fab-badge {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: white;
+    border-radius: 999px;
+    min-width: 20px;
+    height: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 6px;
+  }
+  #notes-panel {
+    position: fixed;
+    top: 0; right: 0;
+    width: 380px;
+    max-width: 90vw;
+    height: 100vh;
+    background: var(--paper);
+    border-left: 1px solid var(--rule);
+    box-shadow: -8px 0 30px rgba(0,0,0,0.06);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+  }
+  #notes-panel.open { transform: translateX(0); }
+  .notes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .notes-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
+  #notes-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--ink-faint);
+    padding: 4px 8px;
+    font-family: inherit;
+  }
+  .notes-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .notes-actions button {
+    flex: 1;
+    padding: 7px 10px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink-soft);
+    border-radius: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .notes-actions button:hover { background: var(--code-bg); color: var(--ink); }
+  #notes-clear { color: #b04a4a; }
+  #notes-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+  }
+  .notes-empty {
+    color: var(--ink-faint);
+    text-align: center;
+    padding: 40px 16px;
+    font-size: 13px;
+    font-style: italic;
+  }
+  .notes-group { margin-bottom: 24px; }
+  .notes-group h4 {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin: 0 0 10px 0;
+  }
+  .notes-item {
+    padding: 12px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    background: var(--bg);
+    transition: border-color 0.12s;
+  }
+  .notes-item:hover { border-color: var(--accent-soft); }
+  .notes-item-quote {
+    font-size: 12px;
+    color: var(--ink-faint);
+    border-left: 2px solid #f9e58a;
+    padding-left: 8px;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+  .notes-item-text {
+    font-size: 13.5px;
+    color: var(--ink);
+    white-space: pre-wrap;
+    line-height: 1.45;
+  }
+  .notes-item-time {
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-top: 6px;
+  }
+  #note-composer {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(28,28,28,0.4);
+    z-index: 1200;
+    align-items: center;
+    justify-content: center;
+  }
+  .composer-card {
+    background: var(--paper);
+    border-radius: 10px;
+    width: 520px;
+    max-width: 90vw;
+    padding: 22px 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .composer-card .eyebrow {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  #note-context {
+    font-size: 13px;
+    color: var(--ink-soft);
+    border-left: 3px solid #f9e58a;
+    background: var(--warn-bg);
+    padding: 10px 12px;
+    border-radius: 0 4px 4px 0;
+    margin: 10px 0 14px 0;
+    font-style: italic;
+    max-height: 110px;
+    overflow-y: auto;
+  }
+  .note-kind-group {
+    border: none;
+    padding: 0;
+    margin: 0 0 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .note-kind-group label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .note-kind-group label:hover { color: var(--ink); }
+  .note-kind-group input[type="radio"] { margin: 0; accent-color: var(--accent); }
+  .note-kind-group .hint { color: var(--ink-faint); font-size: 12px; }
+  .notes-item-kind {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 9px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .notes-item-kind.edit {
+    background: var(--good-bg);
+    color: #3d5a2a;
+    border: 1px solid var(--good-rule);
+  }
+  .notes-item-kind.question {
+    background: var(--warn-bg);
+    color: #7a4a13;
+    border: 1px solid var(--warn-rule);
+  }
+  #note-text {
+    width: 100%;
+    min-height: 110px;
+    padding: 10px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    box-sizing: border-box;
+    color: var(--ink);
+    background: var(--paper);
+  }
+  #note-text:focus { outline: 2px solid var(--accent-soft); outline-offset: -1px; }
+  .composer-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    justify-content: flex-end;
+  }
+  .composer-actions button {
+    padding: 8px 14px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    border: 1px solid var(--rule);
+  }
+  #note-save {
+    background: var(--ink);
+    color: white;
+    border-color: var(--ink);
+  }
+  #note-save:hover { background: var(--accent); border-color: var(--accent); }
+  #note-cancel { background: var(--paper); color: var(--ink-soft); }
+  #note-cancel:hover { background: var(--code-bg); }
+  #note-delete {
+    background: var(--paper);
+    color: #b04a4a;
+    margin-right: auto;
+    display: none;
+  }
+  #note-delete.visible { display: inline-block; }
+  #note-delete:hover { background: #fce8e8; }
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 1300;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc">
+    <p class="label">Contents</p>
+    <ol>
+      <li><a href="#s1">Purpose &amp; scope</a></li>
+      <li><a href="#s2">Design principles</a></li>
+      <li><a href="#s3">Entity overview</a></li>
+      <li><a href="#s4">Entities in detail</a></li>
+      <li><a href="#s5">The `request` lifecycle</a></li>
+      <li><a href="#s6">Relationships</a></li>
+      <li><a href="#s7">Sync &amp; offline columns</a></li>
+      <li><a href="#s8">Indexing &amp; key query patterns</a></li>
+      <li><a href="#s9">Resolved decisions</a></li>
+      <li><a href="#s10">Open questions for review</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc-head" id="preface">
+      <div class="eyebrow">VeneMed</div>
+      <h1>Data Model (v1)</h1>
+      <div class="meta"><span class="status-pill">draft. Last updated 2026-06-28</span>First data-model spec. Related to the locked architecture decisions (single Next.js app, Neon Postgres + Drizzle, Auth.js + Twilio Verify WhatsApp OTP, offline read + offline-draft-with-confirm).</div>
+    </header>
+
+    <section id="s1">
+      <h2><span class="num">1</span>Purpose &amp; scope</h2>
+      <p>This spec defines the <strong>persistent data model</strong> for the VeneMed MVP — the Postgres schema behind all three surfaces (public donor, center back office, admin moderation) and the fields that make offline draft-and-sync work.</p>
+<p>It does <strong>not</strong> cover: API route shapes, UI state, the Twilio Verify integration internals, or the client-side IndexedDB queue structure (that's a separate offline spec). It does define the <strong>server-side columns</strong> the sync layer depends on.</p>
+<p>Goal for this review: agree on entities, the <code>request</code> lifecycle, and the sync-critical columns <strong>before</strong> we scaffold migrations, because these are expensive to change once data exists.</p>
+<blockquote><p><strong>Identifiers are English; product/UI copy stays Spanish.</strong> Table, column, and enum-value names are English so the codebase reads cleanly. The Spanish words users see are <em>content</em>, not identifiers. Key term mapping: <code>request</code> = <em>solicitud</em>, <code>supply</code> = <em>insumo</em>, <code>center</code> = <em>centro</em>. Example values in this doc that are quoted strings ("Hospital J.M. de los Ríos", "Pediatría", "Vence en 8 h") are illustrative UI content and remain Spanish.</p></blockquote>
+    </section>
+
+    <section id="s2">
+      <h2><span class="num">2</span>Design principles</h2>
+      <ul><li><strong>Single-writer per center.</strong> A request belongs to one center; only that center's users edit it. This is why we do <em>not</em> need CRDTs or field-level merge in v1 — last-write-wins per row is safe.</li><li><strong>Status drives everything.</strong> Public visibility, share-link behavior, and the donor/center/admin views are all derived from a small set of explicit status enums, never from implicit nulls.</li><li><strong>Sync-aware from row one.</strong> Every user-mutable table carries a client-generatable <code>id</code> (UUID), an <code>idempotency_key</code>, and <code>updated_at</code>, so an offline-drafted row can be created locally and reconciled on reconnect without duplicates.</li><li><strong>Time is data, not derived state.</strong> A request stores <code>published_at</code> and <code>expires_at</code> as real columns. "Vence en 8 h", countdowns, and urgency sorting are computed from these at read time. A cron job flips expired rows.</li><li><strong>Catalog + free text.</strong> Supplies come from a curated catalog (for suggestions like "SUGERIDOS · QUIRÓFANO") but a center can always add a free-text item — the model supports both on the same line-item table.</li><li><strong>Soft, auditable moderation.</strong> Center approval/rejection is a status transition with a recorded reason and actor, never a hard delete.</li></ul>
+    </section>
+
+    <section id="s3">
+      <h2><span class="num">3</span>Entity overview</h2>
+      <table><thead><tr><th>Entity</th><th>Purpose</th><th>Public-readable?</th></tr></thead><tbody><tr><td><code>center</code></td><td>A health center / organization that publishes requests</td><td>Yes (approved only)</td></tr><tr><td><code>app_user</code></td><td>A person who logs into a center's back office, or a platform admin</td><td>No</td></tr><tr><td><code>membership</code></td><td>Links a user to a center with a role</td><td>No</td></tr><tr><td><code>request</code></td><td>A time-windowed notice from a center (<em>solicitud</em>) — either a <strong>need</strong> for supplies or a <strong>surplus</strong> ("no enviar más de X"); <code>kind</code> discriminates</td><td>Yes (active/closed views)</td></tr><tr><td><code>request_item</code></td><td>One needed supply line on a request</td><td>Yes (with parent)</td></tr><tr><td><code>supply</code></td><td>Curated catalog of supplies + categories (<em>insumo</em>; powers suggestions)</td><td>Yes (reference data)</td></tr><tr><td><code>moderation_event</code></td><td>Audit trail of center approval/rejection and request actions</td><td>No</td></tr><tr><td><code>share_event</code></td><td>Records a share per channel for analytics &amp; the "share count"</td><td>No (write-only)</td></tr><tr><td>Auth.js tables</td><td><code>session</code>, <code>verification</code> etc. from the Drizzle adapter</td><td>No</td></tr></tbody></table>
+<blockquote><p>The donor surface reads only <code>center</code> (approved), <code>request</code> (active/closed), <code>request_item</code>, and <code>supply</code>. Everything a logged-out user can see is in those four tables — which is exactly what we aggressively cache + serve from the CDN during the surge.</p></blockquote>
+    </section>
+
+    <section id="s4">
+      <h2><span class="num">4</span>Entities in detail</h2>
+      <h3><code>center</code></h3>
+<table><thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead><tbody><tr><td><code>id</code></td><td>uuid (PK)</td><td>Client-generatable</td></tr><tr><td><code>name</code></td><td>text</td><td>"Hospital J.M. de los Ríos"</td></tr><tr><td><code>type</code></td><td>enum <code>center_type</code></td><td><code>hospital</code>, <code>clinic</code>, <code>elder_care_home</code>, <code>childrens_shelter</code>, <code>collection_center</code></td></tr><tr><td><code>description</code></td><td>text</td><td>"Hospital pediátrico público · San Bernardino"</td></tr><tr><td><code>city</code></td><td>text</td><td>"Caracas" — used by the city filter chip</td></tr><tr><td><code>state</code></td><td>text</td><td>Venezuelan state</td></tr><tr><td><code>address_line</code></td><td>text</td><td>"Av. Vollmer, San Bernardino · Caracas 1011"</td></tr><tr><td><code>address_reference</code></td><td>text</td><td>"Entrada principal · pregunta por Recepción de donaciones"</td></tr><tr><td><code>regular_schedule_text</code></td><td>text</td><td>"Lun a Vie · 8:00 am — 6:00 pm" — the center's regular receiving hours</td></tr><tr><td><code>lat</code> / <code>lng</code></td><td>numeric, nullable</td><td>Reserved for maps; not in v1 UI</td></tr><tr><td><code>whatsapp_phone</code></td><td>text (E.164)</td><td>Contact + default OTP target</td></tr><tr><td><code>status</code></td><td>enum <code>center_status</code></td><td><code>pending_review</code>, <code>approved</code>, <code>rejected</code>, <code>suspended</code></td></tr><tr><td><code>rejection_reason</code></td><td>text, nullable</td><td>Shown on "Centro rechazado"</td></tr><tr><td><code>verified_at</code></td><td>timestamptz, nullable</td><td>When an admin approved</td></tr><tr><td><code>created_at</code> / <code>updated_at</code></td><td>timestamptz</td><td></td></tr></tbody></table>
+<h3><code>app_user</code></h3>
+<table><thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead><tbody><tr><td><code>id</code></td><td>uuid (PK)</td><td></td></tr><tr><td><code>phone</code></td><td>text (E.164), unique</td><td>Login identity; verified via Twilio Verify (WhatsApp)</td></tr><tr><td><code>name</code></td><td>text</td><td></td></tr><tr><td><code>is_platform_admin</code></td><td>boolean</td><td>Moderators/staff. Center role lives on <code>membership</code></td></tr><tr><td><code>phone_verified_at</code></td><td>timestamptz, nullable</td><td></td></tr><tr><td><code>last_login_at</code></td><td>timestamptz, nullable</td><td></td></tr><tr><td><code>created_at</code> / <code>updated_at</code></td><td>timestamptz</td><td></td></tr></tbody></table>
+<blockquote><p>We store <strong>no OTP codes</strong>. Twilio Verify owns code generation, attempts, and the "intentos agotados" (max-attempts) state. We only record <code>phone_verified_at</code> on success.</p></blockquote>
+<h3><code>membership</code></h3>
+<p>Join between <code>app_user</code> and <code>center</code>. Kept separate (rather than a FK on <code>app_user</code>) so a center can have multiple staff later and a user could belong to more than one center — cheap to add now, painful to retrofit. <strong>v1 enforces exactly one membership per center</strong> (one user per center); the table shape just avoids a migration when multi-staff is added.</p>
+<table><thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead><tbody><tr><td><code>id</code></td><td>uuid (PK)</td><td></td></tr><tr><td><code>user_id</code></td><td>uuid → <code>app_user</code></td><td></td></tr><tr><td><code>center_id</code></td><td>uuid → <code>center</code></td><td></td></tr><tr><td><code>role</code></td><td>enum <code>member_role</code></td><td><code>center_admin</code>, <code>center_member</code></td></tr><tr><td><code>created_at</code></td><td>timestamptz</td><td></td></tr></tbody></table>
+<h3><code>request</code> (<em>solicitud</em>) — the core entity</h3>
+<table><thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead><tbody><tr><td><code>id</code></td><td>uuid (PK)</td><td>Client-generatable (offline draft)</td></tr><tr><td><code>center_id</code></td><td>uuid → <code>center</code></td><td></td></tr><tr><td><code>kind</code></td><td>enum <code>request_kind</code></td><td><code>need</code> (default) or <code>surplus</code>. A <code>surplus</code> notice lists items the center is oversupplied on ("no enviar más de X"). Renders as a distinct "No enviar" card on the donor side.</td></tr><tr><td><code>status</code></td><td>enum <code>request_status</code></td><td><code>draft</code>, <code>active</code>, <code>paused</code>, <code>closed</code>, <code>expired</code> — see §5</td></tr><tr><td><code>window_hours</code></td><td>smallint</td><td>12, 24, or 48</td></tr><tr><td><code>published_at</code></td><td>timestamptz, nullable</td><td>Set on first transition to <code>active</code></td></tr><tr><td><code>expires_at</code></td><td>timestamptz, nullable</td><td><code>published_at + window_hours</code>; the countdown anchor</td></tr><tr><td><code>closed_at</code></td><td>timestamptz, nullable</td><td></td></tr><tr><td><code>closed_reason</code></td><td>enum <code>closed_reason</code>, nullable</td><td><code>fulfilled</code>, <code>cancelled</code>, <code>expired</code></td></tr><tr><td><code>city</code></td><td>text</td><td>Denormalized from <code>center</code> at publish; powers the city filter + cached list with no join</td></tr><tr><td><code>categories</code></td><td>text[]</td><td>Denormalized union of this request's item categories at publish; powers the category filter</td></tr><tr><td><code>share_count</code></td><td>integer, default 0</td><td>Denormalized counter for the landing stat</td></tr><tr><td><code>idempotency_key</code></td><td>text, unique, nullable</td><td>Set by client on offline create; dedupes sync retries</td></tr><tr><td><code>created_at</code> / <code>updated_at</code></td><td>timestamptz</td><td></td></tr></tbody></table>
+<blockquote><p><strong>Delivery details inherit from the center</strong> (v1 decision). A request has no delivery columns of its own — "Dónde entregar" reads <code>center.address_line</code> + <code>center.address_reference</code>, and "Cuándo entregar" combines <code>center.regular_schedule_text</code> with today's cutoff derived from <code>expires_at</code>. No per-request override in v1.</p></blockquote>
+<blockquote><p><strong>No quantities</strong> (v1 decision). Items are name + category only; the supply name already carries the spec ("Acetaminofén 500 mg"). See §4.5.</p></blockquote>
+<blockquote><p><strong><code>surplus</code> requests</strong> reuse this entire entity — same lifecycle (§5), same <code>window_hours</code> + expiry cron (so a "no enviar" notice auto-clears, true to the time-window model), same sharing, same <code>request_item</code> list. The only consumer-visible difference is rendering: a need shows as a "Necesita" card, a surplus as a "No enviar" card.</p></blockquote>
+<h3><code>request_item</code></h3>
+<table><thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead><tbody><tr><td><code>id</code></td><td>uuid (PK)</td><td></td></tr><tr><td><code>request_id</code></td><td>uuid → <code>request</code></td><td>cascade delete</td></tr><tr><td><code>supply_id</code></td><td>uuid → <code>supply</code>, nullable</td><td>Null when it's a free-text item</td></tr><tr><td><code>custom_name</code></td><td>text, nullable</td><td>Used when <code>supply_id</code> is null</td></tr><tr><td><code>category</code></td><td>text</td><td>Denormalized ("Pediatría") so the card renders without a join</td></tr><tr><td><code>is_fulfilled</code></td><td>boolean, default false</td><td>Drives the "itemDone" closed-state styling</td></tr><tr><td><code>created_at</code></td><td>timestamptz</td><td></td></tr></tbody></table>
+<h3><code>supply</code> (<em>insumo</em> catalog)</h3>
+<p>Reference data powering the "Selector de insumos" and category suggestions (e.g. SUGERIDOS · QUIRÓFANO).</p>
+<table><thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead><tbody><tr><td><code>id</code></td><td>uuid (PK)</td><td></td></tr><tr><td><code>name</code></td><td>text</td><td>"Acetaminofén 500 mg"</td></tr><tr><td><code>category</code></td><td>enum <code>supply_category</code></td><td><code>pediatrics</code>, <code>surgical</code>, <code>general</code>, … (seed list, extensible)</td></tr><tr><td><code>is_active</code></td><td>boolean, default true</td><td>Hide deprecated items without deleting</td></tr></tbody></table>
+<h3><code>moderation_event</code></h3>
+<p>Append-only audit log for center vetting and notable request actions.</p>
+<table><thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead><tbody><tr><td><code>id</code></td><td>uuid (PK)</td><td></td></tr><tr><td><code>actor_user_id</code></td><td>uuid → <code>app_user</code>, nullable</td><td>Null for system/cron actions</td></tr><tr><td><code>subject_type</code></td><td>enum</td><td><code>center</code>, <code>request</code></td></tr><tr><td><code>subject_id</code></td><td>uuid</td><td></td></tr><tr><td><code>action</code></td><td>text</td><td><code>approved</code>, <code>rejected</code>, <code>suspended</code>, <code>expired_by_cron</code>, …</td></tr><tr><td><code>reason</code></td><td>text, nullable</td><td></td></tr><tr><td><code>created_at</code></td><td>timestamptz</td><td></td></tr></tbody></table>
+<h3><code>share_event</code></h3>
+<p>Write-only event stream for share analytics and <code>share_count</code>. Confirmed for v1 (minimal, thin table).</p>
+<table><thead><tr><th>Column</th><th>Type</th><th>Notes</th></tr></thead><tbody><tr><td><code>id</code></td><td>uuid (PK)</td><td></td></tr><tr><td><code>request_id</code></td><td>uuid → <code>request</code></td><td></td></tr><tr><td><code>channel</code></td><td>enum</td><td><code>whatsapp</code>, <code>instagram</code>, <code>x</code>, <code>copy_link</code>, <code>unknown</code></td></tr><tr><td><code>created_at</code></td><td>timestamptz</td><td></td></tr></tbody></table>
+    </section>
+
+    <section id="s5">
+      <h2><span class="num">5</span>The <code>request</code> lifecycle</h2>
+      <p>The state machine every request moves through — <strong>identical for both <code>need</code> and <code>surplus</code> kinds</strong>. Public visibility and share-link behavior are pure functions of this status.</p>
+<table><thead><tr><th>Status</th><th>Who sees it</th><th>Meaning</th></tr></thead><tbody><tr><td><code>draft</code></td><td>Center only</td><td>Being composed (incl. offline drafts synced as draft). Not public.</td></tr><tr><td><code>active</code></td><td>Public + center</td><td>Published, within window. Counts toward landing stats, appears in "Solicitudes activas".</td></tr><tr><td><code>paused</code></td><td>Center (public link shows a closed-style state)</td><td>Center temporarily halted difusión. Stops circulating.</td></tr><tr><td><code>closed</code></td><td>Public (closed detail view) + center</td><td>Terminal. Fulfilled or manually cancelled.</td></tr><tr><td><code>expired</code></td><td>Public (closed detail view) + center</td><td>Terminal. Window elapsed; flipped by cron.</td></tr></tbody></table>
+<p><strong>Allowed transitions:</strong></p>
+<pre><code>draft     → active     (publish — confirm step on reconnect for offline drafts)
+active    → paused      (center pauses)
+paused    → active      (center resumes)
+active    → closed      (center marks fulfilled / cancels)
+paused    → closed      (center cancels)
+active    → expired     (cron: now &gt; expires_at)
+paused    → expired     (cron: now &gt; expires_at)</code></pre>
+<p><code>closed</code> and <code>expired</code> are terminal — no transitions out. Publishing sets <code>published_at</code> (first time only) and <code>expires_at = published_at + window_hours</code>.</p>
+<blockquote><p><strong>Expiry cron.</strong> A Vercel Cron job runs every ~5 min: <code>UPDATE request SET status=&#x27;expired&#x27;, closed_at=now(), closed_reason=&#x27;expired&#x27; WHERE status IN (&#x27;active&#x27;,&#x27;paused&#x27;) AND expires_at &lt; now()</code>. Each flip writes a <code>moderation_event</code> with <code>action=&#x27;expired_by_cron&#x27;</code>. Countdowns in the UI are computed client-side from <code>expires_at</code>; the cron is the source of truth for the actual state flip.</p></blockquote>
+    </section>
+
+    <section id="s6">
+      <h2><span class="num">6</span>Relationships</h2>
+      <pre><code>center 1───* request 1───* request_item *───1 supply (nullable)
+center 1───* membership *───1 app_user
+request 1───* share_event
+(center | request) 1───* moderation_event   [polymorphic subject]</code></pre>
+<ul><li>A <code>center</code> has many <code>request</code>s and many <code>membership</code>s.</li><li>A <code>request</code> has many <code>request_item</code>s; each item optionally references a catalog <code>supply</code> (null ⇒ free-text via <code>custom_name</code>).</li><li><code>moderation_event</code> and <code>share_event</code> are append-only satellites.</li></ul>
+    </section>
+
+    <section id="s7">
+      <h2><span class="num">7</span>Sync &amp; offline columns</h2>
+      <p>What the offline-draft-with-confirm flow (Tier 2) relies on, server-side:</p>
+<ul><li><strong>Client-generated UUID <code>id</code></strong> on <code>request</code> and <code>request_item</code> — the client creates the row offline with its final id, so there's no id remap on sync.</li><li><strong><code>idempotency_key</code></strong> (unique) on <code>request</code> — the queued mutation carries it; a retried sync that already landed is a no-op insert, not a duplicate request.</li><li><strong><code>updated_at</code></strong> on every mutable row — supports last-write-wins and lets the client detect server-side changes during the confirm step.</li><li><strong><code>status=&#x27;draft&#x27;</code> as the sync landing state</strong> — an offline draft syncs as <code>draft</code>, then the <strong>confirm-on-reconnect</strong> action re-validates (window still makes sense? center still approved?) and transitions <code>draft → active</code>. We never auto-publish a synced draft.</li></ul>
+<blockquote><p>The IndexedDB queue, Background Sync registration, and the confirm-UI live in a separate offline spec. This section only fixes the <strong>server columns</strong> those depend on, so migrations don't need to change later.</p></blockquote>
+    </section>
+
+    <section id="s8">
+      <h2><span class="num">8</span>Indexing &amp; key query patterns</h2>
+      <table><thead><tr><th>Query (surface)</th><th>Support</th></tr></thead><tbody><tr><td>Active list, sorted by recency</td><td>index on <code>(status, published_at desc)</code></td></tr><tr><td>Active list, sorted by urgency</td><td>index on <code>(status, expires_at asc)</code></td></tr><tr><td>Filter by city / center type</td><td><code>request.city</code> (denormalized) for an index-only scan; center type via join or further denormalization if needed</td></tr><tr><td>Filter by supply category</td><td><code>request.categories</code> (denormalized <code>text[]</code>) — GIN index, no join</td></tr><tr><td>Search "centro, ciudad o ayuda"</td><td>Postgres full-text / <code>pg_trgm</code> over center name, city, item names</td></tr><tr><td>Expiry cron sweep</td><td>partial index <code>WHERE status IN (&#x27;active&#x27;,&#x27;paused&#x27;)</code> on <code>expires_at</code></td></tr><tr><td>Landing stats (count active, count centers, last update)</td><td>cheap aggregates, cached</td></tr></tbody></table>
+<blockquote><p><strong>Denormalization (decided: yes).</strong> The donor list filters/sorts on center city + item category but reads from <code>request</code>. <code>request.city</code> and <code>request.categories text[]</code> are populated at publish time (and kept in sync on edit), turning the hot list query into a single-table, index-only scan — worth it for the surge.</p></blockquote>
+    </section>
+
+    <section id="s9">
+      <h2><span class="num">9</span>Resolved decisions</h2>
+      <ul><li><strong>No <code>priority</code>.</strong> Urgency is purely time-left (<code>expires_at asc</code>); there is no manual priority flag. <em>(removed from §4.4)</em></li><li><strong>One user per center in v1.</strong> <code>membership</code> retains the multi-staff shape, but v1 enforces a single membership per center. <em>(§4.3)</em></li><li><strong>Delivery always inherits from the center.</strong> No per-request delivery columns; the request reads the center's address + regular schedule. <em>(§4.1, §4.4)</em></li><li><strong>No quantities.</strong> Items are name + category only. <em>(§4.5)</em></li><li><strong><code>surplus</code> as a <code>request.kind</code>.</strong> Modeled via Option A — reuses the request entity wholesale. <em>(§4.4)</em></li><li><strong>Denormalize <code>city</code> + <code>categories[]</code> onto <code>request</code>.</strong> Populated at publish, kept in sync on edit. <em>(§4.4, §8)</em></li><li><strong>Ship <code>share_event</code> in v1</strong> as a thin write-only table. <em>(§4.8)</em></li></ul>
+    </section>
+
+    <section id="s10">
+      <h2><span class="num">10</span>Open questions for review</h2>
+      <p>None remaining — the model is final pending the Drizzle schema + first migration.</p>
+    </section>
+
+  </main>
+</div>
+
+<button id="note-add-btn" type="button">Add note</button>
+
+<button class="fab" id="fab-notes" type="button" title="Open notes panel">
+  <span id="fab-badge">0</span>
+  Notes
+</button>
+
+<aside id="notes-panel" aria-hidden="true">
+  <div class="notes-header">
+    <h3>Your notes</h3>
+    <button id="notes-close" type="button" aria-label="Close">&#10005;</button>
+  </div>
+  <div class="notes-actions">
+    <button id="notes-copy" type="button" title="Copy markdown to clipboard">Copy MD</button>
+    <button id="notes-export" type="button" title="Download as .md file">Download</button>
+    <button id="notes-clear" type="button" title="Delete all notes">Clear</button>
+  </div>
+  <div id="notes-list"></div>
+</aside>
+
+<div id="note-composer" role="dialog" aria-modal="true">
+  <div class="composer-card">
+    <div class="eyebrow">Note &middot; <span id="note-section-label"></span></div>
+    <div id="note-context"></div>
+    <fieldset class="note-kind-group" aria-label="Note type">
+      <label><input type="radio" name="note-kind" value="edit" checked> Edit suggestion <span class="hint">— change the spec</span></label>
+      <label><input type="radio" name="note-kind" value="question"> Question <span class="hint">— answer in chat, leave spec alone</span></label>
+    </fieldset>
+    <textarea id="note-text" placeholder="What's on your mind about this? (Saved to this browser; export when ready to share back.)"></textarea>
+    <div class="composer-actions">
+      <button id="note-delete" type="button">Delete</button>
+      <button id="note-cancel" type="button">Cancel</button>
+      <button id="note-save" type="button">Save (&#8984;&crarr;)</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  const STORAGE_KEY = 'venemed-data-model-v1';
+  const DOC_TITLE = 'VeneMed — Data Model (v1)';
+  const SECTIONS = {"preface": "Preface", "s1": "Purpose & scope", "s2": "Design principles", "s3": "Entity overview", "s4": "Entities in detail", "s5": "The `request` lifecycle", "s6": "Relationships", "s7": "Sync & offline columns", "s8": "Indexing & key query patterns", "s9": "Resolved decisions", "s10": "Open questions for review"};
+
+  let notes = [];
+  try { notes = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { notes = []; }
+  // Migrate notes from before the "kind" field existed: default to 'edit'.
+  for (const n of notes) if (!n.kind) n.kind = 'edit';
+
+  const $ = (id) => document.getElementById(id);
+  const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  function persist() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+    updateBadge();
+  }
+
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove('show'), 1600);
+  }
+
+  function getSectionForNode(node) {
+    // Walk up looking for any element whose id is a registered SECTIONS key.
+    // This covers both <section id="sN"> bodies and the <header id="preface">
+    // doc head — so highlights in the title/meta block attach to "preface"
+    // instead of falling through to the 'unknown' orphan bucket.
+    while (node && node !== document.body) {
+      if (node.nodeType === 1 && node.id && SECTIONS[node.id]) {
+        return { id: node.id, title: SECTIONS[node.id] };
+      }
+      node = node.parentNode;
+    }
+    // Safety net: if nothing matched (e.g. SECTIONS didn't register a preface,
+    // or markup changed), bucket the note under 'unknown'. renderList and
+    // buildMarkdown both render unknown-bucketed notes under "Preface /
+    // unsectioned" so they remain visible.
+    return { id: 'unknown', title: 'Unknown' };
+  }
+
+  function showAddButton(selection) {
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (!rect.width) return;
+    const btn = $('note-add-btn');
+    btn.style.display = 'inline-flex';
+    btn.style.top = (window.scrollY + rect.top - 42) + 'px';
+    btn.style.left = (window.scrollX + rect.left + rect.width / 2 - 55) + 'px';
+  }
+  function hideAddButton() { $('note-add-btn').style.display = 'none'; }
+
+  document.addEventListener('selectionchange', () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim().length < 3) {
+      hideAddButton();
+      return;
+    }
+    const anchor = sel.anchorNode;
+    if (!anchor || !(anchor.parentElement || anchor).closest || !(anchor.parentElement || anchor).closest('main')) {
+      hideAddButton();
+      return;
+    }
+    if ((anchor.parentElement || anchor).closest('.note-highlight')) {
+      hideAddButton();
+      return;
+    }
+    showAddButton(sel);
+  });
+
+  $('note-add-btn').addEventListener('mousedown', (e) => { e.preventDefault(); });
+  $('note-add-btn').addEventListener('click', () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const text = sel.toString().trim();
+    const section = getSectionForNode(sel.anchorNode);
+    openComposer({ selectedText: text, sectionId: section.id, sectionTitle: section.title });
+    hideAddButton();
+  });
+
+  function openComposer(context, existingNote = null) {
+    const modal = $('note-composer');
+    modal.style.display = 'flex';
+    $('note-context').textContent = '"' + context.selectedText + '"';
+    $('note-section-label').textContent = context.sectionTitle;
+    const ta = $('note-text');
+    ta.value = existingNote ? existingNote.noteText : '';
+    modal.dataset.sectionId = context.sectionId;
+    modal.dataset.sectionTitle = context.sectionTitle;
+    modal.dataset.selectedText = context.selectedText;
+    modal.dataset.editingId = existingNote ? existingNote.id : '';
+    const kind = existingNote ? (existingNote.kind || 'edit') : 'edit';
+    const radio = document.querySelector('input[name="note-kind"][value="' + kind + '"]');
+    if (radio) radio.checked = true;
+    $('note-delete').classList.toggle('visible', !!existingNote);
+    setTimeout(() => ta.focus(), 30);
+  }
+  function closeComposer() { $('note-composer').style.display = 'none'; }
+
+  $('note-save').addEventListener('click', saveNote);
+  $('note-text').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveNote(); }
+  });
+  function saveNote() {
+    const modal = $('note-composer');
+    const text = $('note-text').value.trim();
+    if (!text) { $('note-text').focus(); return; }
+    const kindEl = document.querySelector('input[name="note-kind"]:checked');
+    const kind = kindEl ? kindEl.value : 'edit';
+    const editingId = modal.dataset.editingId;
+    if (editingId) {
+      const n = notes.find(x => x.id === editingId);
+      if (n) { n.noteText = text; n.kind = kind; n.updatedAt = new Date().toISOString(); }
+    } else {
+      notes.push({
+        id: uid(),
+        sectionId: modal.dataset.sectionId,
+        sectionTitle: modal.dataset.sectionTitle,
+        selectedText: modal.dataset.selectedText,
+        noteText: text,
+        kind: kind,
+        createdAt: new Date().toISOString()
+      });
+    }
+    persist();
+    applyHighlights();
+    closeComposer();
+    toast(editingId ? 'Note updated' : 'Note saved');
+  }
+
+  $('note-cancel').addEventListener('click', closeComposer);
+  $('note-composer').addEventListener('click', (e) => {
+    if (e.target.id === 'note-composer') closeComposer();
+  });
+  $('note-delete').addEventListener('click', () => {
+    const editingId = $('note-composer').dataset.editingId;
+    if (!editingId) { closeComposer(); return; }
+    notes = notes.filter(x => x.id !== editingId);
+    persist();
+    applyHighlights();
+    closeComposer();
+    toast('Note deleted');
+  });
+
+  function findAndWrap(rootEl, text, noteId) {
+    const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => {
+        const p = n.parentElement;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        if (p.closest('.note-highlight')) return NodeFilter.FILTER_REJECT;
+        if (['SCRIPT', 'STYLE'].includes(p.tagName)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    let node;
+    while (node = walker.nextNode()) {
+      const idx = node.nodeValue.indexOf(text);
+      if (idx !== -1) {
+        const range = document.createRange();
+        range.setStart(node, idx);
+        range.setEnd(node, idx + text.length);
+        const span = document.createElement('span');
+        span.className = 'note-highlight';
+        span.dataset.noteId = noteId;
+        try { range.surroundContents(span); return true; } catch (e) { return false; }
+      }
+    }
+    return false;
+  }
+
+  function clearHighlights() {
+    document.querySelectorAll('.note-highlight').forEach(el => {
+      const parent = el.parentNode;
+      while (el.firstChild) parent.insertBefore(el.firstChild, el);
+      parent.removeChild(el);
+      parent.normalize();
+    });
+  }
+
+  function applyHighlights() {
+    clearHighlights();
+    for (const n of notes) {
+      // Prefer the note's own sectionId; fall back to scanning the whole
+      // <main> + <header> so orphan-bucketed notes ('unknown', or notes whose
+      // section disappeared after a re-render) still get rehighlighted instead
+      // of silently losing their yellow highlight.
+      const section = $(n.sectionId) || document.querySelector('main') || document.body;
+      findAndWrap(section, n.selectedText, n.id);
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const hl = e.target.closest('.note-highlight');
+    if (!hl) return;
+    e.stopPropagation();
+    const note = notes.find(x => x.id === hl.dataset.noteId);
+    if (!note) return;
+    openComposer({
+      selectedText: note.selectedText,
+      sectionId: note.sectionId,
+      sectionTitle: note.sectionTitle
+    }, note);
+  });
+
+  function renderList() {
+    const list = $('notes-list');
+    if (notes.length === 0) {
+      list.innerHTML = '<div class="notes-empty">No notes yet.<br>Select any text to add one.</div>';
+      return;
+    }
+    const bySection = {};
+    for (const n of notes) (bySection[n.sectionId] = bySection[n.sectionId] || []).push(n);
+
+    const renderGroup = (title, items) => {
+      let g = '<div class="notes-group">';
+      g += '<h4>&sect; ' + escapeHtml(title) + '</h4>';
+      for (const n of items) {
+        const quoteShort = n.selectedText.length > 140 ? n.selectedText.slice(0, 140) + '…' : n.selectedText;
+        const when = new Date(n.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const kind = n.kind || 'edit';
+        const kindLabel = kind === 'question' ? 'Question' : 'Edit';
+        g += '<div class="notes-item" data-note-id="' + n.id + '">';
+        g += '<span class="notes-item-kind ' + kind + '">' + kindLabel + '</span>';
+        g += '<div class="notes-item-quote">"' + escapeHtml(quoteShort) + '"</div>';
+        g += '<div class="notes-item-text">' + escapeHtml(n.noteText) + '</div>';
+        g += '<div class="notes-item-time">' + when + '</div>';
+        g += '</div>';
+      }
+      g += '</div>';
+      return g;
+    };
+
+    let html = '';
+    const renderedIds = new Set();
+    for (const sid of Object.keys(SECTIONS)) {
+      if (!bySection[sid]) continue;
+      html += renderGroup(SECTIONS[sid], bySection[sid]);
+      renderedIds.add(sid);
+    }
+    // Orphan notes (sectionId not in SECTIONS — e.g. highlights in the header/meta block)
+    for (const sid of Object.keys(bySection)) {
+      if (renderedIds.has(sid)) continue;
+      html += renderGroup('Preface / unsectioned', bySection[sid]);
+      renderedIds.add(sid);
+    }
+    list.innerHTML = html;
+    list.querySelectorAll('.notes-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const note = notes.find(x => x.id === el.dataset.noteId);
+        if (!note) return;
+        const hl = document.querySelector('.note-highlight[data-note-id="' + note.id + '"]');
+        if (hl) hl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => openComposer({
+          selectedText: note.selectedText,
+          sectionId: note.sectionId,
+          sectionTitle: note.sectionTitle
+        }, note), 350);
+      });
+    });
+
+    // Invariant: every note in storage MUST be rendered somewhere in the
+    // panel. If this diverges, the badge count will disagree with what the
+    // user sees in the panel — exactly the bug class the orphan-render
+    // fallback above exists to prevent. Log loudly so regressions are visible.
+    const renderedCount = list.querySelectorAll('.notes-item').length;
+    if (renderedCount !== notes.length) {
+      const renderedIdSet = new Set(
+        Array.from(list.querySelectorAll('.notes-item')).map(el => el.dataset.noteId)
+      );
+      const missing = notes.filter(n => !renderedIdSet.has(n.id));
+      console.warn(
+        '[annotated-spec] renderList invariant violated: ' +
+        renderedCount + ' rendered vs ' + notes.length + ' in storage. ' +
+        'Missing note sectionIds: ' +
+        JSON.stringify(missing.map(n => n.sectionId))
+      );
+    }
+  }
+
+  function togglePanel() {
+    const panel = $('notes-panel');
+    const open = panel.classList.toggle('open');
+    if (open) { renderList(); panel.setAttribute('aria-hidden', 'false'); }
+    else { panel.setAttribute('aria-hidden', 'true'); }
+  }
+  $('fab-notes').addEventListener('click', togglePanel);
+  $('notes-close').addEventListener('click', togglePanel);
+
+  function buildMarkdown() {
+    const stamp = new Date().toISOString();
+    let md = '# Notes on ' + DOC_TITLE + '\n\n';
+    md += '> Generated: ' + stamp + '\n';
+    md += '> Total notes: ' + notes.length + '\n\n';
+    if (notes.length === 0) return md + '_No notes yet._\n';
+
+    const bySection = {};
+    for (const n of notes) (bySection[n.sectionId] = bySection[n.sectionId] || []).push(n);
+
+    const emitGroup = (heading, items) => {
+      md += '## ' + heading + '\n\n';
+      for (const n of items) {
+        const when = new Date(n.createdAt).toLocaleString();
+        const kind = n.kind || 'edit';
+        const kindLabel = kind === 'question' ? 'Question (answer in chat, do not edit the spec)' : 'Edit suggestion (change the spec)';
+        md += '### ' + when + '\n\n';
+        md += '**Type:** ' + kindLabel + '\n\n';
+        md += '**Selected text:**\n\n';
+        md += '> ' + n.selectedText.replace(/\n/g, '\n> ') + '\n\n';
+        md += '**Note:**\n\n';
+        md += n.noteText + '\n\n';
+        md += '---\n\n';
+      }
+    };
+
+    const emittedIds = new Set();
+    for (const sid of Object.keys(SECTIONS)) {
+      if (!bySection[sid]) continue;
+      emitGroup('§' + sid.replace('s', '') + ' — ' + SECTIONS[sid], bySection[sid]);
+      emittedIds.add(sid);
+    }
+    // Orphan notes (sectionId not in SECTIONS — e.g. highlights in the header/meta block)
+    for (const sid of Object.keys(bySection)) {
+      if (emittedIds.has(sid)) continue;
+      emitGroup('Preface / unsectioned', bySection[sid]);
+      emittedIds.add(sid);
+    }
+    return md;
+  }
+
+  $('notes-export').addEventListener('click', () => {
+    if (notes.length === 0) { toast('No notes to export'); return; }
+    const md = buildMarkdown();
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'venemed-data-model-v1-notes-' + new Date().toISOString().slice(0, 10) + '.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Downloaded');
+  });
+
+  $('notes-copy').addEventListener('click', async () => {
+    if (notes.length === 0) { toast('No notes to copy'); return; }
+    const md = buildMarkdown();
+    try {
+      await navigator.clipboard.writeText(md);
+      toast('Copied to clipboard');
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = md;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      toast('Copied to clipboard');
+    }
+  });
+
+  $('notes-clear').addEventListener('click', () => {
+    if (notes.length === 0) { toast('Nothing to clear'); return; }
+    if (!confirm('Delete all ' + notes.length + ' note' + (notes.length === 1 ? '' : 's') + '? This cannot be undone.')) return;
+    notes = [];
+    persist();
+    applyHighlights();
+    renderList();
+    toast('Cleared');
+  });
+
+  function updateBadge() {
+    const badge = $('fab-badge');
+    badge.textContent = notes.length;
+    badge.style.display = notes.length > 0 ? 'inline-flex' : 'none';
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeComposer();
+      const panel = $('notes-panel');
+      if (panel.classList.contains('open')) togglePanel();
+      hideAddButton();
+    }
+  });
+
+  applyHighlights();
+  updateBadge();
+})();
+</script>
+</body>
+</html>
