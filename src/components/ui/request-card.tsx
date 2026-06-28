@@ -3,6 +3,7 @@ import { formatRequestedClock } from "@/lib/format";
 import { Button } from "./button";
 import { Card } from "./card";
 import { ItemChip } from "./chip";
+import { ShareCardButton } from "./share-card-button";
 import { Tag, UrgencyTag } from "./tag";
 
 const MAX_VISIBLE_ITEMS = 4;
@@ -16,6 +17,10 @@ export function RequestCard({ request }: { request: RequestCardData }) {
   const items = request.items;
   const visible = items.slice(0, MAX_VISIBLE_ITEMS);
   const overflow = items.length - visible.length;
+
+  const shareMessage = `Ayuda a ${request.centerName}${
+    request.city ? ` (${request.city})` : ""
+  } en VeneMed:`;
 
   return (
     <Card className={isSurplus ? "border-warning/30" : ""}>
@@ -33,7 +38,11 @@ export function RequestCard({ request }: { request: RequestCardData }) {
       <h3 className="mt-3 text-lg font-bold leading-tight text-neutral-900">
         {request.centerName}
       </h3>
-      {/* TODO(descriptor): bold summary line — needs request.title field (backend workflow) */}
+      {request.title && (
+        <p className="mt-1 text-[15px] font-semibold text-neutral-900">
+          {request.title}
+        </p>
+      )}
       {request.centerDescription && (
         <p className="mt-0.5 text-sm text-neutral-500">
           {request.centerDescription}
@@ -70,15 +79,11 @@ export function RequestCard({ request }: { request: RequestCardData }) {
 
       {/* footer */}
       <div className="mt-3 flex items-center gap-2 border-t border-neutral-100 pt-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          href={`/solicitudes/${request.id}`}
-          className="flex-1"
-        >
-          <ShareArrow />
-          Compartir
-        </Button>
+        <ShareCardButton
+          requestId={request.id}
+          message={shareMessage}
+          path={`/solicitudes/${request.id}`}
+        />
         <Button
           variant="primary"
           size="sm"
@@ -89,25 +94,5 @@ export function RequestCard({ request }: { request: RequestCardData }) {
         </Button>
       </div>
     </Card>
-  );
-}
-
-/** Up-right arrow used on the "Compartir" affordance (Figma list 30:15714). */
-function ShareArrow() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M7 17 17 7" />
-      <path d="M8 7h9v9" />
-    </svg>
   );
 }

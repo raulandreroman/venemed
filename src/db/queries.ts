@@ -38,6 +38,7 @@ export type RequestCardData = {
   id: string;
   kind: "need" | "surplus";
   city: string | null;
+  title: string | null; // center-written descriptor
   centerName: string;
   centerDescription: string | null;
   centerType: string;
@@ -50,6 +51,7 @@ export type RequestCardData = {
 
 export type RequestDetailData = RequestCardData & {
   status: "active" | "paused" | "closed" | "expired" | "draft";
+  deliveryInstructions: string | null; // per-request drop-off note
   closedAt: Date | null;
   closedReason: "fulfilled" | "cancelled" | "expired" | null;
   shareCount: number;
@@ -83,6 +85,7 @@ async function queryActiveRequests(
       id: request.id,
       kind: request.kind,
       city: request.city,
+      title: request.title,
       categories: request.categories,
       publishedAt: request.publishedAt,
       expiresAt: request.expiresAt,
@@ -151,6 +154,7 @@ async function queryActiveRequests(
     id: r.id,
     kind: r.kind,
     city: r.city,
+    title: r.title,
     centerName: r.centerName,
     centerDescription: r.centerDescription,
     centerType: r.centerType,
@@ -164,7 +168,7 @@ async function queryActiveRequests(
 
 /**
  * Live donor feed: active requests from approved centers.
- * Cached via unstable_cache keyed on the normalized filters; tag "requests".
+ * Cached via unstable_cache keyed on the normalized filters; tag "active-requests".
  */
 export function getActiveRequests(
   filters: RequestFilters = {},
@@ -180,7 +184,7 @@ export function getActiveRequests(
   return unstable_cache(
     () => queryActiveRequests(normalized),
     ["active-requests", key],
-    { revalidate: 60, tags: ["requests"] },
+    { revalidate: 60, tags: ["active-requests"] },
   )();
 }
 
@@ -195,6 +199,8 @@ async function queryRequestById(
       kind: request.kind,
       status: request.status,
       city: request.city,
+      title: request.title,
+      deliveryInstructions: request.deliveryInstructions,
       categories: request.categories,
       publishedAt: request.publishedAt,
       expiresAt: request.expiresAt,
@@ -240,6 +246,8 @@ async function queryRequestById(
     kind: r.kind,
     status: r.status,
     city: r.city,
+    title: r.title,
+    deliveryInstructions: r.deliveryInstructions,
     centerName: r.centerName,
     centerDescription: r.centerDescription,
     centerType: r.centerType,
@@ -265,12 +273,12 @@ async function queryRequestById(
 
 /**
  * Single request for the detail page. Returns null for draft/paused/not-found
- * so the page can call notFound(). Cached; tags "requests" and "request:<id>".
+ * so the page can call notFound(). Cached; tags "active-requests" and "request:<id>".
  */
 export function getRequestById(id: string): Promise<RequestDetailData | null> {
   return unstable_cache(() => queryRequestById(id), ["request", id], {
     revalidate: 60,
-    tags: ["requests", `request:${id}`],
+    tags: ["active-requests", `request:${id}`],
   })();
 }
 
@@ -299,10 +307,10 @@ async function queryLandingStats(): Promise<LandingStats> {
   };
 }
 
-/** Landing live-stat aggregates. Cached; tags "stats". */
+/** Landing live-stat aggregates. Cached; tags "landing-stats". */
 export function getLandingStats(): Promise<LandingStats> {
   return unstable_cache(queryLandingStats, ["landing-stats"], {
     revalidate: 60,
-    tags: ["stats"],
+    tags: ["landing-stats"],
   })();
 }

@@ -36,6 +36,7 @@ export function DetailFooter({ req }: { req: RequestDetailData }) {
   }
   return (
     <ShareCtaButton
+      requestId={req.id}
       message={shareMessage(req)}
       path={`/solicitudes/${req.id}`}
     />
@@ -64,6 +65,11 @@ function ActiveDetailBody({ req }: { req: RequestDetailData }) {
       <h1 className="mt-3 text-[22px] font-bold leading-tight text-neutral-900">
         {req.centerName}
       </h1>
+      {req.title && (
+        <p className="mt-1 text-[15px] font-semibold text-neutral-900">
+          {req.title}
+        </p>
+      )}
       {req.centerDescription && (
         <p className="mt-1 text-sm text-neutral-500">{req.centerDescription}</p>
       )}
@@ -112,6 +118,11 @@ function ActiveDetailBody({ req }: { req: RequestDetailData }) {
             {center.addressReference}
           </p>
         )}
+        {req.deliveryInstructions && (
+          <p className="mt-2 rounded-xl bg-neutral-100 px-4 py-3 text-[15px] text-neutral-900">
+            {req.deliveryInstructions}
+          </p>
+        )}
         <MapLink query={mapQuery(center.addressLine, center.city)} />
       </section>
 
@@ -136,6 +147,7 @@ function ActiveDetailBody({ req }: { req: RequestDetailData }) {
 
       <div id="comparte">
         <ShareSection
+          requestId={req.id}
           message={shareMessage(req)}
           path={`/solicitudes/${req.id}`}
         />
@@ -197,6 +209,11 @@ function ClosedDetailBody({ req }: { req: RequestDetailData }) {
       <h1 className="mt-3 text-[22px] font-bold leading-tight text-neutral-900">
         {req.centerName}
       </h1>
+      {req.title && (
+        <p className="mt-1 text-[15px] font-semibold text-neutral-900">
+          {req.title}
+        </p>
+      )}
       {req.centerDescription && (
         <p className="mt-1 text-sm text-neutral-500">{req.centerDescription}</p>
       )}

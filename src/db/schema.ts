@@ -8,6 +8,7 @@ import {
   pgEnum,
   uuid,
   text,
+  varchar,
   boolean,
   smallint,
   integer,
@@ -130,6 +131,13 @@ export const request = pgTable("request", {
     .references(() => center.id, { onDelete: "cascade" }),
   kind: requestKind("kind").notNull().default("need"),
   status: requestStatus("status").notNull().default("draft"),
+  // center-written descriptor for the donor card/detail (data-model §4.4; Figma 30:15714).
+  // NULLABLE in DB so 0001 applies additively over live rows; required at the app
+  // layer for any new request (enforced when center authoring ships).
+  title: varchar("title", { length: 40 }),
+  // per-request delivery instructions shown under "Dónde entregar" — augments the
+  // center's static address with drop-off specifics for THIS request.
+  deliveryInstructions: varchar("delivery_instructions", { length: 120 }),
   windowHours: smallint("window_hours").notNull(),
   publishedAt: timestamp("published_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }),

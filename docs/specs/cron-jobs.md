@@ -66,20 +66,29 @@ export async function GET(req: Request) {
 
 `CRON_SECRET` is a new env var — add to Vercel (all environments) and `.env.example`.
 
-## 5. Vercel cron configuration
+## 5. Schedule configuration
 
-Declared in `vercel.ts` (preferred) — the schedule + path:
+**v1 uses a GitHub Actions schedule** (not a native Vercel cron) because the project runs on the Vercel **Hobby** plan, which caps cron jobs at once/day — too coarse for a 5-minute expiry. The Action calls the secured prod endpoint every 5 minutes:
 
-```ts
-// vercel.ts
-import { type VercelConfig } from "@vercel/config/v1";
-
-export const config: VercelConfig = {
-  crons: [{ path: "/api/cron/expire-requests", schedule: "*/5 * * * *" }],
-};
+```yaml
+# .github/workflows/expire-requests.yml
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+jobs:
+  expire:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS --max-time 60 -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://venemed.vercel.app/api/cron/expire-requests
 ```
 
-Cron jobs only run against the **production** deployment. For preview/local testing, trigger the endpoint manually with the secret (see §9).
+`CRON_SECRET` is a GitHub Actions repo secret (must match the value in Vercel's env). Scheduled workflows only run from the **default branch (main)**, and always hit **production**. GitHub's scheduler can drift a few minutes under load — acceptable for expiry.
+
+> **Upgrade path:** on **Vercel Pro**, move this to a native `vercel.json` cron (`{ "crons": [{ "path": "/api/cron/expire-requests", "schedule": "*/5 * * * *" }] }`) for tighter timing, and disable the Action. The endpoint + secret are identical, so the swap is config-only.
 
 ## 6. Interaction with the request lifecycle
 

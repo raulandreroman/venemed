@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 
+import { recordShare } from "@/app/actions/share";
 import { Button } from "@/components/ui";
 
 /**
@@ -16,9 +17,11 @@ import { Button } from "@/components/ui";
  *    pick a channel.
  */
 export function ShareCtaButton({
+  requestId,
   message,
   path,
 }: {
+  requestId: string;
   message: string;
   path: string;
 }) {
@@ -27,6 +30,10 @@ export function ShareCtaButton({
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({ title: message, text: message, url });
+        // Only a successful native share records here (channel unknown). The
+        // scroll-to-#comparte fallback records nothing — the channel button the
+        // donor then taps in ShareSection is the single recorded event.
+        recordShare(requestId, "unknown").catch(() => {});
         return;
       } catch {
         // user cancelled or unsupported — fall through to scroll
@@ -35,7 +42,7 @@ export function ShareCtaButton({
     document
       .getElementById("comparte")
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [message, path]);
+  }, [requestId, message, path]);
 
   return (
     <Button variant="primary" fullWidth onClick={onClick}>
