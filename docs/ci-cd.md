@@ -29,3 +29,5 @@ lo hace rápido y sin secretos.
 - `main` está **protegida**: no se permite push directo.
 - Los cambios entran por **pull request**, con el check `ci` requerido en verde.
 - Los **admins pueden saltar** la protección para hotfixes de emergencia.
+
+<!-- ci-smoke: verificación de pipeline 2026-06-28 -->
