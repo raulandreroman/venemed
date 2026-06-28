@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeneMed — Backend fields, expiry cron &amp; share tracking (0001)</title>
+<style>
+  :root {
+    --bg: #faf8f3;
+    --paper: #ffffff;
+    --ink: #1c1c1c;
+    --ink-soft: #4a4a4a;
+    --ink-faint: #8a8a8a;
+    --rule: #e8e4dc;
+    --accent: #b8451f;
+    --accent-soft: #d97844;
+    --code-bg: #f4f0e8;
+    --code-ink: #2a2a2a;
+    --code-string: #87672f;
+    --code-key: #b8451f;
+    --code-num: #2c5f7c;
+    --code-bool: #7c4dff;
+    --code-null: #999;
+    --kbd-bg: #ede7d9;
+    --table-stripe: #f9f5ec;
+    --warn-bg: #fff4e6;
+    --warn-rule: #ddb47a;
+    --good-bg: #eef4ea;
+    --good-rule: #9ec18a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+  }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 24px 32px 32px;
+    background: var(--paper);
+    border-right: 1px solid var(--rule);
+    font-size: 13px;
+  }
+  nav.toc .label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 14px 0;
+  }
+  nav.toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: section;
+  }
+  nav.toc li {
+    counter-increment: section;
+    margin: 0;
+  }
+  nav.toc a {
+    display: block;
+    padding: 7px 10px 7px 36px;
+    margin-left: -10px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-radius: 4px;
+    position: relative;
+    transition: background 0.12s, color 0.12s;
+  }
+  nav.toc a::before {
+    content: counter(section);
+    position: absolute;
+    left: 10px;
+    top: 7px;
+    width: 18px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  nav.toc a:hover {
+    background: var(--code-bg);
+    color: var(--ink);
+  }
+  main {
+    padding: 56px 64px 120px 56px;
+    max-width: 920px;
+  }
+  header.doc-head {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 24px;
+    margin-bottom: 36px;
+  }
+  header.doc-head .eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  header.doc-head h1 {
+    font-size: 30px;
+    line-height: 1.2;
+    margin: 0 0 14px 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  header.doc-head .meta {
+    color: var(--ink-faint);
+    font-size: 13px;
+  }
+  header.doc-head .status-pill {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-rule);
+    color: #7a4a13;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-right: 8px;
+  }
+  h2 {
+    margin: 56px 0 16px 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink);
+  }
+  h2 .num {
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+    margin-right: 12px;
+    font-weight: 500;
+  }
+  h3 {
+    margin: 28px 0 10px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  h4 {
+    margin: 20px 0 6px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+  p { margin: 0 0 14px 0; }
+  ul, ol { padding-left: 24px; margin: 0 0 14px 0; }
+  li { margin-bottom: 4px; }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 14px 0 18px 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  pre code {
+    background: transparent;
+    padding: 0;
+    font-size: inherit;
+    color: var(--code-ink);
+    white-space: pre;
+  }
+  .json .k { color: var(--code-key); }
+  .json .s { color: var(--code-string); }
+  .json .n { color: var(--code-num); }
+  .json .b { color: var(--code-bool); }
+  .json .null { color: var(--code-null); font-style: italic; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0 22px 0;
+    font-size: 13.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    background: var(--code-bg);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  tbody tr:nth-child(even) td { background: var(--table-stripe); }
+  blockquote {
+    border-left: 3px solid var(--accent-soft);
+    background: var(--warn-bg);
+    margin: 16px 0;
+    padding: 12px 16px;
+    border-radius: 0 4px 4px 0;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+  }
+  blockquote p:last-child { margin-bottom: 0; }
+  .filepath {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    background: var(--code-bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+    word-break: break-all;
+  }
+  strong { font-weight: 600; color: var(--ink); }
+  em { font-style: italic; color: var(--ink-soft); }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  a:hover { border-bottom-color: var(--accent); }
+  .effort {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--good-bg);
+    border: 1px solid var(--good-rule);
+    color: #3d5a2a;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--rule); }
+    main { padding: 32px 24px 80px 24px; }
+  }
+
+  /* Annotation layer */
+  .note-highlight {
+    background: linear-gradient(transparent 62%, #f9e58a 62%);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .note-highlight:hover {
+    background: linear-gradient(transparent 50%, #f5d04a 50%);
+  }
+  #note-add-btn {
+    position: absolute;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    z-index: 1000;
+    font-family: inherit;
+  }
+  #note-add-btn::before { content: '＋'; font-size: 14px; font-weight: 400; }
+  .fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: inherit;
+  }
+  .fab:hover { background: var(--accent); }
+  #fab-badge {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: white;
+    border-radius: 999px;
+    min-width: 20px;
+    height: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 6px;
+  }
+  #notes-panel {
+    position: fixed;
+    top: 0; right: 0;
+    width: 380px;
+    max-width: 90vw;
+    height: 100vh;
+    background: var(--paper);
+    border-left: 1px solid var(--rule);
+    box-shadow: -8px 0 30px rgba(0,0,0,0.06);
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+  }
+  #notes-panel.open { transform: translateX(0); }
+  .notes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .notes-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
+  #notes-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--ink-faint);
+    padding: 4px 8px;
+    font-family: inherit;
+  }
+  .notes-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .notes-actions button {
+    flex: 1;
+    padding: 7px 10px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    color: var(--ink-soft);
+    border-radius: 5px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .notes-actions button:hover { background: var(--code-bg); color: var(--ink); }
+  #notes-clear { color: #b04a4a; }
+  #notes-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+  }
+  .notes-empty {
+    color: var(--ink-faint);
+    text-align: center;
+    padding: 40px 16px;
+    font-size: 13px;
+    font-style: italic;
+  }
+  .notes-group { margin-bottom: 24px; }
+  .notes-group h4 {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin: 0 0 10px 0;
+  }
+  .notes-item {
+    padding: 12px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    background: var(--bg);
+    transition: border-color 0.12s;
+  }
+  .notes-item:hover { border-color: var(--accent-soft); }
+  .notes-item-quote {
+    font-size: 12px;
+    color: var(--ink-faint);
+    border-left: 2px solid #f9e58a;
+    padding-left: 8px;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+  .notes-item-text {
+    font-size: 13.5px;
+    color: var(--ink);
+    white-space: pre-wrap;
+    line-height: 1.45;
+  }
+  .notes-item-time {
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-top: 6px;
+  }
+  #note-composer {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(28,28,28,0.4);
+    z-index: 1200;
+    align-items: center;
+    justify-content: center;
+  }
+  .composer-card {
+    background: var(--paper);
+    border-radius: 10px;
+    width: 520px;
+    max-width: 90vw;
+    padding: 22px 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .composer-card .eyebrow {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  #note-context {
+    font-size: 13px;
+    color: var(--ink-soft);
+    border-left: 3px solid #f9e58a;
+    background: var(--warn-bg);
+    padding: 10px 12px;
+    border-radius: 0 4px 4px 0;
+    margin: 10px 0 14px 0;
+    font-style: italic;
+    max-height: 110px;
+    overflow-y: auto;
+  }
+  .note-kind-group {
+    border: none;
+    padding: 0;
+    margin: 0 0 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .note-kind-group label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .note-kind-group label:hover { color: var(--ink); }
+  .note-kind-group input[type="radio"] { margin: 0; accent-color: var(--accent); }
+  .note-kind-group .hint { color: var(--ink-faint); font-size: 12px; }
+  .notes-item-kind {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 9px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .notes-item-kind.edit {
+    background: var(--good-bg);
+    color: #3d5a2a;
+    border: 1px solid var(--good-rule);
+  }
+  .notes-item-kind.question {
+    background: var(--warn-bg);
+    color: #7a4a13;
+    border: 1px solid var(--warn-rule);
+  }
+  #note-text {
+    width: 100%;
+    min-height: 110px;
+    padding: 10px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    box-sizing: border-box;
+    color: var(--ink);
+    background: var(--paper);
+  }
+  #note-text:focus { outline: 2px solid var(--accent-soft); outline-offset: -1px; }
+  .composer-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    justify-content: flex-end;
+  }
+  .composer-actions button {
+    padding: 8px 14px;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    border: 1px solid var(--rule);
+  }
+  #note-save {
+    background: var(--ink);
+    color: white;
+    border-color: var(--ink);
+  }
+  #note-save:hover { background: var(--accent); border-color: var(--accent); }
+  #note-cancel { background: var(--paper); color: var(--ink-soft); }
+  #note-cancel:hover { background: var(--code-bg); }
+  #note-delete {
+    background: var(--paper);
+    color: #b04a4a;
+    margin-right: auto;
+    display: none;
+  }
+  #note-delete.visible { display: inline-block; }
+  #note-delete:hover { background: #fce8e8; }
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    right: 24px;
+    background: var(--ink);
+    color: white;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 1300;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc">
+    <p class="label">Contents</p>
+    <ol>
+      <li><a href="#s1">Purpose &amp; scope</a></li>
+      <li><a href="#s2">Deliverables at a glance</a></li>
+      <li><a href="#s3">Migration 0001 — `title` + `delivery_instructions`</a></li>
+      <li><a href="#s4">Seed backfill (`src/db/seed.ts`)</a></li>
+      <li><a href="#s5">Query selections + types (`src/db/queries.ts`)</a></li>
+      <li><a href="#s6">Donor UI surfaces</a></li>
+      <li><a href="#s7">Expiry cron (per `docs/specs/cron-jobs.md`)</a></li>
+      <li><a href="#s8">Share tracking + card &quot;Compartir&quot; fix</a></li>
+      <li><a href="#s9">Testing &amp; manual verification</a></li>
+      <li><a href="#s10">Acceptance criteria</a></li>
+      <li><a href="#s11">File list (created / modified)</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="doc-head" id="preface">
+      <div class="eyebrow">VeneMed</div>
+      <h1>Backend fields, expiry cron &amp; share tracking (0001)</h1>
+      <div class="meta"><span class="status-pill">draft. Last updated 2026-06-28</span>Implementation spec for the <span class="filepath">feat/backend-fields-cron</span> pass. Adds two <code>request</code> columns (migration 0001), surfaces them in the donor UI, makes the card "Compartir" actually share, ships the expiry cron from <span class="filepath">docs/specs/cron-jobs.md</span>, and wires the <code>recordShare</code> server action + precise cache tags. Related: <span class="filepath">docs/specs/data-model.md</span> (§4.4 request, §4.8 share_event), <span class="filepath">docs/specs/cron-jobs.md</span>.</div>
+    </header>
+
+    <section id="s1">
+      <h2><span class="num">1</span>Purpose &amp; scope</h2>
+      <p>This pass closes the gap between the donor slice as shipped and three things the data/cron specs already call for but the code doesn't yet do:</p>
+<ol><li><strong>Center-written descriptor + per-request delivery instructions.</strong> The donor card shows a bold one-line summary (Figma list 30:15714) and the detail's "Dónde entregar" should carry instructions specific to <em>this</em> drop-off, not only the center's static address. Today there is no field for either. We add <code>request.title</code> and <code>request.delivery_instructions</code>.</li><li><strong>The expiry cron</strong> (<span class="filepath">docs/specs/cron-jobs.md</span>) is fully specified but unbuilt — no <span class="filepath">src/db/jobs.ts</span>, no route, no <span class="filepath">vercel.ts</span>, no <code>CRON_SECRET</code>. Expired requests currently only drop off the list via the 60 s ISR window; nothing ever flips <code>status</code> to <code>expired</code>.</li><li><strong>Share tracking.</strong> <code>share_event</code> and <code>request.share_count</code> exist in the schema but nothing writes them — the share UI builds intent URLs and stops. We add a <code>recordShare</code> server action and wire every share affordance to it. As a precondition, the card "Compartir" button (today just a <code>&lt;Link&gt;</code> to the detail) must become a real share control.</li></ol>
+<p>In scope: migration 0001, seed backfill, the two UI surfaces, the card share fix, the cron job + route + config + env, the <code>recordShare</code> action, and the cache-tag wiring the cron and the action both depend on. Out of scope: center-side authoring of these fields (no center dashboard yet), the optional liveness/health-check cron (§8 of cron-jobs.md), and PostHog instrumentation (logged as a follow-up).</p>
+<blockquote><p><strong>Branch &amp; deploy posture.</strong> Work lands on <span class="filepath">feat/backend-fields-cron</span> and ships via PR. <code>main</code> is protected — never push to it. There is <strong>one</strong> Supabase DB shared by dev and the live prod site; migration 0001 is <strong>additive (new nullable columns)</strong>, so it is safe to apply while prod serves traffic. Re-running the seed briefly resets <em>sample</em> data only (no real users exist yet) — acceptable.</p></blockquote>
+<blockquote><p><strong>CI gate.</strong> Both <code>pnpm lint</code> and <code>npx tsc --noEmit</code> must stay green, plus <code>pnpm build</code>. Watch the project-specific eslint rules — e.g. a synchronous <code>setState</code> inside an effect is an error here. Every code change below is written to keep all three green.</p></blockquote>
+    </section>
+
+    <section id="s2">
+      <h2><span class="num">2</span>Deliverables at a glance</h2>
+      <table><thead><tr><th>#</th><th>Area</th><th>Files</th></tr></thead><tbody><tr><td>1</td><td>Schema + migration</td><td><span class="filepath">src/db/schema.ts</span>, <code>src/db/migrations/0001_*.sql</code> (+ <code>meta/</code>)</td></tr><tr><td>2</td><td>Seed backfill</td><td><span class="filepath">src/db/seed.ts</span></td></tr><tr><td>3</td><td>Query selections + types</td><td><span class="filepath">src/db/queries.ts</span></td></tr><tr><td>4</td><td>Card descriptor + real share</td><td><span class="filepath">src/components/ui/request-card.tsx</span></td></tr><tr><td>5</td><td>Detail title + delivery instructions</td><td><code>src/app/(public)/solicitudes/[id]/_components/detail-body.tsx</code></td></tr><tr><td>6</td><td>Share action</td><td><span class="filepath">src/db/jobs.ts</span> <em>(cron)</em> + a new <span class="filepath">src/app/actions/share.ts</span> <em>(server action)</em></td></tr><tr><td>7</td><td>Cron route + config + env</td><td><span class="filepath">src/app/api/cron/expire-requests/route.ts</span>, <span class="filepath">vercel.ts</span>, <code>.env.example</code></td></tr><tr><td>8</td><td>Share wiring</td><td><span class="filepath">src/components/share-section.tsx</span>, <code>src/app/(public)/solicitudes/[id]/_components/share-cta-button.tsx</code>, <span class="filepath">src/components/ui/request-card.tsx</span></td></tr></tbody></table>
+    </section>
+
+    <section id="s3">
+      <h2><span class="num">3</span>Migration 0001 — <code>title</code> + <code>delivery_instructions</code></h2>
+      <h3>Schema edit (<span class="filepath">src/db/schema.ts</span>)</h3>
+<p>Add <code>varchar</code> to the <span class="filepath">drizzle-orm/pg-core</span> import and two columns to the <code>request</code> table. Place them right after <code>kind</code>/<code>status</code> so the descriptor reads as a first-class part of the row.</p>
+<pre><code>// import block — add varchar
+import {
+  pgTable,
+  pgEnum,
+  uuid,
+  text,
+  varchar,        // ← new
+  boolean,
+  smallint,
+  integer,
+  numeric,
+  timestamp,
+} from &quot;drizzle-orm/pg-core&quot;;</code></pre>
+<pre><code>// inside request = pgTable(&quot;request&quot;, { ... }) — after `status`
+  // center-written descriptor for the donor card/detail (data-model §4.4; Figma 30:15714).
+  // NULLABLE in DB so 0001 applies additively over live rows; required at the app
+  // layer for any new request (enforced when center authoring ships).
+  title: varchar(&quot;title&quot;, { length: 40 }),
+  // per-request delivery instructions shown under &quot;Dónde entregar&quot; — augments the
+  // center&#x27;s static address with drop-off specifics for THIS request.
+  deliveryInstructions: varchar(&quot;delivery_instructions&quot;, { length: 120 }),</code></pre>
+<blockquote><p><strong>Divergence from data-model §4.4, recorded deliberately.</strong> The data-model currently says delivery details <em>always inherit from the center</em> with "no per-request delivery columns in v1." Designers' A4-7 + this pass add a per-request <code>delivery_instructions</code> override. The center address/reference/schedule still render as the base; <code>delivery_instructions</code> is an <em>additive</em> per-request note layered on top (see §6.2). Update data-model §4.4 to match in the same PR (one-line amendment) so the two specs don't drift.</p></blockquote>
+<p>Field rules:</p>
+<ul><li><strong><code>title</code></strong> — <code>varchar(40)</code>. Short noun phrase the center writes, e.g. "Insumos pediátricos". Rendered bold on the card and as the page <code>&lt;h1&gt;</code>-adjacent summary on the detail. NULL allowed in DB; required at the app layer for new requests.</li><li><strong><code>delivery_instructions</code></strong> — <code>varchar(120)</code>. One-to-two sentence drop-off note, e.g. "Entregar en emergencia, planta baja. Preguntar por la Lic. Mora." NULL allowed; optional even at the app layer (the center address alone is a valid minimum).</li></ul>
+<h3>Generating the migration</h3>
+<p>Run <code>pnpm db:generate</code>. Drizzle writes <code>src/db/migrations/0001_&lt;slug&gt;.sql</code> and updates <span class="filepath">meta/_journal.json</span> + a new snapshot. The generated SQL must be the additive form — confirm it reads like:</p>
+<pre><code>ALTER TABLE &quot;request&quot; ADD COLUMN &quot;title&quot; varchar(40);--&gt; statement-breakpoint
+ALTER TABLE &quot;request&quot; ADD COLUMN &quot;delivery_instructions&quot; varchar(120);</code></pre>
+<p>No <code>NOT NULL</code>, no default backfill, no table rewrite — <code>ADD COLUMN</code> of a nullable column is a metadata-only change in Postgres and is safe against the live prod table. Apply with <code>pnpm db:migrate</code> (uses <code>POSTGRES_URL_NON_POOLING</code>, the direct connection, per <code>drizzle.config.ts</code>).</p>
+<blockquote><p>Do <strong>not</strong> hand-write the SQL — generate it so the snapshot/journal stay consistent with the schema. If <code>db:generate</code> produces a different filename slug, that's expected (random); commit whatever it emits.</p></blockquote>
+    </section>
+
+    <section id="s4">
+      <h2><span class="num">4</span>Seed backfill (<span class="filepath">src/db/seed.ts</span>)</h2>
+      <p>Give each sample request a realistic Spanish <code>title</code> and <code>deliveryInstructions</code>. Add the two keys to the three existing <code>request</code> inserts (<code>reqA</code>, <code>reqB</code>, <code>reqC</code>). Suggested values, matched to the existing centers/items:</p>
+<table><thead><tr><th>Request</th><th><code>title</code></th><th><code>deliveryInstructions</code></th></tr></thead><tbody><tr><td><code>reqA</code> (Hospital J.M. de los Ríos, need, pediatrics)</td><td><code>&quot;Insumos pediátricos&quot;</code></td><td><code>&quot;Entregar en Recepción de donaciones, entrada principal. Preguntar por la coordinadora de turno.&quot;</code></td></tr><tr><td><code>reqB</code> (Refugio Casa Esperanza, need, general+pediatrics)</td><td><code>&quot;Higiene y limpieza&quot;</code></td><td><code>&quot;Portón azul, timbre 2. Recibimos en horario de la mañana preferiblemente.&quot;</code></td></tr><tr><td><code>reqC</code> (Refugio Casa Esperanza, surplus, general)</td><td><code>&quot;Excedente de ropa&quot;</code></td><td><code>&quot;No traer más ropa usada por ahora; el depósito está lleno.&quot;</code></td></tr></tbody></table>
+<p>Example edit for <code>reqA</code> (apply the same shape to B and C):</p>
+<pre><code>  .values({
+    centerId: centerId(&quot;Hospital J.M. de los Ríos&quot;),
+    kind: &quot;need&quot;,
+    status: &quot;active&quot;,
+    title: &quot;Insumos pediátricos&quot;,
+    deliveryInstructions:
+      &quot;Entregar en Recepción de donaciones, entrada principal. Preguntar por la coordinadora de turno.&quot;,
+    windowHours: 12,
+    publishedAt: jmRiosPublished,
+    expiresAt: hoursFromNow(jmRiosPublished, 12),
+    city: &quot;Caracas&quot;,
+    categories: [&quot;pediatrics&quot;],
+  })</code></pre>
+<p>Keep each <code>title</code> ≤ 40 chars and each <code>deliveryInstructions</code> ≤ 120 chars to respect the column limits (the suggested values above already fit). Update the closing <code>console.log</code> line if you like, but no count changes are needed. Re-run with <code>pnpm db:seed</code> after the migration is applied.</p>
+    </section>
+
+    <section id="s5">
+      <h2><span class="num">5</span>Query selections + types (<span class="filepath">src/db/queries.ts</span>)</h2>
+      <h3>Types</h3>
+<p>Add <code>title</code> to <code>RequestCardData</code> (the card needs it) and <code>deliveryInstructions</code> to <code>RequestDetailData</code> (only the detail needs it; keep the card payload lean).</p>
+<pre><code>export type RequestCardData = {
+  id: string;
+  kind: &quot;need&quot; | &quot;surplus&quot;;
+  city: string | null;
+  title: string | null;            // ← new: center-written descriptor
+  centerName: string;
+  centerDescription: string | null;
+  centerType: string;
+  publishedAt: Date | null;
+  expiresAt: Date | null;
+  windowHours: number;
+  categories: string[] | null;
+  items: RequestItemData[];
+};
+
+export type RequestDetailData = RequestCardData &amp; {
+  status: &quot;active&quot; | &quot;paused&quot; | &quot;closed&quot; | &quot;expired&quot; | &quot;draft&quot;;
+  deliveryInstructions: string | null;  // ← new: per-request drop-off note
+  closedAt: Date | null;
+  closedReason: &quot;fulfilled&quot; | &quot;cancelled&quot; | &quot;expired&quot; | null;
+  shareCount: number;
+  center: { /* unchanged */ };
+  items: (RequestItemData &amp; { isFulfilled: boolean })[];
+};</code></pre>
+<h3>Selections + mappers</h3>
+<ul><li>In <code>queryActiveRequests</code> — add <code>title: request.title</code> to the <code>.select({...})</code> and <code>title: r.title</code> to the returned object map.</li><li>In <code>queryRequestById</code> — add <code>title: request.title</code> and <code>deliveryInstructions: request.deliveryInstructions</code> to the <code>.select({...})</code>, and <code>title: r.title</code> + <code>deliveryInstructions: r.deliveryInstructions</code> to the returned object.</li></ul>
+<p>No <code>WHERE</code>/<code>ORDER BY</code> changes. Both new columns are plain passthroughs.</p>
+<h3>Cache tags (precise revalidation)</h3>
+<p>The cron (§7) and <code>recordShare</code> (§8) need to invalidate exactly the right cached reads. The existing tags are <em>close</em> but the cron-jobs spec (§7) names <code>active-requests</code> and <code>landing-stats</code>, while the code currently tags <code>requests</code> and <code>stats</code>. <strong>Standardize on the cron-jobs spec's tag names</strong> so cron + action + queries all agree:</p>
+<table><thead><tr><th>Reader</th><th>Current tag(s)</th><th>Target tag(s)</th></tr></thead><tbody><tr><td><code>getActiveRequests</code></td><td><code>[&quot;requests&quot;]</code></td><td><code>[&quot;active-requests&quot;]</code></td></tr><tr><td><code>getRequestById</code></td><td><code>[&quot;requests&quot;, \</code>request:${id}\<code>]</code></td><td><code>[&quot;active-requests&quot;, \</code>request:${id}\<code>]</code></td></tr><tr><td><code>getLandingStats</code></td><td><code>[&quot;stats&quot;]</code></td><td><code>[&quot;landing-stats&quot;]</code></td></tr></tbody></table>
+<p>Edits:</p>
+<pre><code>// getActiveRequests
+return unstable_cache(
+  () =&gt; queryActiveRequests(normalized),
+  [&quot;active-requests&quot;, key],
+  { revalidate: 60, tags: [&quot;active-requests&quot;] },   // ← was [&quot;requests&quot;]
+)();
+
+// getRequestById
+return unstable_cache(() =&gt; queryRequestById(id), [&quot;request&quot;, id], {
+  revalidate: 60,
+  tags: [&quot;active-requests&quot;, `request:${id}`],      // ← was [&quot;requests&quot;, ...]
+})();
+
+// getLandingStats
+return unstable_cache(queryLandingStats, [&quot;landing-stats&quot;], {
+  revalidate: 60,
+  tags: [&quot;landing-stats&quot;],                          // ← was [&quot;stats&quot;]
+})();</code></pre>
+<blockquote><p>Why keep <code>active-requests</code> on the detail read too: when the cron flips a request to <code>expired</code>, the detail must re-fetch so a donor who deep-links doesn't see a just-expired request as active. Tagging the detail with both the list tag and its own id tag means <em>either</em> a broad list invalidation <em>or</em> a targeted <code>request:&lt;id&gt;</code> invalidation refreshes it. <code>getRequestById</code>'s own <code>revalidate: 60</code> stays as the backstop.</p></blockquote>
+    </section>
+
+    <section id="s6">
+      <h2><span class="num">6</span>Donor UI surfaces</h2>
+      <h3>Card descriptor (<span class="filepath">src/components/ui/request-card.tsx</span>)</h3>
+<p>There's a TODO placeholder already (<code>{/* TODO(descriptor)... */}</code>). Replace it: render <code>request.title</code> as a bold summary line under the center name, falling back to nothing when absent. Keep <code>centerDescription</code> as the lighter secondary line beneath it.</p>
+<pre><code>{/* center */}
+&lt;h3 className=&quot;mt-3 text-lg font-bold leading-tight text-neutral-900&quot;&gt;
+  {request.centerName}
+&lt;/h3&gt;
+{request.title &amp;&amp; (
+  &lt;p className=&quot;mt-1 text-[15px] font-semibold text-neutral-900&quot;&gt;
+    {request.title}
+  &lt;/p&gt;
+)}
+{request.centerDescription &amp;&amp; (
+  &lt;p className=&quot;mt-0.5 text-sm text-neutral-500&quot;&gt;
+    {request.centerDescription}
+  &lt;/p&gt;
+)}</code></pre>
+<h3>Detail: title + delivery instructions (<code>detail-body.tsx</code>)</h3>
+<p><strong>Title</strong> — render <code>req.title</code> as the bold summary line under the center name in <em>both</em> <code>ActiveDetailBody</code> and <code>ClosedDetailBody</code> (same treatment as the card, so closed/expired detail still shows what was requested):</p>
+<pre><code>&lt;h1 className=&quot;mt-3 text-[22px] font-bold leading-tight text-neutral-900&quot;&gt;
+  {req.centerName}
+&lt;/h1&gt;
+{req.title &amp;&amp; (
+  &lt;p className=&quot;mt-1 text-[15px] font-semibold text-neutral-900&quot;&gt;{req.title}&lt;/p&gt;
+)}
+{req.centerDescription &amp;&amp; (
+  &lt;p className=&quot;mt-1 text-sm text-neutral-500&quot;&gt;{req.centerDescription}&lt;/p&gt;
+)}</code></pre>
+<p><strong>Delivery instructions</strong> — in <code>ActiveDetailBody</code>'s "Dónde entregar" section, render <code>req.deliveryInstructions</code> as a distinct, emphasized line <em>after</em> the center address/reference and <em>before</em> the map link, so it reads as the per-request specifics layered on the center's base address:</p>
+<pre><code>{/* dónde entregar */}
+&lt;section&gt;
+  &lt;h2 className=&quot;text-lg font-semibold text-neutral-900&quot;&gt;Dónde entregar&lt;/h2&gt;
+  {center.addressLine &amp;&amp; (
+    &lt;p className=&quot;mt-2 text-[15px] text-neutral-900&quot;&gt;{center.addressLine}&lt;/p&gt;
+  )}
+  {center.addressReference &amp;&amp; (
+    &lt;p className=&quot;mt-2 text-sm text-neutral-500&quot;&gt;{center.addressReference}&lt;/p&gt;
+  )}
+  {req.deliveryInstructions &amp;&amp; (
+    &lt;p className=&quot;mt-2 rounded-xl bg-neutral-100 px-4 py-3 text-[15px] text-neutral-900&quot;&gt;
+      {req.deliveryInstructions}
+    &lt;/p&gt;
+  )}
+  &lt;MapLink query={mapQuery(center.addressLine, center.city)} /&gt;
+&lt;/section&gt;</code></pre>
+<p>The closed/expired body keeps "Centro receptor" address-only — no delivery instructions on a request that can no longer receive drop-offs.</p>
+    </section>
+
+    <section id="s7">
+      <h2><span class="num">7</span>Expiry cron (per <span class="filepath">docs/specs/cron-jobs.md</span>)</h2>
+      <h3><span class="filepath">src/db/jobs.ts</span> — <code>expireDueRequests()</code></h3>
+<p>New server-only module. Runs the single idempotent UPDATE (cron-jobs §3), bulk-inserts one <code>moderation_event</code> per flipped row, and revalidates exactly the affected tags (§7 of cron-jobs, reconciled with §5.3 tag names here).</p>
+<pre><code>import &quot;server-only&quot;;
+import { and, inArray, lt, sql } from &quot;drizzle-orm&quot;;
+import { revalidateTag } from &quot;next/cache&quot;;
+import { db } from &quot;./index&quot;;
+import { request, moderationEvent } from &quot;./schema&quot;;
+
+export async function expireDueRequests(): Promise&lt;{ expired: number }&gt; {
+  // Flip active/paused requests whose window has lapsed. WHERE clause makes this
+  // idempotent + concurrency-safe (a second run flips nothing extra). DB now() is
+  // the single clock (timestamptz) — no app-side time involved.
+  const flipped = await db
+    .update(request)
+    .set({ status: &quot;expired&quot;, closedAt: sql`now()`, closedReason: &quot;expired&quot; })
+    .where(
+      and(
+        inArray(request.status, [&quot;active&quot;, &quot;paused&quot;]),
+        lt(request.expiresAt, sql`now()`),
+      ),
+    )
+    .returning({ id: request.id });
+
+  if (flipped.length === 0) return { expired: 0 }; // empty run: skip audit + revalidate
+
+  // Audit: one append-only event per flipped row (actor = null = system/cron).
+  await db.insert(moderationEvent).values(
+    flipped.map((r) =&gt; ({
+      actorUserId: null,
+      subjectType: &quot;request&quot; as const,
+      subjectId: r.id,
+      action: &quot;expired_by_cron&quot;,
+    })),
+  );
+
+  // Precise revalidation so a just-expired request never renders as active.
+  revalidateTag(&quot;active-requests&quot;);
+  revalidateTag(&quot;landing-stats&quot;);
+  for (const r of flipped) revalidateTag(`request:${r.id}`);
+
+  return { expired: flipped.length };
+}</code></pre>
+<p>Notes:</p>
+<ul><li>No <code>kind</code> filter → <code>surplus</code> notices expire on the same schedule as <code>need</code> (cron-jobs §3).</li><li><code>paused</code> included for correctness/future even though it's unused in the v1 UI.</li><li>Batching cap (<code>LIMIT 500</code>) is <em>not</em> added at v1 volumes; if added later, log on hitting the cap (no silent truncation).</li></ul>
+<h3><span class="filepath">src/app/api/cron/expire-requests/route.ts</span></h3>
+<pre><code>import { NextResponse } from &quot;next/server&quot;;
+import { expireDueRequests } from &quot;@/db/jobs&quot;;
+
+export const dynamic = &quot;force-dynamic&quot;; // never cached
+export const maxDuration = 60;
+
+export async function GET(req: Request) {
+  const auth = req.headers.get(&quot;authorization&quot;);
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new NextResponse(&quot;Unauthorized&quot;, { status: 401 });
+  }
+  const { expired } = await expireDueRequests();
+  return NextResponse.json({ ok: true, expired });
+}</code></pre>
+<ul><li><code>GET</code> only (Vercel cron uses GET). Returns <code>{ ok: true, expired: N }</code>.</li><li>Rejects any request whose <code>Authorization</code> header doesn't exactly match <code>Bearer ${CRON_SECRET}</code> → 401. Vercel auto-sends this header on cron-invoked routes when <code>CRON_SECRET</code> is set.</li></ul>
+<h3><span class="filepath">vercel.ts</span> (project root)</h3>
+<pre><code>import { type VercelConfig } from &quot;@vercel/config/v1&quot;;
+
+export const config: VercelConfig = {
+  crons: [{ path: &quot;/api/cron/expire-requests&quot;, schedule: &quot;*/5 * * * *&quot; }],
+};</code></pre>
+<p>Every 5 minutes (Vercel Pro allows arbitrary frequency). Crons only run against the <strong>production</strong> deployment; trigger manually for preview/local (§9).</p>
+<blockquote><p>If <code>@vercel/config</code> is not installable in this project's toolchain, fall back to the equivalent <span class="filepath">vercel.json</span> form: <code>{ &quot;crons&quot;: [{ &quot;path&quot;: &quot;/api/cron/expire-requests&quot;, &quot;schedule&quot;: &quot;*/5 * * * *&quot; }] }</code>. Prefer <span class="filepath">vercel.ts</span> per cron-jobs §5; only fall back if <code>tsc</code>/build can't resolve the type package.</p></blockquote>
+<h3><code>CRON_SECRET</code> env var</h3>
+<ul><li>Add <code>CRON_SECRET=&quot;...&quot;</code> to <code>.env.example</code> (with a comment that Vercel auto-injects it as the bearer token on cron-invoked routes).</li><li>Add the real value in Vercel project settings for <strong>all environments</strong> (Production at minimum; Preview so manual triggers work). Not committed.</li></ul>
+    </section>
+
+    <section id="s8">
+      <h2><span class="num">8</span>Share tracking + card "Compartir" fix</h2>
+      <h3><code>recordShare</code> server action (<span class="filepath">src/app/actions/share.ts</span>)</h3>
+<p>New file, <code>&quot;use server&quot;</code>. Inserts a <code>share_event</code> and increments <code>request.share_count</code> atomically, then revalidates the affected reads so the landing share stat / detail count stay honest. Channel is the existing <code>share_channel</code> enum: <code>whatsapp | instagram | x | copy_link | unknown</code>.</p>
+<pre><code>&quot;use server&quot;;
+import { eq, sql } from &quot;drizzle-orm&quot;;
+import { revalidateTag } from &quot;next/cache&quot;;
+import { db } from &quot;@/db/index&quot;;
+import { request, shareEvent } from &quot;@/db/schema&quot;;
+
+export type ShareChannel = &quot;whatsapp&quot; | &quot;instagram&quot; | &quot;x&quot; | &quot;copy_link&quot; | &quot;unknown&quot;;
+
+export async function recordShare(
+  requestId: string,
+  channel: ShareChannel = &quot;unknown&quot;,
+): Promise&lt;void&gt; {
+  // Insert the write-only analytics row + bump the denormalized counter.
+  await db.transaction(async (tx) =&gt; {
+    await tx.insert(shareEvent).values({ requestId, channel });
+    await tx
+      .update(request)
+      .set({ shareCount: sql`${request.shareCount} + 1` })
+      .where(eq(request.id, requestId));
+  });
+
+  // Refresh the detail (share_count) and the landing share aggregate.
+  revalidateTag(`request:${requestId}`);
+  revalidateTag(&quot;landing-stats&quot;);
+}</code></pre>
+<p>Notes:</p>
+<ul><li><code>share_count</code> increment uses a SQL expression (<code>shareCount + 1</code>), not read-modify-write — safe under concurrency.</li><li>Fire-and-forget from the client: callers invoke it but do not block the share UX on its resolution (the navigator.share / window.open happens regardless). Failures are swallowed client-side — a missed analytics row must never break sharing.</li><li>Don't revalidate <code>active-requests</code>: the card doesn't show share counts, so a list-wide invalidation per share would be wasteful churn.</li></ul>
+<h3>Card "Compartir" — make it actually share (<code>request-card.tsx</code>)</h3>
+<p>Today both footer buttons are <code>&lt;Link&gt;</code>s to the detail. The "Ver detalle" button stays a link. The "Compartir" button must become a real share control mirroring <code>ShareCtaButton</code>: native <code>navigator.share</code> when available, else navigate to the detail's <code>#comparte</code> section so the donor can pick a channel.</p>
+<p>Because the card is a Server Component (no <code>&quot;use client&quot;</code>), extract the share affordance into a small client component and drop it into the footer. New file <span class="filepath">src/components/ui/share-card-button.tsx</span>:</p>
+<pre><code>&quot;use client&quot;;
+import { useCallback } from &quot;react&quot;;
+import { Button } from &quot;./button&quot;;
+import { recordShare, type ShareChannel } from &quot;@/app/actions/share&quot;;
+
+export function ShareCardButton({
+  requestId,
+  message,
+  path,
+}: {
+  requestId: string;
+  message: string;
+  path: string;
+}) {
+  const onClick = useCallback(async () =&gt; {
+    const url = new URL(path, window.location.origin).toString();
+    if (typeof navigator !== &quot;undefined&quot; &amp;&amp; navigator.share) {
+      try {
+        await navigator.share({ title: message, text: message, url });
+        void recordShare(requestId, &quot;unknown&quot;); // native sheet: channel unknown
+        return;
+      } catch {
+        // cancelled/unsupported — fall through to the detail&#x27;s share section
+      }
+    }
+    window.location.href = `${path}#comparte`;
+  }, [requestId, message, path]);
+
+  return (
+    &lt;Button variant=&quot;ghost&quot; size=&quot;sm&quot; onClick={onClick} className=&quot;flex-1&quot;&gt;
+      &lt;ShareArrow /&gt;
+      Compartir
+    &lt;/Button&gt;
+  );
+}</code></pre>
+<p>In <code>request-card.tsx</code>, build a short share message (the card already has <code>centerName</code>/<code>city</code>/<code>title</code>), replace the <code>&lt;Button … href&gt;</code> "Compartir" with <code>&lt;ShareCardButton …/&gt;</code>, and keep "Ver detalle" as-is. Move the existing <code>ShareArrow</code> glyph into the client component (or export it) so both compile. Suggested message helper:</p>
+<pre><code>const shareMessage =
+  `Ayuda a ${request.centerName}${request.city ? ` (${request.city})` : &quot;&quot;} en VeneMed:`;</code></pre>
+<blockquote><p>Keep the lint rule in mind: the <code>onClick</code> handler is <code>async</code> but used as an event handler — that's fine; do <strong>not</strong> introduce a <code>setState</code>-in-effect. The "Copiado" feedback already lives in <code>ShareSection</code>; the card button has no transient state.</p></blockquote>
+<h3>Wire the detail share buttons</h3>
+<ul><li><strong><code>share-section.tsx</code></strong> — accept a new <code>requestId: string</code> prop. In each handler, call <code>recordShare(requestId, channel)</code> with the right channel right before/after firing the intent: <code>shareWhatsApp → &quot;whatsapp&quot;</code>, <code>shareX → &quot;x&quot;</code>, <code>shareInstagram → navigator.share ? &quot;instagram&quot; : &quot;copy_link&quot;</code>, <code>copyLink → &quot;copy_link&quot;</code>. It's a Client Component already; importing the server action and calling it is allowed (Next wires it as an RPC). Use <code>void recordShare(...)</code> so the UI never awaits analytics.</li><li><strong><code>share-cta-button.tsx</code></strong> — accept <code>requestId</code>, call <code>void recordShare(requestId, &quot;unknown&quot;)</code> after a successful <code>navigator.share</code> (the scroll-to-<code>#comparte</code> fallback records nothing; the channel button the donor then taps in <code>ShareSection</code> records it).</li><li><strong><code>detail-body.tsx</code></strong> — thread <code>req.id</code> into both <code>&lt;ShareSection requestId={req.id} …/&gt;</code> and <code>&lt;ShareCtaButton requestId={req.id} …/&gt;</code>.</li></ul>
+<blockquote><p>Don't double-count: the CTA button only records on a <em>successful</em> native share. When it falls back to scrolling, the eventual <code>ShareSection</code> channel tap is the single recorded event.</p></blockquote>
+    </section>
+
+    <section id="s9">
+      <h2><span class="num">9</span>Testing &amp; manual verification</h2>
+      <ul><li><strong>Migration applies:</strong> <code>pnpm db:generate</code> produces additive <code>ADD COLUMN</code> SQL; <code>pnpm db:migrate</code> succeeds against the shared DB without locking the live table.</li><li><strong>Seed:</strong> <code>pnpm db:seed</code> runs clean; sample requests show titles + delivery instructions in the UI.</li><li><strong>Cron auth:</strong> <code>curl -i https://&lt;deploy&gt;/api/cron/expire-requests</code> → <strong>401</strong>. <code>curl -H &quot;Authorization: Bearer $CRON_SECRET&quot; …</code> → <code>200 {&quot;ok&quot;:true,&quot;expired&quot;:N}</code>.</li><li><strong>Cron flip:</strong> seed a row with <code>expires_at</code> in the past → one run flips it to <code>expired</code>, writes one <code>moderation_event</code> (<code>action=&#x27;expired_by_cron&#x27;</code>), and the detail re-renders as closed. Run twice → second run returns <code>{ expired: 0 }</code> (idempotent).</li><li><strong>Share increments count:</strong> tap a share channel on the detail → a <code>share_event</code> row is inserted and <code>request.share_count</code> increments by 1; landing share stat reflects it after revalidation. Card "Compartir" with <code>navigator.share</code> present opens the native sheet and records <code>unknown</code>; without it, navigates to <code>#comparte</code>.</li><li><strong>Card descriptor / detail instructions:</strong> card shows the bold <code>title</code>; detail shows <code>title</code> + the <code>delivery_instructions</code> block under "Dónde entregar".</li></ul>
+    </section>
+
+    <section id="s10">
+      <h2><span class="num">10</span>Acceptance criteria</h2>
+      <ol><li><code>pnpm lint</code> passes (no new eslint errors, including the no-<code>setState</code>-in-effect rule).</li><li><code>npx tsc --noEmit</code> passes (new types/props/exports all resolve).</li><li><code>pnpm build</code> succeeds.</li><li>Migration 0001 is additive (two nullable <code>varchar</code> columns), generated via <code>db:generate</code>, and applies cleanly to the shared Supabase DB while prod runs.</li><li>Seed backfills realistic Spanish <code>title</code> + <code>delivery_instructions</code> on all sample requests.</li><li>Donor card renders <code>request.title</code> as the bold summary; detail renders <code>title</code> + <code>delivery_instructions</code> in "Dónde entregar".</li><li>Card "Compartir" performs a real share (native or <code>#comparte</code> fallback) — no longer a plain detail link.</li><li>Cron route returns <strong>401</strong> without the correct <code>CRON_SECRET</code> bearer, and <code>{ ok, expired }</code> with it; <code>expireDueRequests</code> is idempotent and writes audit events.</li><li><span class="filepath">vercel.ts</span> declares the <code>*/5 * * * *</code> cron for <code>/api/cron/expire-requests</code>; <code>CRON_SECRET</code> is in <code>.env.example</code> and set in Vercel.</li><li><code>recordShare(requestId, channel)</code> inserts a <code>share_event</code> and increments <code>request.share_count</code>; all detail + card share affordances call it with the correct channel.</li><li><code>getActiveRequests</code> / <code>getRequestById</code> / <code>getLandingStats</code> tag their cached reads (<code>active-requests</code> / <code>request:&lt;id&gt;</code> / <code>landing-stats</code>) so the cron and <code>recordShare</code> revalidate precisely.</li><li>Lands via PR onto <span class="filepath">feat/backend-fields-cron</span>; <code>main</code> untouched.</li></ol>
+    </section>
+
+    <section id="s11">
+      <h2><span class="num">11</span>File list (created / modified)</h2>
+      <p><strong>Created</strong></p>
+<ul><li><code>src/db/migrations/0001_&lt;slug&gt;.sql</code> (+ updated <span class="filepath">meta/_journal.json</span>, new snapshot) — generated</li><li><span class="filepath">src/db/jobs.ts</span> — <code>expireDueRequests()</code></li><li><span class="filepath">src/app/api/cron/expire-requests/route.ts</span> — cron GET handler</li><li><span class="filepath">src/app/actions/share.ts</span> — <code>recordShare</code> server action + <code>ShareChannel</code> type</li><li><span class="filepath">src/components/ui/share-card-button.tsx</span> — client share control for the card</li><li><span class="filepath">vercel.ts</span> — cron schedule</li></ul>
+<p><strong>Modified</strong></p>
+<ul><li><span class="filepath">src/db/schema.ts</span> — <code>varchar</code> import + <code>title</code> / <code>deliveryInstructions</code> columns</li><li><span class="filepath">src/db/seed.ts</span> — backfill title + delivery instructions on the 3 sample requests</li><li><span class="filepath">src/db/queries.ts</span> — types (<code>RequestCardData.title</code>, <code>RequestDetailData.deliveryInstructions</code>), selections, mappers, cache-tag rename</li><li><span class="filepath">src/components/ui/request-card.tsx</span> — descriptor line + <code>ShareCardButton</code> in footer</li><li><code>src/app/(public)/solicitudes/[id]/_components/detail-body.tsx</code> — title line (both bodies) + delivery-instructions block; thread <code>req.id</code> into share components</li><li><span class="filepath">src/components/share-section.tsx</span> — <code>requestId</code> prop + <code>recordShare</code> calls per channel</li><li><code>src/app/(public)/solicitudes/[id]/_components/share-cta-button.tsx</code> — <code>requestId</code> prop + <code>recordShare</code> on native share</li><li><code>.env.example</code> — <code>CRON_SECRET</code></li><li><span class="filepath">docs/specs/data-model.md</span> — one-line §4.4 amendment (per-request <code>delivery_instructions</code> now exists)</li></ul>
+    </section>
+
+  </main>
+</div>
+
+<button id="note-add-btn" type="button">Add note</button>
+
+<button class="fab" id="fab-notes" type="button" title="Open notes panel">
+  <span id="fab-badge">0</span>
+  Notes
+</button>
+
+<aside id="notes-panel" aria-hidden="true">
+  <div class="notes-header">
+    <h3>Your notes</h3>
+    <button id="notes-close" type="button" aria-label="Close">&#10005;</button>
+  </div>
+  <div class="notes-actions">
+    <button id="notes-copy" type="button" title="Copy markdown to clipboard">Copy MD</button>
+    <button id="notes-export" type="button" title="Download as .md file">Download</button>
+    <button id="notes-clear" type="button" title="Delete all notes">Clear</button>
+  </div>
+  <div id="notes-list"></div>
+</aside>
+
+<div id="note-composer" role="dialog" aria-modal="true">
+  <div class="composer-card">
+    <div class="eyebrow">Note &middot; <span id="note-section-label"></span></div>
+    <div id="note-context"></div>
+    <fieldset class="note-kind-group" aria-label="Note type">
+      <label><input type="radio" name="note-kind" value="edit" checked> Edit suggestion <span class="hint">— change the spec</span></label>
+      <label><input type="radio" name="note-kind" value="question"> Question <span class="hint">— answer in chat, leave spec alone</span></label>
+    </fieldset>
+    <textarea id="note-text" placeholder="What's on your mind about this? (Saved to this browser; export when ready to share back.)"></textarea>
+    <div class="composer-actions">
+      <button id="note-delete" type="button">Delete</button>
+      <button id="note-cancel" type="button">Cancel</button>
+      <button id="note-save" type="button">Save (&#8984;&crarr;)</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  const STORAGE_KEY = 'venemed-backend-fields-cron-v1';
+  const DOC_TITLE = 'VeneMed — Backend fields, expiry cron & share tracking (0001)';
+  const SECTIONS = {"preface": "Preface", "s1": "Purpose & scope", "s2": "Deliverables at a glance", "s3": "Migration 0001 — `title` + `delivery_instructions`", "s4": "Seed backfill (`src/db/seed.ts`)", "s5": "Query selections + types (`src/db/queries.ts`)", "s6": "Donor UI surfaces", "s7": "Expiry cron (per `docs/specs/cron-jobs.md`)", "s8": "Share tracking + card \"Compartir\" fix", "s9": "Testing & manual verification", "s10": "Acceptance criteria", "s11": "File list (created / modified)"};
+
+  let notes = [];
+  try { notes = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { notes = []; }
+  // Migrate notes from before the "kind" field existed: default to 'edit'.
+  for (const n of notes) if (!n.kind) n.kind = 'edit';
+
+  const $ = (id) => document.getElementById(id);
+  const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+  function persist() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+    updateBadge();
+  }
+
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => t.classList.remove('show'), 1600);
+  }
+
+  function getSectionForNode(node) {
+    // Walk up looking for any element whose id is a registered SECTIONS key.
+    // This covers both <section id="sN"> bodies and the <header id="preface">
+    // doc head — so highlights in the title/meta block attach to "preface"
+    // instead of falling through to the 'unknown' orphan bucket.
+    while (node && node !== document.body) {
+      if (node.nodeType === 1 && node.id && SECTIONS[node.id]) {
+        return { id: node.id, title: SECTIONS[node.id] };
+      }
+      node = node.parentNode;
+    }
+    // Safety net: if nothing matched (e.g. SECTIONS didn't register a preface,
+    // or markup changed), bucket the note under 'unknown'. renderList and
+    // buildMarkdown both render unknown-bucketed notes under "Preface /
+    // unsectioned" so they remain visible.
+    return { id: 'unknown', title: 'Unknown' };
+  }
+
+  function showAddButton(selection) {
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (!rect.width) return;
+    const btn = $('note-add-btn');
+    btn.style.display = 'inline-flex';
+    btn.style.top = (window.scrollY + rect.top - 42) + 'px';
+    btn.style.left = (window.scrollX + rect.left + rect.width / 2 - 55) + 'px';
+  }
+  function hideAddButton() { $('note-add-btn').style.display = 'none'; }
+
+  document.addEventListener('selectionchange', () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.toString().trim().length < 3) {
+      hideAddButton();
+      return;
+    }
+    const anchor = sel.anchorNode;
+    if (!anchor || !(anchor.parentElement || anchor).closest || !(anchor.parentElement || anchor).closest('main')) {
+      hideAddButton();
+      return;
+    }
+    if ((anchor.parentElement || anchor).closest('.note-highlight')) {
+      hideAddButton();
+      return;
+    }
+    showAddButton(sel);
+  });
+
+  $('note-add-btn').addEventListener('mousedown', (e) => { e.preventDefault(); });
+  $('note-add-btn').addEventListener('click', () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const text = sel.toString().trim();
+    const section = getSectionForNode(sel.anchorNode);
+    openComposer({ selectedText: text, sectionId: section.id, sectionTitle: section.title });
+    hideAddButton();
+  });
+
+  function openComposer(context, existingNote = null) {
+    const modal = $('note-composer');
+    modal.style.display = 'flex';
+    $('note-context').textContent = '"' + context.selectedText + '"';
+    $('note-section-label').textContent = context.sectionTitle;
+    const ta = $('note-text');
+    ta.value = existingNote ? existingNote.noteText : '';
+    modal.dataset.sectionId = context.sectionId;
+    modal.dataset.sectionTitle = context.sectionTitle;
+    modal.dataset.selectedText = context.selectedText;
+    modal.dataset.editingId = existingNote ? existingNote.id : '';
+    const kind = existingNote ? (existingNote.kind || 'edit') : 'edit';
+    const radio = document.querySelector('input[name="note-kind"][value="' + kind + '"]');
+    if (radio) radio.checked = true;
+    $('note-delete').classList.toggle('visible', !!existingNote);
+    setTimeout(() => ta.focus(), 30);
+  }
+  function closeComposer() { $('note-composer').style.display = 'none'; }
+
+  $('note-save').addEventListener('click', saveNote);
+  $('note-text').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveNote(); }
+  });
+  function saveNote() {
+    const modal = $('note-composer');
+    const text = $('note-text').value.trim();
+    if (!text) { $('note-text').focus(); return; }
+    const kindEl = document.querySelector('input[name="note-kind"]:checked');
+    const kind = kindEl ? kindEl.value : 'edit';
+    const editingId = modal.dataset.editingId;
+    if (editingId) {
+      const n = notes.find(x => x.id === editingId);
+      if (n) { n.noteText = text; n.kind = kind; n.updatedAt = new Date().toISOString(); }
+    } else {
+      notes.push({
+        id: uid(),
+        sectionId: modal.dataset.sectionId,
+        sectionTitle: modal.dataset.sectionTitle,
+        selectedText: modal.dataset.selectedText,
+        noteText: text,
+        kind: kind,
+        createdAt: new Date().toISOString()
+      });
+    }
+    persist();
+    applyHighlights();
+    closeComposer();
+    toast(editingId ? 'Note updated' : 'Note saved');
+  }
+
+  $('note-cancel').addEventListener('click', closeComposer);
+  $('note-composer').addEventListener('click', (e) => {
+    if (e.target.id === 'note-composer') closeComposer();
+  });
+  $('note-delete').addEventListener('click', () => {
+    const editingId = $('note-composer').dataset.editingId;
+    if (!editingId) { closeComposer(); return; }
+    notes = notes.filter(x => x.id !== editingId);
+    persist();
+    applyHighlights();
+    closeComposer();
+    toast('Note deleted');
+  });
+
+  function findAndWrap(rootEl, text, noteId) {
+    const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => {
+        const p = n.parentElement;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        if (p.closest('.note-highlight')) return NodeFilter.FILTER_REJECT;
+        if (['SCRIPT', 'STYLE'].includes(p.tagName)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    let node;
+    while (node = walker.nextNode()) {
+      const idx = node.nodeValue.indexOf(text);
+      if (idx !== -1) {
+        const range = document.createRange();
+        range.setStart(node, idx);
+        range.setEnd(node, idx + text.length);
+        const span = document.createElement('span');
+        span.className = 'note-highlight';
+        span.dataset.noteId = noteId;
+        try { range.surroundContents(span); return true; } catch (e) { return false; }
+      }
+    }
+    return false;
+  }
+
+  function clearHighlights() {
+    document.querySelectorAll('.note-highlight').forEach(el => {
+      const parent = el.parentNode;
+      while (el.firstChild) parent.insertBefore(el.firstChild, el);
+      parent.removeChild(el);
+      parent.normalize();
+    });
+  }
+
+  function applyHighlights() {
+    clearHighlights();
+    for (const n of notes) {
+      // Prefer the note's own sectionId; fall back to scanning the whole
+      // <main> + <header> so orphan-bucketed notes ('unknown', or notes whose
+      // section disappeared after a re-render) still get rehighlighted instead
+      // of silently losing their yellow highlight.
+      const section = $(n.sectionId) || document.querySelector('main') || document.body;
+      findAndWrap(section, n.selectedText, n.id);
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const hl = e.target.closest('.note-highlight');
+    if (!hl) return;
+    e.stopPropagation();
+    const note = notes.find(x => x.id === hl.dataset.noteId);
+    if (!note) return;
+    openComposer({
+      selectedText: note.selectedText,
+      sectionId: note.sectionId,
+      sectionTitle: note.sectionTitle
+    }, note);
+  });
+
+  function renderList() {
+    const list = $('notes-list');
+    if (notes.length === 0) {
+      list.innerHTML = '<div class="notes-empty">No notes yet.<br>Select any text to add one.</div>';
+      return;
+    }
+    const bySection = {};
+    for (const n of notes) (bySection[n.sectionId] = bySection[n.sectionId] || []).push(n);
+
+    const renderGroup = (title, items) => {
+      let g = '<div class="notes-group">';
+      g += '<h4>&sect; ' + escapeHtml(title) + '</h4>';
+      for (const n of items) {
+        const quoteShort = n.selectedText.length > 140 ? n.selectedText.slice(0, 140) + '…' : n.selectedText;
+        const when = new Date(n.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const kind = n.kind || 'edit';
+        const kindLabel = kind === 'question' ? 'Question' : 'Edit';
+        g += '<div class="notes-item" data-note-id="' + n.id + '">';
+        g += '<span class="notes-item-kind ' + kind + '">' + kindLabel + '</span>';
+        g += '<div class="notes-item-quote">"' + escapeHtml(quoteShort) + '"</div>';
+        g += '<div class="notes-item-text">' + escapeHtml(n.noteText) + '</div>';
+        g += '<div class="notes-item-time">' + when + '</div>';
+        g += '</div>';
+      }
+      g += '</div>';
+      return g;
+    };
+
+    let html = '';
+    const renderedIds = new Set();
+    for (const sid of Object.keys(SECTIONS)) {
+      if (!bySection[sid]) continue;
+      html += renderGroup(SECTIONS[sid], bySection[sid]);
+      renderedIds.add(sid);
+    }
+    // Orphan notes (sectionId not in SECTIONS — e.g. highlights in the header/meta block)
+    for (const sid of Object.keys(bySection)) {
+      if (renderedIds.has(sid)) continue;
+      html += renderGroup('Preface / unsectioned', bySection[sid]);
+      renderedIds.add(sid);
+    }
+    list.innerHTML = html;
+    list.querySelectorAll('.notes-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const note = notes.find(x => x.id === el.dataset.noteId);
+        if (!note) return;
+        const hl = document.querySelector('.note-highlight[data-note-id="' + note.id + '"]');
+        if (hl) hl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => openComposer({
+          selectedText: note.selectedText,
+          sectionId: note.sectionId,
+          sectionTitle: note.sectionTitle
+        }, note), 350);
+      });
+    });
+
+    // Invariant: every note in storage MUST be rendered somewhere in the
+    // panel. If this diverges, the badge count will disagree with what the
+    // user sees in the panel — exactly the bug class the orphan-render
+    // fallback above exists to prevent. Log loudly so regressions are visible.
+    const renderedCount = list.querySelectorAll('.notes-item').length;
+    if (renderedCount !== notes.length) {
+      const renderedIdSet = new Set(
+        Array.from(list.querySelectorAll('.notes-item')).map(el => el.dataset.noteId)
+      );
+      const missing = notes.filter(n => !renderedIdSet.has(n.id));
+      console.warn(
+        '[annotated-spec] renderList invariant violated: ' +
+        renderedCount + ' rendered vs ' + notes.length + ' in storage. ' +
+        'Missing note sectionIds: ' +
+        JSON.stringify(missing.map(n => n.sectionId))
+      );
+    }
+  }
+
+  function togglePanel() {
+    const panel = $('notes-panel');
+    const open = panel.classList.toggle('open');
+    if (open) { renderList(); panel.setAttribute('aria-hidden', 'false'); }
+    else { panel.setAttribute('aria-hidden', 'true'); }
+  }
+  $('fab-notes').addEventListener('click', togglePanel);
+  $('notes-close').addEventListener('click', togglePanel);
+
+  function buildMarkdown() {
+    const stamp = new Date().toISOString();
+    let md = '# Notes on ' + DOC_TITLE + '\n\n';
+    md += '> Generated: ' + stamp + '\n';
+    md += '> Total notes: ' + notes.length + '\n\n';
+    if (notes.length === 0) return md + '_No notes yet._\n';
+
+    const bySection = {};
+    for (const n of notes) (bySection[n.sectionId] = bySection[n.sectionId] || []).push(n);
+
+    const emitGroup = (heading, items) => {
+      md += '## ' + heading + '\n\n';
+      for (const n of items) {
+        const when = new Date(n.createdAt).toLocaleString();
+        const kind = n.kind || 'edit';
+        const kindLabel = kind === 'question' ? 'Question (answer in chat, do not edit the spec)' : 'Edit suggestion (change the spec)';
+        md += '### ' + when + '\n\n';
+        md += '**Type:** ' + kindLabel + '\n\n';
+        md += '**Selected text:**\n\n';
+        md += '> ' + n.selectedText.replace(/\n/g, '\n> ') + '\n\n';
+        md += '**Note:**\n\n';
+        md += n.noteText + '\n\n';
+        md += '---\n\n';
+      }
+    };
+
+    const emittedIds = new Set();
+    for (const sid of Object.keys(SECTIONS)) {
+      if (!bySection[sid]) continue;
+      emitGroup('§' + sid.replace('s', '') + ' — ' + SECTIONS[sid], bySection[sid]);
+      emittedIds.add(sid);
+    }
+    // Orphan notes (sectionId not in SECTIONS — e.g. highlights in the header/meta block)
+    for (const sid of Object.keys(bySection)) {
+      if (emittedIds.has(sid)) continue;
+      emitGroup('Preface / unsectioned', bySection[sid]);
+      emittedIds.add(sid);
+    }
+    return md;
+  }
+
+  $('notes-export').addEventListener('click', () => {
+    if (notes.length === 0) { toast('No notes to export'); return; }
+    const md = buildMarkdown();
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'venemed-backend-fields-expiry-cron-share-tracking-0001-notes-' + new Date().toISOString().slice(0, 10) + '.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Downloaded');
+  });
+
+  $('notes-copy').addEventListener('click', async () => {
+    if (notes.length === 0) { toast('No notes to copy'); return; }
+    const md = buildMarkdown();
+    try {
+      await navigator.clipboard.writeText(md);
+      toast('Copied to clipboard');
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = md;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      toast('Copied to clipboard');
+    }
+  });
+
+  $('notes-clear').addEventListener('click', () => {
+    if (notes.length === 0) { toast('Nothing to clear'); return; }
+    if (!confirm('Delete all ' + notes.length + ' note' + (notes.length === 1 ? '' : 's') + '? This cannot be undone.')) return;
+    notes = [];
+    persist();
+    applyHighlights();
+    renderList();
+    toast('Cleared');
+  });
+
+  function updateBadge() {
+    const badge = $('fab-badge');
+    badge.textContent = notes.length;
+    badge.style.display = notes.length > 0 ? 'inline-flex' : 'none';
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeComposer();
+      const panel = $('notes-panel');
+      if (panel.classList.contains('open')) togglePanel();
+      hideAddButton();
+    }
+  });
+
+  applyHighlights();
+  updateBadge();
+})();
+</script>
+</body>
+</html>
