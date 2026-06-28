@@ -66,9 +66,12 @@ export function RequestSheet({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // Move focus into the panel on open.
-    const focusable = getFocusable();
-    (focusable[0] ?? panel)?.focus();
+    // Focus the panel container itself (not the first focusable child) with
+    // preventScroll, and reset the scroll position to the top — otherwise
+    // focusing an element lower in the content opens the sheet scrolled down.
+    panel?.focus({ preventScroll: true });
+    const scroller = panel?.querySelector<HTMLElement>("[data-sheet-scroll]");
+    if (scroller) scroller.scrollTop = 0;
 
     return () => {
       document.removeEventListener("keydown", onKey);
@@ -104,7 +107,7 @@ export function RequestSheet({
         </div>
 
         {/* scrollable content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4 pt-2">{children}</div>
+        <div data-sheet-scroll className="flex-1 overflow-y-auto px-4 pb-4 pt-2">{children}</div>
 
         {/* sticky footer */}
         <div className="shrink-0 border-t border-neutral-100 bg-surface px-4 py-3">
