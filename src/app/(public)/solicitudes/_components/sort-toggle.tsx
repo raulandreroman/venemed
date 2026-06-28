@@ -56,7 +56,7 @@ export function SortToggle() {
               onClick={() => select(opt.value)}
               className={`rounded-full px-3 py-1 text-[13px] font-semibold transition-colors ${
                 active
-                  ? "bg-surface text-primary shadow-sm"
+                  ? "bg-surface text-neutral-900 shadow-sm"
                   : "text-neutral-500 hover:text-neutral-700"
               }`}
             >

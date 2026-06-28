@@ -39,12 +39,10 @@ export default async function LandingPage() {
   return (
     <>
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-neutral-200 bg-surface px-5 py-4">
+      <header className="flex items-center justify-between border-b border-neutral-100 bg-surface px-5 py-4">
         <Link href="/" className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-base font-bold text-white">
-            V
-          </span>
-          <span className="text-xl font-bold text-primary">VeneMed</span>
+          <Logo />
+          <span className="text-xl font-bold text-neutral-900">VeneMed</span>
         </Link>
         <Link
           href="/centro"
@@ -74,7 +72,7 @@ export default async function LandingPage() {
         <div className="h-8 w-px bg-neutral-300" />
         <Stat value={String(stats.approvedCenters)} label="centros" />
         <div className="h-8 w-px bg-neutral-300" />
-        <Stat value={lastUpdated} label="actualizado" highlight />
+        <Stat value={lastUpdated} label="actualizado" />
       </section>
 
       {/* Cómo funciona */}
@@ -83,7 +81,7 @@ export default async function LandingPage() {
         <ol className="flex flex-col gap-4">
           {STEPS.map((step) => (
             <li key={step.n} className="flex items-center gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-tint text-base font-bold text-accent">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-base font-bold text-neutral-700">
                 {step.n}
               </span>
               <div className="flex flex-col gap-1">
@@ -112,7 +110,7 @@ export default async function LandingPage() {
 
       {/* Center CTA */}
       <section className="bg-surface p-6">
-        <div className="flex flex-col gap-3 rounded-2xl border border-primary-tint bg-[#eef4fb] p-5">
+        <div className="flex flex-col gap-3 rounded-2xl border border-accent-border bg-accent-subtle p-5">
           <p className="text-lg font-semibold leading-6 text-neutral-900">
             ¿Trabajas en un hospital, refugio o casa de cuidado?
           </p>
@@ -149,25 +147,30 @@ export default async function LandingPage() {
   );
 }
 
-function Stat({
-  value,
-  label,
-  highlight,
-}: {
-  value: string;
-  label: string;
-  highlight?: boolean;
-}) {
+function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex w-[85px] flex-col items-center gap-0.5">
-      <p
-        className={`text-lg font-semibold ${
-          highlight ? "text-success" : "text-neutral-900"
-        }`}
-      >
-        {value}
-      </p>
+      <p className="text-lg font-semibold text-neutral-900">{value}</p>
       <p className="text-xs text-neutral-500">{label}</p>
     </div>
+  );
+}
+
+function Logo() {
+  return (
+    <span className="flex size-9 items-center justify-center rounded-xl bg-accent">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M10 3h4a1 1 0 0 1 1 1v5h5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-5v5a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-5H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h5V4a1 1 0 0 1 1-1z"
+          fill="#ffffff"
+        />
+      </svg>
+    </span>
   );
 }

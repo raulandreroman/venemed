@@ -15,7 +15,7 @@ export function AppBar({
   trailing?: ReactNode;
 }) {
   return (
-    <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-neutral-200 bg-surface px-4">
+    <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-neutral-100 bg-surface px-4">
       <Link
         href={backHref}
         aria-label="Volver"
@@ -23,7 +23,7 @@ export function AppBar({
       >
         <BackArrow />
       </Link>
-      <h1 className="text-base font-semibold text-primary">{title}</h1>
+      <h1 className="text-base font-semibold text-neutral-900">{title}</h1>
       <span className="inline-flex h-9 w-9 items-center justify-center">
         {trailing}
       </span>

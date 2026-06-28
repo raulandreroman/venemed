@@ -18,7 +18,7 @@ export function RequestCard({ request }: { request: RequestCardData }) {
   const overflow = items.length - visible.length;
 
   return (
-    <Card className={isSurplus ? "border-soon/30" : ""}>
+    <Card className={isSurplus ? "border-warning/30" : ""}>
       {/* header pills */}
       <div className="flex items-center justify-between gap-2">
         {request.city ? <Tag variant="neutral">{request.city}</Tag> : <span />}
@@ -30,9 +30,10 @@ export function RequestCard({ request }: { request: RequestCardData }) {
       </div>
 
       {/* center */}
-      <h3 className="mt-3 text-lg font-bold leading-tight text-primary">
+      <h3 className="mt-3 text-lg font-bold leading-tight text-neutral-900">
         {request.centerName}
       </h3>
+      {/* TODO(descriptor): bold summary line — needs request.title field (backend workflow) */}
       {request.centerDescription && (
         <p className="mt-0.5 text-sm text-neutral-500">
           {request.centerDescription}
@@ -43,7 +44,7 @@ export function RequestCard({ request }: { request: RequestCardData }) {
       {visible.length > 0 && (
         <div className="mt-3">
           {isSurplus && (
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-soon">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-warning">
               No enviar
             </p>
           )}
@@ -54,7 +55,7 @@ export function RequestCard({ request }: { request: RequestCardData }) {
               </ItemChip>
             ))}
             {overflow > 0 && (
-              <span className="inline-flex items-center px-1 text-xs font-medium text-accent">
+              <span className="inline-flex items-center rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-medium text-accent">
                 +{overflow} más
               </span>
             )}
@@ -63,18 +64,19 @@ export function RequestCard({ request }: { request: RequestCardData }) {
       )}
 
       {/* requested-at meta */}
-      <p className="mt-3 text-xs text-neutral-400">
+      <p className="mt-3 text-xs text-neutral-500">
         {formatRequestedClock(request.publishedAt)}
       </p>
 
       {/* footer */}
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex items-center gap-2 border-t border-neutral-100 pt-3">
         <Button
           variant="ghost"
           size="sm"
           href={`/solicitudes/${request.id}`}
           className="flex-1"
         >
+          <ShareArrow />
           Compartir
         </Button>
         <Button
@@ -87,5 +89,25 @@ export function RequestCard({ request }: { request: RequestCardData }) {
         </Button>
       </div>
     </Card>
+  );
+}
+
+/** Up-right arrow used on the "Compartir" affordance (Figma list 30:15714). */
+function ShareArrow() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7 17 17 7" />
+      <path d="M8 7h9v9" />
+    </svg>
   );
 }

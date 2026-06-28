@@ -1,5 +1,6 @@
 export { Button } from "./button";
 export { Card } from "./card";
+export { Logo } from "./logo";
 export { Tag, UrgencyTag } from "./tag";
 export { Chip, ItemChip } from "./chip";
 export { RequestCard } from "./request-card";

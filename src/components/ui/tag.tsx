@@ -13,18 +13,18 @@ type TagVariant =
 
 const styles: Record<TagVariant, string> = {
   neutral: "bg-neutral-100 text-neutral-700",
-  urgent: "bg-urgent-tint text-urgent",
-  soon: "bg-orange-50 text-soon",
+  urgent: "bg-error-tint text-error",
+  soon: "bg-warning-tint text-warning",
   normal: "bg-neutral-100 text-neutral-700",
   fulfilled: "bg-success-tint text-success",
-  expired: "bg-neutral-200 text-neutral-500",
-  surplus: "bg-orange-50 text-soon",
+  expired: "bg-neutral-100 text-neutral-500",
+  surplus: "bg-warning-tint text-warning",
 };
 
 const dotColor: Partial<Record<TagVariant, string>> = {
-  urgent: "bg-urgent",
-  soon: "bg-soon",
-  normal: "bg-neutral-400",
+  urgent: "bg-error",
+  soon: "bg-warning",
+  normal: "bg-neutral-500",
 };
 
 type TagProps = {

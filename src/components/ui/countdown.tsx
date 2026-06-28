@@ -43,13 +43,13 @@ export function Countdown({
   const progress = expiryProgress(publishedAt, expiresAt, now);
 
   return (
-    <div className="rounded-2xl bg-urgent-tint p-4">
-      <p className="text-xl font-bold text-urgent">{headline}</p>
-      <p className="mt-1 text-sm text-urgent/80">
+    <div className="rounded-2xl bg-error-tint p-4">
+      <p className="text-xl font-bold text-error">{headline}</p>
+      <p className="mt-1 text-sm text-error/80">
         Publicado {formatRelativeTime(publishedAt, now)} · ventana de{" "}
         {windowHours} h
       </p>
-      <ProgressBar value={progress} className="mt-3 bg-urgent/15" />
+      <ProgressBar value={progress} className="mt-3 bg-error/15" />
     </div>
   );
 }

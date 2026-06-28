@@ -48,7 +48,7 @@ export function SearchBox() {
         onChange={(e) => setValue(e.target.value)}
         placeholder="Buscar por centro, ciudad o ayuda…"
         aria-label="Buscar solicitudes"
-        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400"
+        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
       />
     </div>
   );
@@ -66,7 +66,7 @@ function SearchIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="shrink-0 text-neutral-400"
+      className="shrink-0 text-neutral-500"
     >
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.3-4.3" />

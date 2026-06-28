@@ -8,9 +8,10 @@ const base =
   "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-accent-on hover:bg-accent/90",
+  primary:
+    "bg-accent text-accent-on hover:bg-accent-hover active:bg-accent-pressed",
   secondary:
-    "bg-primary-tint text-primary hover:bg-primary-tint/80",
+    "bg-accent-subtle text-accent hover:bg-accent-subtle/70",
   ghost:
     "bg-transparent text-accent hover:bg-accent/10",
 };

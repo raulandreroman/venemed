@@ -70,7 +70,7 @@ export function ShareSection({
 
   return (
     <section>
-      <h2 className="text-lg font-bold text-primary">
+      <h2 className="text-lg font-semibold text-neutral-900">
         {title ?? "Comparte esta solicitud"}
       </h2>
       <p className="mt-1 text-sm text-neutral-500">

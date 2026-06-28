@@ -1,51 +1,53 @@
 @import "tailwindcss";
 
 /*
- * VeneMed design tokens — sourced from the Figma UI Kit
- * (file tGvDuvWW99K4QzDH0GlmW7, page 32:4166). Mobile-first, 390px.
+ * VeneMed design tokens — Figma UI Kit (tGvDuvWW99K4QzDH0GlmW7, node 32:4167).
+ * Single-accent system: accent = the only action color; everything else neutral;
+ * semantics only communicate state. Mobile-first, 390px.
  */
 :root {
-  --background: #f3f4f6; /* light-gray page */
-  --foreground: #111827; /* neutral/900 */
+  --background: #f7f8fa; /* neutral/50 — page background */
+  --foreground: #111827; /* neutral/900 — text */
 }
 
 @theme inline {
   /* surfaces */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-surface: #ffffff; /* neutral/0 — cards */
+  --color-surface: #ffffff; /* cards */
 
-  /* brand */
-  --color-primary: #0e2a52; /* primary/900 — logo, headings */
-  --color-primary-tint: #d6e4f5; /* primary/100 */
-  --color-accent: #1f5aa8; /* accent/default — primary button/links */
-  --color-accent-on: #ffffff;
+  /* accent — the ONLY action color */
+  --color-accent: #1f5aa8;         /* accent/default  */
+  --color-accent-hover: #174583;   /* accent/hover    */
+  --color-accent-pressed: #0e2a52; /* accent/pressed  */
+  --color-accent-subtle: #eef4fb;  /* accent/subtle (bg) */
+  --color-accent-border: #aec9ea;  /* accent/border   */
+  --color-accent-on: #ffffff;      /* text/icon on accent */
 
-  /* neutrals */
-  --color-neutral-50: #f9fafb;
-  --color-neutral-100: #f3f4f6;
-  --color-neutral-200: #e5e7eb;
-  --color-neutral-300: #c4cad4;
-  --color-neutral-400: #9ca3af;
-  --color-neutral-500: #6b7280;
-  --color-neutral-700: #374151;
-  --color-neutral-900: #111827;
+  /* neutrals — surfaces, text, borders (the 90% of the UI) */
+  --color-neutral-900: #111827; /* primary text */
+  --color-neutral-700: #374151; /* secondary text */
+  --color-neutral-500: #6b7280; /* tertiary text */
+  --color-neutral-300: #c4cad4; /* borders */
+  --color-neutral-100: #eef0f4; /* fills / separators */
+  --color-neutral-50: #f7f8fa;  /* page background */
 
-  /* status */
-  --color-urgent: #dc2626; /* red — <12h / countdown */
-  --color-urgent-tint: #fee2e2;
-  --color-soon: #ea580c; /* amber — 12-24h */
-  --color-success: #1e7d52; /* success/600 — closed/fulfilled */
-  --color-success-tint: #dcfce7;
+  /* semantics — state ONLY */
+  --color-success: #1e7d52;      /* success/600 — fulfilled */
+  --color-success-tint: #e8f5ee; /* success/50  */
+  --color-warning: #b45309;      /* warning/600 — "soon" (12–24 h) */
+  --color-warning-tint: #fef4e6; /* warning/50  */
+  --color-error: #c0362c;        /* error/600 — "urgent" (<12 h) */
+  --color-error-tint: #fcebe9;   /* error/50   */
 
   /* radii */
   --radius-md: 12px;
   --radius-lg: 16px;
+  --radius-xl: 20px;
   --radius-pill: 9999px;
 
-  /* fonts (Geist wired in root layout) */
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* fonts (Inter wired in src/app/layout.tsx) */
+  --font-sans: var(--font-inter);
 }
 
 body {

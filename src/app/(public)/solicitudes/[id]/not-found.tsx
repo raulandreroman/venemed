@@ -5,7 +5,7 @@ export default function RequestNotFound() {
     <>
       <AppBar title="Detalle de solicitud" />
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 text-neutral-400">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">
           <svg
             width="28"
             height="28"
@@ -22,7 +22,7 @@ export default function RequestNotFound() {
             <path d="M12 8h.01" />
           </svg>
         </div>
-        <h1 className="mt-5 text-xl font-bold text-primary">
+        <h1 className="mt-5 text-xl font-bold text-neutral-900">
           Esta solicitud ya no está disponible
         </h1>
         <p className="mt-2 text-sm text-neutral-500">

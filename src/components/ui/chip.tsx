@@ -62,9 +62,9 @@ export function ItemChip({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs ${
+      className={`inline-flex items-center rounded-full px-3 py-1 text-xs ${
         muted
-          ? "bg-neutral-100 text-neutral-400 line-through"
+          ? "bg-neutral-100 text-neutral-500 line-through"
           : "bg-neutral-100 text-neutral-700"
       }`}
     >

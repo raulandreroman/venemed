@@ -5,9 +5,10 @@ import {
   type RequestFilters,
   type RequestSort,
 } from "@/db/queries";
-import { categoryLabel, centerTypeLabel } from "@/lib/format";
-import { AppBar, Chip, RequestCard } from "@/components/ui";
+import { centerTypeLabel } from "@/lib/format";
+import { AppBar, RequestCard } from "@/components/ui";
 
+import { FilterSelect } from "./_components/filter-select";
 import { SearchBox } from "./_components/search-box";
 import { SortToggle } from "./_components/sort-toggle";
 
@@ -58,43 +59,38 @@ export default async function SolicitudesPage({
 
   const cities = uniqueSorted(allActive.map((r) => r.city));
   const types = uniqueSorted(allActive.map((r) => r.centerType));
-  const categories = uniqueSorted(allActive.flatMap((r) => r.categories ?? []));
 
-  const hasFilters = Boolean(
-    sp.search || sp.city || sp.type || sp.category,
-  );
+  const hasFilters = Boolean(sp.search || sp.city || sp.type || sp.category);
 
   return (
     <>
       <AppBar title="Solicitudes activas" backHref="/" />
 
       {/* Filtros */}
-      <section className="flex flex-col gap-3 border-b border-neutral-200 bg-surface p-6">
+      <section className="flex flex-col gap-3 border-b border-neutral-100 bg-surface p-6">
         <SearchBox />
 
-        {(cities.length > 0 ||
-          types.length > 0 ||
-          categories.length > 0) && (
-          <div className="-mx-6 flex gap-2 overflow-x-auto px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {cities.map((city) => (
-              <Chip key={`city-${city}`} param="city" value={city} label={city} />
-            ))}
-            {types.map((type) => (
-              <Chip
-                key={`type-${type}`}
+        {(cities.length > 0 || types.length > 0) && (
+          <div className="flex gap-2">
+            {cities.length > 0 && (
+              <FilterSelect
+                param="city"
+                label="Ubicación"
+                allLabel="Todas las ubicaciones"
+                options={cities.map((city) => ({ value: city, label: city }))}
+              />
+            )}
+            {types.length > 0 && (
+              <FilterSelect
                 param="type"
-                value={type}
-                label={centerTypeLabel(type)}
+                label="Sector"
+                allLabel="Todos los sectores"
+                options={types.map((type) => ({
+                  value: type,
+                  label: centerTypeLabel(type),
+                }))}
               />
-            ))}
-            {categories.map((cat) => (
-              <Chip
-                key={`cat-${cat}`}
-                param="category"
-                value={cat}
-                label={categoryLabel(cat)}
-              />
-            ))}
+            )}
           </div>
         )}
 
@@ -120,7 +116,7 @@ export default async function SolicitudesPage({
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-neutral-300 px-6 py-12 text-center">
-      <p className="text-base font-semibold text-primary">
+      <p className="text-base font-semibold text-neutral-900">
         {hasFilters
           ? "No hay solicitudes que coincidan"
           : "No hay solicitudes activas"}
