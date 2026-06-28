@@ -34,9 +34,16 @@ export function Countdown({
   );
 
   useEffect(() => {
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 30_000);
-    return () => clearInterval(id);
+    // First render uses the server-provided `initialNow` (no hydration
+    // mismatch); swap to the live clock just after mount — deferred out of the
+    // effect body so it doesn't trigger a synchronous cascading render.
+    const tick = () => setNow(new Date());
+    const raf = requestAnimationFrame(tick);
+    const id = setInterval(tick, 30_000);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearInterval(id);
+    };
   }, []);
 
   const headline = formatTimeLeftLong(expiresAt, now);
