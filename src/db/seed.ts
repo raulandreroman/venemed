@@ -86,6 +86,9 @@ async function main() {
       centerId: centerId("Hospital J.M. de los Ríos"),
       kind: "need",
       status: "active",
+      title: "Insumos pediátricos",
+      deliveryInstructions:
+        "Entregar en Recepción de donaciones, entrada principal. Preguntar por la coordinadora de turno.",
       windowHours: 12,
       publishedAt: jmRiosPublished,
       expiresAt: hoursFromNow(jmRiosPublished, 12),
@@ -101,6 +104,9 @@ async function main() {
       centerId: centerId("Refugio Casa Esperanza"),
       kind: "need",
       status: "active",
+      title: "Higiene y limpieza",
+      deliveryInstructions:
+        "Portón azul, timbre 2. Recibimos en horario de la mañana preferiblemente.",
       windowHours: 24,
       publishedAt: refugioPublished,
       expiresAt: hoursFromNow(refugioPublished, 24),
@@ -117,6 +123,9 @@ async function main() {
       centerId: centerId("Refugio Casa Esperanza"),
       kind: "surplus",
       status: "active",
+      title: "Excedente de ropa",
+      deliveryInstructions:
+        "No traer más ropa usada por ahora; el depósito está lleno.",
       windowHours: 48,
       publishedAt: surplusPublished,
       expiresAt: hoursFromNow(surplusPublished, 48),
