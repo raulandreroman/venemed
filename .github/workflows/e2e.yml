@@ -9,6 +9,22 @@ jobs:
   e2e:
     name: e2e # promote this to a required check once stable
     runs-on: ubuntu-latest
+    # All Supabase values below are the deterministic, PUBLIC local demo keys —
+    # NOT secrets. The e2e job runs entirely against an ephemeral LOCAL Supabase
+    # (Postgres + Auth) on the runner; prod is never touched. ubuntu-latest ships
+    # Docker, and the supabase CLI is a devDependency (available via pnpm exec).
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      # Local stack has no pooler → both URLs are the direct :54322 connection.
+      POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      POSTGRES_URL_NON_POOLING: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      CRON_SECRET: local-ci-cron-secret
+      # Center e2e uses the local test OTP wired in supabase/config.toml.
+      TEST_CENTER_PHONE: "4241234567"
+      TEST_CENTER_PHONE_2: "4221234567"
+      TEST_OTP_CODE: "123456"
     steps:
       - uses: actions/checkout@v4
 
@@ -23,25 +39,24 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Start the LOCAL Supabase stack (blank Postgres + Auth). First start pulls
+      # images (slow once). supabase CLI is a devDependency → use pnpm exec.
+      - name: Start local Supabase
+        run: pnpm exec supabase start
+
       - run: npx playwright install --with-deps chromium
 
-      # NOTE: no db:seed/db:migrate here — CI runs against the shared Supabase DB,
-      # and seeding deletes/recreates centers (cascading to memberships). The donor
-      # spec is written data-independently so no seeding is required.
-      - run: pnpm test:e2e
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-          POSTGRES_URL_NON_POOLING: ${{ secrets.POSTGRES_URL_NON_POOLING }}
-          TEST_CENTER_PHONE: ${{ secrets.TEST_CENTER_PHONE }}
-          # Second number for the registration test (avoids OTP rate-limit vs login).
-          TEST_CENTER_PHONE_2: ${{ secrets.TEST_CENTER_PHONE_2 }}
-          # Third, distinct number for the gated admin moderation spec. Unset → the
-          # admin actions test skips cleanly (like center.spec without TEST_OTP_CODE).
-          TEST_ADMIN_PHONE: ${{ secrets.TEST_ADMIN_PHONE }}
-          # If the secret is unset, this resolves to "" and center.spec skips.
-          TEST_OTP_CODE: ${{ secrets.TEST_OTP_CODE }}
+      # Schema via DRIZZLE (not supabase migrations) + sample data, on LOCAL.
+      # Safe to seed here: it's an ephemeral per-job DB, never prod.
+      - name: Migrate + seed local DB
+        run: pnpm db:setup
+
+      - name: Run Playwright (against local Supabase)
+        run: pnpm test:e2e
+
+      - name: Stop local Supabase
+        if: always()
+        run: pnpm exec supabase stop
 
       - name: Upload Playwright report
         if: failure()
