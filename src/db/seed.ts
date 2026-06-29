@@ -3,10 +3,14 @@
  * active requests). Content mirrors the Figma designs. Idempotent: clears the
  * domain tables first, then re-inserts. Run: pnpm db:seed
  */
+import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { center, supply, request, requestItem } from "./schema";
+
+import { normalizeVePhone } from "@/lib/registro/validation";
+
+import { appUser, center, membership, request, requestItem, supply } from "./schema";
 
 config({ path: ".env.local" });
 config();
@@ -15,7 +19,85 @@ const url = process.env.POSTGRES_URL_NON_POOLING ?? process.env.POSTGRES_URL;
 if (!url) throw new Error("POSTGRES_URL_NON_POOLING / POSTGRES_URL not set");
 
 const client = postgres(url, { prepare: false });
-const db = drizzle(client, { schema: { center, supply, request, requestItem } });
+const db = drizzle(client, {
+  schema: { appUser, center, membership, request, requestItem, supply },
+});
+
+/**
+ * Provision an APPROVED-center membership for the test phone, so e2e (and manual
+ * QA) reach the real /centro dashboard with data. Memberships are normally
+ * created on first login; we short-circuit that here by creating (or reusing)
+ * the Supabase auth user for TEST_CENTER_PHONE via the service-role admin API,
+ * then linking app_user(id = auth uid) → membership → the given center.
+ *
+ * No-op (with a notice) when the Supabase admin creds or TEST_CENTER_PHONE are
+ * absent, so a bare `db:seed` against a plain Postgres still succeeds.
+ */
+async function provisionTestMembership(centerId: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const canonical = normalizeVePhone(process.env.TEST_CENTER_PHONE);
+
+  if (!supabaseUrl || !serviceKey || !canonical) {
+    console.log(
+      "  • skipped test-membership (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / TEST_CENTER_PHONE not all set)",
+    );
+    return;
+  }
+
+  // Supabase/GoTrue stores phone WITHOUT the leading '+' (matches the
+  // [auth.sms.test_otp] key in supabase/config.toml, e.g. "584241234567").
+  const authPhone = canonical.slice(1);
+
+  const admin = createClient(supabaseUrl, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  // Find an existing auth user for this phone (auth.users survives db:seed,
+  // which only resets the domain tables), else create one phone-confirmed.
+  let userId: string | undefined;
+  const { data: list, error: listErr } = await admin.auth.admin.listUsers({
+    perPage: 1000,
+  });
+  if (listErr) throw listErr;
+  userId = list.users.find((u) => u.phone === authPhone)?.id;
+
+  if (!userId) {
+    const { data: created, error: createErr } =
+      await admin.auth.admin.createUser({
+        phone: authPhone,
+        phone_confirm: true,
+      });
+    if (createErr) throw createErr;
+    userId = created.user.id;
+  }
+
+  const now = new Date();
+  // app_user.id = auth uid (1:1). Upsert: the row may already exist from a
+  // prior login/seed since seed never deletes app_user.
+  await db
+    .insert(appUser)
+    .values({
+      id: userId,
+      phone: canonical,
+      name: "Coordinador de prueba",
+      phoneVerifiedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: appUser.id,
+      set: { phone: canonical, phoneVerifiedAt: now, updatedAt: now },
+    });
+
+  // membership was cascade-deleted with the centers above; re-create it.
+  await db
+    .insert(membership)
+    .values({ userId, centerId, role: "center_admin" })
+    .onConflictDoNothing();
+
+  console.log(
+    `  • linked TEST_CENTER_PHONE (${canonical}) → approved center as center_admin`,
+  );
+}
 
 const hoursFromNow = (base: Date, h: number) =>
   new Date(base.getTime() + h * 3600 * 1000);
@@ -167,6 +249,10 @@ async function main() {
       category: "General",
     },
   ]);
+
+  // Link the test phone to an approved center (J.M. de los Ríos has an active
+  // request with items) so login reaches the populated /centro dashboard.
+  await provisionTestMembership(centerId("Hospital J.M. de los Ríos"));
 
   console.log(
     `seeded: ${supplies.length} supplies, ${centers.length} centers, 3 requests (2 need + 1 surplus), 6 items`,

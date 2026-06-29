@@ -34,17 +34,32 @@ test.describe("center auth + registration", () => {
     await page.getByRole("button", { name: "Verificar" }).click();
   }
 
-  test("login: phone → OTP → routes to a center screen without crashing", async ({
-    page,
-  }) => {
+  async function loginAs(page: Page, phone: string) {
     await page.goto("/centro/login");
-    await page.getByLabel(/Teléfono/).fill(PHONE);
+    await page.getByLabel(/Teléfono/).fill(phone);
     await page.getByRole("button", { name: "Enviar código" }).click();
     await expect(page.getByRole("textbox", { name: "Dígito 1" })).toBeVisible();
     await fillOtp(page);
+  }
 
+  // The seed (provisionTestMembership) links TEST_CENTER_PHONE to an APPROVED
+  // center that has an active request, so this login deterministically lands on
+  // the real /centro dashboard (not /centro/registro). One OTP send for this
+  // number (registration uses PHONE_REG) to stay clear of the OTP rate limit
+  // (gotcha #8). Asserts the populated dashboard renders without crashing.
+  test("login: phone → OTP → approved center dashboard (name + a request)", async ({
+    page,
+  }) => {
+    await loginAs(page, PHONE);
+
+    await page.waitForURL(/\/centro$/, { timeout: 15_000 });
     await expect(page).toHaveURL(CENTER_URL);
-    await expect(page.getByRole("heading").first()).toBeVisible();
+    // Center name in the dashboard header (seed: "Hospital J.M. de los Ríos").
+    await expect(
+      page.getByRole("heading", { name: /Hospital J\.M\. de los Ríos/ }),
+    ).toBeVisible();
+    // At least one of the center's own request cards.
+    await expect(page.getByTestId("center-request-card").first()).toBeVisible();
     await expectNoErrorOverlay(page);
   });
 
