@@ -128,10 +128,10 @@ Center auth needs a Supabase **test phone number + fixed OTP code** (configured 
 
 ## Specs (canonical — keep in sync with code)
 
-`docs/specs/`: `data-model.md`, `cron-jobs.md`, `donor-slice.md`, `donor-fidelity.md`, `center-auth.md`, `center-registration.md`, `center-edit.md`, `e2e-smoke.md`. Diagrams in `docs/diagrams/`, the designer brief in `docs/briefs/`.
+`docs/specs/`: `data-model.md`, `cron-jobs.md`, `donor-slice.md`, `donor-fidelity.md`, `center-auth.md`, `center-registration.md`, `center-edit.md`, `center-workspace.md` (Phase 3 scope — decisions locked), `e2e-smoke.md`. Diagrams in `docs/diagrams/`, the designer brief in `docs/briefs/`.
 
 ## Status & roadmap
 
-**Done & in `main`**: donor surface (landing/list/detail-sheet, design-fidelity), cron + share tracking, CI/CD, e2e smoke, and the **center back office** (auth + login, registration, edit center data) with the moderation gate.
+**Done & in `main`**: donor surface (landing/list/detail-sheet, design-fidelity), cron + share tracking, CI/CD, e2e smoke, the **center back office** (auth + login, registration, edit center data) with the moderation gate, the **admin moderation UI** (login + queue + review + approve/reject), the **local dev DB** (local Supabase for dev + e2e), and **auto-migrate on prod deploy** (Vercel build step).
 
-**Next**: admin **moderation UI** (approve/reject centers); **Phase 3** center workspace (real dashboard + create-solicitud + insumo selector + manage with Finalizar/Extender); **offline** (PWA read + draft-with-confirm — see the data-model sync columns: client `id`, `idempotency_key`, `updated_at`); a **dedicated test DB** for e2e; and finishing the Twilio WhatsApp sender onboarding.
+**Next**: **Phase 3** center workspace — *scoped & decisions locked in `docs/specs/center-workspace.md`*; building in 4 slices (1 dashboard → 2 create+selector+publish (incl. migration `0004`: `supply_category` 3→6 + `center.reception_paused_at`) → 3 detail+Finalizar+Extender → 4 profile+reception toggle). **Surplus** redesigned as a future center-level banner (own mini-spec, not a solicitud). Then **offline** (PWA read + draft-with-confirm — data-model sync columns: client `id`, `idempotency_key`, `updated_at`) and finishing the Twilio WhatsApp sender onboarding.
