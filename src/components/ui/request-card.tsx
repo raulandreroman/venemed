@@ -23,7 +23,11 @@ export function RequestCard({ request }: { request: RequestCardData }) {
   } en VeneMed:`;
 
   return (
-    <Card className={isSurplus ? "border-warning/30" : ""}>
+    <Card
+      className={isSurplus ? "border-warning/30" : ""}
+      data-testid="request-card"
+      data-center-name={request.centerName}
+    >
       {/* header pills */}
       <div className="flex items-center justify-between gap-2">
         {request.city ? <Tag variant="neutral">{request.city}</Tag> : <span />}
