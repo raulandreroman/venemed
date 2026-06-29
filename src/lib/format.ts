@@ -13,6 +13,18 @@ const MONTHS_ES = [
   "jul", "ago", "sep", "oct", "nov", "dic",
 ];
 
+/**
+ * Display a Venezuelan E.164 phone with spacing, e.g.
+ * "+584125550034" → "+58 412 555 0034". Returns the input unchanged if it
+ * isn't a canonical 10-digit national number.
+ */
+export function formatVePhone(e164: string | null | undefined): string {
+  const d = (e164 ?? "").replace(/\D/g, "");
+  const nat = d.startsWith("58") ? d.slice(2) : d;
+  if (nat.length !== 10) return e164 ?? "";
+  return `+58 ${nat.slice(0, 3)} ${nat.slice(3, 6)} ${nat.slice(6)}`;
+}
+
 /** Urgency bucket for the colored dot / accent on cards. */
 export type UrgencyLevel = "urgent" | "soon" | "normal" | "expired";
 

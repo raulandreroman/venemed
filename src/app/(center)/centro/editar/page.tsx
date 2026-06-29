@@ -33,6 +33,7 @@ export default async function EditarPage() {
       regularScheduleText: center.regularScheduleText,
       whatsappPhone: center.whatsappPhone,
       responsibleName: appUser.name,
+      cargo: appUser.cargo,
     })
     .from(center)
     .leftJoin(appUser, eq(appUser.id, userId))
@@ -51,6 +52,7 @@ export default async function EditarPage() {
     // center.whatsapp_phone); keep one source for the locked/verified field.
     nationalPhone: vePhoneToNational(phone ?? row?.whatsappPhone),
     responsibleName: row?.responsibleName ?? "",
+    cargo: row?.cargo ?? "",
   };
 
   const statusRoute = ROUTE_BY_STATUS[status] ?? "/centro/en-revision";

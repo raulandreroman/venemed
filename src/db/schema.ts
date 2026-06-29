@@ -96,6 +96,9 @@ export const appUser = pgTable("app_user", {
   id: uuid("id").defaultRandom().primaryKey(),
   phone: text("phone").notNull().unique(),
   name: text("name"),
+  // Responsable's role/title (e.g. "Coordinadora de logística"), shown in the
+  // admin review. Optional; collected during registration.
+  cargo: varchar("cargo", { length: 60 }),
   isPlatformAdmin: boolean("is_platform_admin").notNull().default(false),
   phoneVerifiedAt: timestamp("phone_verified_at", { withTimezone: true }),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),

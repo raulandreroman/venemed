@@ -40,6 +40,7 @@ export type CreateCenterInput = {
   regularScheduleText?: string;
   whatsappPhone: string;
   responsibleName: string;
+  cargo?: string; // responsable's role/title, optional (Figma "Cargo")
 };
 
 export type FieldErrors = Partial<Record<keyof CreateCenterInput, string>>;
@@ -123,6 +124,10 @@ export function validateRegistro(
   if (responsible < 2 || responsible > 80) {
     errors.responsibleName =
       "Ingresa el nombre y apellido del responsable.";
+  }
+
+  if (len(input.cargo) > 60) {
+    errors.cargo = "El cargo no debe superar 60 caracteres.";
   }
 
   return errors;

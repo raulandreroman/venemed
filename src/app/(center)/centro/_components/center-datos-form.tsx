@@ -31,6 +31,7 @@ export type CenterDatosValues = {
   regularScheduleText: string;
   nationalPhone: string;
   responsibleName: string;
+  cargo: string;
 };
 
 export const EMPTY_DATOS: CenterDatosValues = {
@@ -43,6 +44,7 @@ export const EMPTY_DATOS: CenterDatosValues = {
   regularScheduleText: "",
   nationalPhone: "",
   responsibleName: "",
+  cargo: "",
 };
 
 /** Map the form state to the validated/server payload shape. The phone is
@@ -59,6 +61,7 @@ export function toInput(d: CenterDatosValues): CreateCenterInput {
     regularScheduleText: d.regularScheduleText || undefined,
     whatsappPhone: normalizeVePhone(d.nationalPhone) ?? d.nationalPhone,
     responsibleName: d.responsibleName,
+    cargo: d.cargo || undefined,
   };
 }
 
@@ -252,6 +255,15 @@ export function CenterDatosForm({
         value={data.responsibleName}
         onChange={set("responsibleName")}
         error={errors.responsibleName}
+      />
+
+      <TextField
+        id="cargo"
+        label="Cargo (opcional)"
+        placeholder="Ej: Coordinadora de logística"
+        value={data.cargo}
+        onChange={set("cargo")}
+        error={errors.cargo}
       />
 
       {footerError && (

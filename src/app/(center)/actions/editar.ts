@@ -70,7 +70,11 @@ export async function updateCenterForCurrentUser(
 
     await tx
       .update(appUser)
-      .set({ name: input.responsibleName.trim(), updatedAt: now })
+      .set({
+        name: input.responsibleName.trim(),
+        cargo: input.cargo?.trim() || null,
+        updatedAt: now,
+      })
       .where(eq(appUser.id, userId));
   });
 

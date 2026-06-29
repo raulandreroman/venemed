@@ -74,6 +74,7 @@ export async function createCenterForCurrentUser(
           id: user.id,
           phone: verifiedPhone,
           name: input.responsibleName.trim(),
+          cargo: input.cargo?.trim() || null,
           phoneVerifiedAt: now,
           lastLoginAt: now,
         })
@@ -81,6 +82,7 @@ export async function createCenterForCurrentUser(
           target: appUser.id,
           set: {
             name: input.responsibleName.trim(),
+            cargo: input.cargo?.trim() || null,
             phone: verifiedPhone,
             phoneVerifiedAt: now,
             updatedAt: now,
