@@ -5,12 +5,17 @@ import { redirect } from "next/navigation";
 import { AppBar, Tag } from "@/components/ui";
 import { CenterRequestCard } from "@/app/(center)/centro/_components/center-request-card";
 import { SignOutButton } from "@/app/(center)/_components/sign-out-button";
-import { getCenterProfile, getCenterRequestsClosedSince } from "@/db/queries";
+import {
+  getCenterActiveRequests,
+  getCenterProfile,
+  getCenterRequestsClosedSince,
+} from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import {
   centerTypeLabel,
   formatRelativeTime,
+  formatTimeLeft,
   formatVePhone,
 } from "@/lib/format";
 
@@ -36,13 +41,21 @@ export default async function CenterProfilePage() {
   const showType = CENTER_TYPE_ENABLED && profile.type != null;
   const typeLabel = showType ? centerTypeLabel(profile.type!) : null;
 
-  // Pausado screen also lists the requests closed by the pause.
+  // Pausado screen lists the requests closed by the pause; the Activo screen's
+  // "Desactivar recepción" sheet lists the active requests that WILL close.
   const closedOnPause = paused
     ? await getCenterRequestsClosedSince(
         current.centerId,
         profile.receptionPausedAt!,
       )
     : [];
+  const activeRequests = paused
+    ? []
+    : (await getCenterActiveRequests(current.centerId)).map((r) => ({
+        id: r.id,
+        title: r.title ?? "Solicitud",
+        vence: formatTimeLeft(r.expiresAt).toLowerCase(),
+      }));
 
   const subtitle = [typeLabel, profile.city].filter(Boolean).join(" · ");
 
@@ -89,6 +102,7 @@ export default async function CenterProfilePage() {
           pausedSince={
             paused ? `desde ${formatRelativeTime(profile.receptionPausedAt)}` : ""
           }
+          activeRequests={activeRequests}
         />
 
         {/* Pausado: requests closed at pause */}

@@ -200,7 +200,7 @@ test.describe("center auth + registration", () => {
       .toBe(0);
 
     // --- Center profile + reception kill-switch (slice 4; gotcha #2: drive the
-    // REAL switch → ConfirmDialog confirm → setReception, assert the close-all
+    // REAL switch → Desactivar-recepción sheet → setReception, assert the close-all
     // closes the center's active requests + drops them from the donor list). The
     // seed's "Insumos pediátricos" request is still active for this center. ---
     await page.goto("/centro/perfil");

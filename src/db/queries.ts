@@ -645,6 +645,25 @@ export async function getCenterProfile(
 }
 
 /**
+ * The center's currently-active requests (id + title + expiry), soonest-expiring
+ * first — for the "Desactivar recepción" sheet, which lists what will close.
+ * Center-private + uncached.
+ */
+export async function getCenterActiveRequests(
+  centerId: string,
+): Promise<{ id: string; title: string | null; expiresAt: Date | null }[]> {
+  return db
+    .select({
+      id: request.id,
+      title: request.title,
+      expiresAt: request.expiresAt,
+    })
+    .from(request)
+    .where(and(eq(request.centerId, centerId), eq(request.status, "active")))
+    .orderBy(asc(request.expiresAt));
+}
+
+/**
  * The center's requests that were CLOSED by a reception pause — `closed` with
  * `closedReason = 'cancelled'` since the pause timestamp — newest-closed first.
  * Powers the "Solicitudes cerradas al pausar" list on the Pausado profile.

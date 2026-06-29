@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { setReception } from "@/app/(center)/actions/recepcion";
-import { ConfirmDialog } from "@/components/ui";
+import { Button } from "@/components/ui";
+
+type ActiveRequest = { id: string; title: string; vence: string };
 
 /** A successful setReception still throws NEXT_REDIRECT; re-throw so Next
  * navigates instead of showing a false error (mirrors finalizar-button). */
@@ -15,22 +17,44 @@ function isNextRedirectError(e: unknown): boolean {
 /**
  * "Recepción de donaciones" kill-switch card (Figma 57:1886 Activo / 57:2009
  * Pausado). The switch never calls the action directly when turning OFF — it
- * opens the "Desactivar recepción" confirm (Figma 60:2102, reused ConfirmDialog)
- * → the real `setReception(true)` (gotcha #2). Turning ON (resume) calls
- * `setReception(false)` directly (no confirm). State only mutates from click
- * handlers, never synchronously in an effect body (gotcha #3).
+ * opens the "Desactivar recepción" bottom-sheet (Figma 60:2102) that lists the
+ * active requests that will close → the real `setReception(true)` (gotcha #2).
+ * Turning ON (resume) calls `setReception(false)` directly (no confirm). State
+ * only mutates from click handlers, never synchronously in an effect (gotcha #3).
  */
 export function ReceptionToggle({
   paused,
   pausedSince,
+  activeRequests,
 }: {
   paused: boolean;
   /** e.g. "desde hace 12 min" — precomputed server-side (relative time). */
   pausedSince: string;
+  /** active requests that will close on pause (title + "vence en X h"). */
+  activeRequests: ActiveRequest[];
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Escape + body-scroll-lock while the sheet is open (mirrors extender-button).
+  useEffect(() => {
+    if (!confirmOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panelRef.current?.focus({ preventScroll: true });
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [confirmOpen]);
+
+  const count = activeRequests.length;
 
   const run = useCallback(async (next: boolean) => {
     setPending(true);
@@ -106,18 +130,117 @@ export function ReceptionToggle({
         )}
       </div>
 
-      <ConfirmDialog
-        open={confirmOpen}
-        title="¿Desactivar la recepción?"
-        body="Tu centro dejará de aparecer en la lista pública y tus solicitudes activas se cerrarán de inmediato. Esta acción no se puede deshacer."
-        confirmLabel={pending ? "Desactivando…" : "Desactivar"}
-        cancelLabel="Cancelar"
-        pending={pending}
-        error={error}
-        onConfirm={onConfirm}
-        onCancel={() => setConfirmOpen(false)}
-      />
+      {confirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Desactivar la recepción"
+          className="fixed inset-0 z-50"
+        >
+          <button
+            type="button"
+            aria-label="Cerrar"
+            onClick={() => !pending && setConfirmOpen(false)}
+            className="absolute inset-0 h-full w-full cursor-default bg-neutral-900/40"
+          />
+          <div
+            ref={panelRef}
+            tabIndex={-1}
+            className="absolute inset-x-0 bottom-0 z-10 mx-auto flex max-h-[85dvh] w-full max-w-[390px] flex-col gap-4 overflow-y-auto rounded-t-[20px] bg-surface px-5 pb-5 pt-2 text-center shadow-xl outline-none"
+          >
+            <div className="flex justify-center pb-1">
+              <span className="h-1 w-9 rounded-full bg-neutral-300" />
+            </div>
+
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-warning-tint text-warning">
+              <PauseIcon />
+            </span>
+
+            <div>
+              <h2 className="text-lg font-bold text-neutral-900">
+                ¿Desactivar la recepción?
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-neutral-500">
+                Tu centro dejará de aparecer en la lista pública. Tus solicitudes
+                activas se cerrarán inmediatamente.
+              </p>
+            </div>
+
+            {count > 0 && (
+              <div className="rounded-xl bg-warning-tint p-3.5 text-left">
+                <p className="text-sm font-semibold text-warning">
+                  {count === 1
+                    ? "Se cerrará 1 solicitud activa:"
+                    : `Se cerrarán ${count} solicitudes activas:`}
+                </p>
+                <ul className="mt-1.5 flex flex-col gap-1">
+                  {activeRequests.map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex gap-2 text-sm text-neutral-700"
+                    >
+                      <span aria-hidden className="text-warning">
+                        •
+                      </span>
+                      <span>
+                        {r.title} · {r.vence}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <p className="text-xs leading-relaxed text-neutral-400">
+              Podrás reactivar la recepción cuando vuelvas a poder recibir
+              donaciones. Si solo quieres pausar nuevas solicitudes, mejor espera
+              a que cierren las actuales.
+            </p>
+
+            {error && (
+              <p role="alert" className="text-sm text-error">
+                {error}
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                fullWidth
+                disabled={pending}
+                onClick={() => setConfirmOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                fullWidth
+                disabled={pending}
+                onClick={onConfirm}
+              >
+                {pending ? "Desactivando…" : "Desactivar"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg
+      width="26"
+      height="26"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <rect x="6" y="5" width="4" height="14" rx="1" />
+      <rect x="14" y="5" width="4" height="14" rx="1" />
+    </svg>
   );
 }
 
