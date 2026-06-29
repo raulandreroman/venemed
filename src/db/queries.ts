@@ -533,6 +533,22 @@ export async function getSuppliesByCategory(
 }
 
 /**
+ * The full active catalog (id+name), name-sorted, for the insumo selector. The
+ * "área" facet was dropped from authoring, so the selector now searches one flat
+ * list and lets the center add any typed string as a custom insumo. Center-facing
+ * + uncached (no donor surge tags).
+ */
+export async function getActiveSupplies(): Promise<
+  { id: string; name: string }[]
+> {
+  return db
+    .select({ id: supply.id, name: supply.name })
+    .from(supply)
+    .where(eq(supply.isActive, true))
+    .orderBy(asc(supply.name));
+}
+
+/**
  * Live stat tiles for the center dashboard. `now()`-based, so it stays accurate
  * between cron runs (the expiry cron only flips status; the <6h window count is
  * derived from expiresAt here, not from a flag).
