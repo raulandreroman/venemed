@@ -25,12 +25,9 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      - name: Migrate and seed test database
-        run: pnpm db:migrate && pnpm db:seed
-        env:
-          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-          POSTGRES_URL_NON_POOLING: ${{ secrets.POSTGRES_URL_NON_POOLING }}
-
+      # NOTE: no db:seed/db:migrate here — CI runs against the shared Supabase DB,
+      # and seeding deletes/recreates centers (cascading to memberships). The donor
+      # spec is written data-independently so no seeding is required.
       - run: pnpm test:e2e
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
