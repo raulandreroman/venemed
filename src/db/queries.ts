@@ -41,7 +41,7 @@ export type RequestCardData = {
   title: string | null; // center-written descriptor
   centerName: string;
   centerDescription: string | null;
-  centerType: string;
+  centerType: string | null;
   publishedAt: Date | null;
   expiresAt: Date | null;
   windowHours: number;
@@ -59,7 +59,7 @@ export type RequestDetailData = RequestCardData & {
     name: string;
     description: string | null;
     city: string;
-    type: string;
+    type: string | null;
     addressLine: string | null;
     addressReference: string | null;
     regularScheduleText: string | null;

@@ -191,7 +191,7 @@ test.describe("center auth + registration", () => {
     await page.getByRole("button", { name: "Comenzar" }).click();
 
     await page.getByLabel("Nombre del centro").fill("Centro E2E Smoke");
-    await page.getByLabel("Tipo de centro").selectOption({ index: 1 });
+    // "Tipo de centro" is behind NEXT_PUBLIC_FEATURE_CENTER_TYPE (off by default).
     await page.getByLabel("Estado").selectOption({ index: 1 });
     await page.getByLabel("Ciudad").fill("Caracas");
     await page.getByLabel("Dirección").fill("Av. Principal, sector e2e");

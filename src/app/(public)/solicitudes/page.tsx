@@ -6,6 +6,8 @@ import {
   type RequestSort,
 } from "@/db/queries";
 import { centerTypeLabel } from "@/lib/format";
+import { CENTER_TYPE_ENABLED } from "@/lib/flags";
+import type { CenterType } from "@/lib/registro/validation";
 import { AppBar, RequestCard } from "@/components/ui";
 
 import { FilterSelect } from "./_components/filter-select";
@@ -45,7 +47,7 @@ export default async function SolicitudesPage({
   const filters: RequestFilters = {
     search: sp.search,
     city: sp.city,
-    type: sp.type,
+    type: CENTER_TYPE_ENABLED ? sp.type : undefined,
     category: sp.category,
     sort,
   };
@@ -58,9 +60,17 @@ export default async function SolicitudesPage({
   ]);
 
   const cities = uniqueSorted(allActive.map((r) => r.city));
-  const types = uniqueSorted(allActive.map((r) => r.centerType));
+  const types = CENTER_TYPE_ENABLED
+    ? uniqueSorted(
+        allActive
+          .map((r) => r.centerType)
+          .filter((t): t is CenterType => t != null),
+      )
+    : [];
 
-  const hasFilters = Boolean(sp.search || sp.city || sp.type || sp.category);
+  const hasFilters = Boolean(
+    sp.search || sp.city || (CENTER_TYPE_ENABLED && sp.type) || sp.category,
+  );
 
   return (
     <>

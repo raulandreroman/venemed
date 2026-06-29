@@ -3,19 +3,15 @@ import Link from "next/link";
 import type { CenterRequestCardData } from "@/db/queries";
 import { Card, ItemChip, Tag, UrgencyTag } from "@/components/ui";
 import { ShareCardButton } from "@/components/ui/share-card-button";
-import {
-  categoryLabel,
-  closedReasonLabel,
-  formatRequestedClock,
-} from "@/lib/format";
+import { closedReasonLabel, formatRequestedClock } from "@/lib/format";
 
 // Figma 32:4898 shows 3 chips then "+N más" (donor card uses 4).
 const MAX_VISIBLE_ITEMS = 3;
 
 /**
  * The center's own request, as shown in "Tus solicitudes". Distinct from the
- * donor RequestCard: leads with request.title, meta is "{área} · #{id}", and
- * the footer share targets the PUBLIC donor link the center sends to donors.
+ * donor RequestCard: leads with request.title, meta is "#{id}", and the footer
+ * share targets the PUBLIC donor link the center sends to donors.
  */
 export function CenterRequestCard({
   request,
@@ -25,9 +21,6 @@ export function CenterRequestCard({
   const items = request.items;
   const visible = items.slice(0, MAX_VISIBLE_ITEMS);
   const overflow = items.length - visible.length;
-  const area = request.categories?.[0]
-    ? categoryLabel(request.categories[0])
-    : null;
   // Human-friendly global display id (request.short_id, added in migration 0004).
   const shortId = request.shortId;
 
@@ -48,10 +41,8 @@ export function CenterRequestCard({
           {request.title ?? "Solicitud"}
         </h3>
 
-        {/* meta: {área} · #id */}
-        <p className="mt-0.5 text-sm text-neutral-500">
-          {area ? `${area} · ` : ""}#{shortId}
-        </p>
+        {/* meta: #id */}
+        <p className="mt-0.5 text-sm text-neutral-500">#{shortId}</p>
 
         {/* item chips */}
         {visible.length > 0 && (

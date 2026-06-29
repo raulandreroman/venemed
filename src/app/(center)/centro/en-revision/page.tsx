@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppBar, Button } from "@/components/ui";
 import { requireCenter } from "@/lib/auth/require-center";
-import { SignOutButton } from "../../_components/sign-out-button";
+import { supportWhatsappHref } from "@/lib/support";
 
 /**
  * "Casi listo" — pending_review centers (Figma 8:733). The phone is verified;
@@ -93,7 +93,9 @@ export default async function EnRevisionPage() {
 
         {/* footer */}
         <div className="mt-auto flex flex-col gap-2.5 border-t border-neutral-100 px-5 pb-5 pt-3.5">
-          <SignOutButton label="Entendido" variant="primary" />
+          <Button href={supportWhatsappHref()} variant="primary" fullWidth>
+            Contactar a soporte
+          </Button>
           <Button
             href="/centro/editar"
             variant="ghost"

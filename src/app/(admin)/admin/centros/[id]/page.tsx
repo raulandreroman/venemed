@@ -5,6 +5,7 @@ import { AppBar, Tag } from "@/components/ui";
 import { getCenterForReview } from "@/db/admin-queries";
 import type { CenterStatus } from "@/lib/auth/current-center";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import { formatRelativeTime, formatVePhone } from "@/lib/format";
 
 import { CenterAvatar } from "../../../_components/center-avatar";
@@ -59,7 +60,9 @@ export default async function CenterReviewPage({ params }: PageProps) {
               {c.name}
             </h2>
             <p className="truncate text-sm text-neutral-500">
-              {centerTypeLabel(c.type)} · {c.city}
+              {CENTER_TYPE_ENABLED && c.type
+                ? `${centerTypeLabel(c.type)} · ${c.city}`
+                : c.city}
             </p>
           </div>
         </div>
@@ -67,7 +70,9 @@ export default async function CenterReviewPage({ params }: PageProps) {
         {/* Datos del centro */}
         <Section title="Datos del centro">
           <Field label="Nombre legal" value={c.name} />
-          <Field label="Tipo de centro" value={centerTypeLabel(c.type)} />
+          {CENTER_TYPE_ENABLED && c.type && (
+            <Field label="Tipo de centro" value={centerTypeLabel(c.type)} />
+          )}
           <Field label="Estado" value={c.state} />
           <Field label="Ciudad" value={c.city} />
           <Field

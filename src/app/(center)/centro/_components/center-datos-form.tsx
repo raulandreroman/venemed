@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { Button } from "@/components/ui";
+import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import {
   CENTER_TYPE_OPTIONS,
   normalizeVePhone,
@@ -53,7 +54,8 @@ export const EMPTY_DATOS: CenterDatosValues = {
 export function toInput(d: CenterDatosValues): CreateCenterInput {
   return {
     name: d.name,
-    type: d.type as CenterType,
+    // Center-type feature off → the field isn't shown and we store no type (null).
+    type: CENTER_TYPE_ENABLED ? (d.type as CenterType) : null,
     state: d.state,
     city: d.city,
     addressLine: d.addressLine,
@@ -177,18 +179,20 @@ export function CenterDatosForm({
         error={errors.name}
       />
 
-      <SelectField
-        id="type"
-        label="Tipo de centro"
-        value={data.type}
-        onChange={set("type")}
-        error={errors.type}
-        placeholder="Selecciona el tipo"
-        options={CENTER_TYPE_OPTIONS.map((o) => ({
-          value: o.value,
-          label: o.label,
-        }))}
-      />
+      {CENTER_TYPE_ENABLED && (
+        <SelectField
+          id="type"
+          label="Tipo de centro"
+          value={data.type}
+          onChange={set("type")}
+          error={errors.type}
+          placeholder="Selecciona el tipo"
+          options={CENTER_TYPE_OPTIONS.map((o) => ({
+            value: o.value,
+            label: o.label,
+          }))}
+        />
+      )}
 
       <SelectField
         id="state"

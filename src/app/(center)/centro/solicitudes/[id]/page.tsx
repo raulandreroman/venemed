@@ -5,11 +5,7 @@ import { AppBar, Countdown, Tag } from "@/components/ui";
 import type { CenterRequestDetailData } from "@/db/queries";
 import { getCenterRequestById } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
-import {
-  categoryLabel,
-  closedReasonLabel,
-  formatDeliveryCutoff,
-} from "@/lib/format";
+import { closedReasonLabel, formatDeliveryCutoff } from "@/lib/format";
 
 import { ExtenderButton } from "./_components/extender-button";
 import { FinalizarButton } from "./_components/finalizar-button";
@@ -37,7 +33,6 @@ export default async function CenterRequestDetailPage({
   if (!req) notFound();
 
   const isTerminal = req.status === "closed" || req.status === "expired";
-  const area = req.categories?.[0] ? categoryLabel(req.categories[0]) : null;
   const shareMessage = req.title
     ? `Ayuda al centro con: ${req.title}`
     : "Ayuda al centro en VeneMed:";
@@ -74,9 +69,7 @@ export default async function CenterRequestDetailPage({
         <h1 className="mt-3 text-[22px] font-bold leading-tight text-neutral-900">
           {req.title ?? "Solicitud"}
         </h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          {area ? `${area} · ` : ""}#{req.shortId}
-        </p>
+        <p className="mt-1 text-sm text-neutral-500">#{req.shortId}</p>
 
         {/* countdown card (+ Extender) — active only */}
         {!isTerminal && (

@@ -40,6 +40,9 @@ export function InsumoSelector({
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [customs, setCustoms] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  // Explicit "agregar manual" entry (an obvious alternative to search-to-create).
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualDraft, setManualDraft] = useState("");
 
   // Seed working state when the sheet opens. State only ever mutates from an
   // effect that GATES on `open` flipping true (not a synchronous body write on
@@ -58,6 +61,8 @@ export function InsumoSelector({
         );
         setCustoms(selected.filter((it) => !it.supplyId).map((it) => it.name));
         setSearch("");
+        setManualOpen(false);
+        setManualDraft("");
       });
       return () => cancelAnimationFrame(raf);
     }
@@ -136,6 +141,15 @@ export function InsumoSelector({
   const removeCustom = useCallback((name: string) => {
     setCustoms((prev) => prev.filter((c) => c !== name));
   }, []);
+
+  /** Submit the explicit "agregar manual" input. */
+  const submitManual = useCallback(() => {
+    const name = manualDraft.trim();
+    if (!name) return;
+    addCustomNamed(name);
+    setManualDraft("");
+    setManualOpen(false);
+  }, [manualDraft, addCustomNamed]);
 
   const query = search.trim();
   const filtered = useMemo(() => {
@@ -219,6 +233,51 @@ export function InsumoSelector({
             />
           </div>
         </div>
+
+        {/* explicit "agregar manual" — an obvious alternative to search-to-create.
+            Hidden while searching, since the "Crear «…»" row does the same thing. */}
+        {!query && (
+        <div className="shrink-0 px-4 pb-3">
+          {manualOpen ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                autoFocus
+                value={manualDraft}
+                onChange={(e) => setManualDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    submitManual();
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setManualOpen(false);
+                    setManualDraft("");
+                  }
+                }}
+                placeholder="Nombre del insumo"
+                aria-label="Nombre del insumo manual"
+                className="h-11 flex-1 rounded-xl border border-neutral-300 bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300 focus:border-accent focus:ring-2 focus:ring-accent/30"
+              />
+              <Button type="button" size="sm" onClick={submitManual}>
+                Añadir
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              fullWidth
+              onClick={() => setManualOpen(true)}
+              className="text-accent"
+            >
+              <PlusIcon />
+              Agregar manual
+            </Button>
+          )}
+        </div>
+        )}
 
         {/* scrollable body */}
         <div data-sheet-scroll className="flex-1 overflow-y-auto px-4 pb-4">
