@@ -60,6 +60,16 @@ export function normalizeVePhone(raw: string | undefined | null): string | null 
   return `+58${d}`;
 }
 
+/**
+ * Derive the national-only digits (no country code, no trunk-0) from a stored
+ * E.164 / Supabase phone, for display in the locked phone field. Mirrors the
+ * wizard's authed-prefill transform so create and edit show identical digits.
+ * Isomorphic; safe to import from client and server.
+ */
+export function vePhoneToNational(e164: string | undefined | null): string {
+  return (e164 ?? "").replace(/\D/g, "").replace(/^58/, "");
+}
+
 function len(v: string | undefined): number {
   return (v ?? "").trim().length;
 }

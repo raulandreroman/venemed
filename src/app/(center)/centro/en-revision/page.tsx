@@ -95,7 +95,7 @@ export default async function EnRevisionPage() {
         <div className="mt-auto flex flex-col gap-2.5 border-t border-neutral-100 px-5 pb-5 pt-3.5">
           <SignOutButton label="Entendido" variant="primary" />
           <Button
-            href="/centro/registro"
+            href="/centro/editar"
             variant="ghost"
             fullWidth
             className="border-[1.5px] border-neutral-300 bg-surface text-neutral-900 hover:bg-neutral-50"
