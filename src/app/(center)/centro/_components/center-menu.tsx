@@ -12,7 +12,7 @@ import { signOut } from "../../actions/auth";
  * stay clear of the react-hooks/set-state-in-effect eslint error.
  *
  * Rows:
- *  - "Ver Centro médico" → /centro/perfil (the center profile, slice 4)
+ *  - "Ver centro médico" → /centro/perfil (the center profile, slice 4)
  *  - "Cerrar sesión" → posts the existing signOut server action
  */
 export function CenterMenu({ initials }: { initials: string }) {
@@ -78,7 +78,7 @@ export function CenterMenu({ initials }: { initials: string }) {
                 {initials}
               </span>
               <span className="flex-1 text-[15px] font-medium text-neutral-900">
-                Ver Centro médico
+                Ver centro médico
               </span>
               <ChevronRight className="text-neutral-300" />
             </Link>
