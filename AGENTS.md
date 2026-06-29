@@ -34,12 +34,36 @@ pnpm lint                # eslint — CI GATE
 npx tsc --noEmit         # typecheck — CI GATE
 pnpm db:generate         # drizzle-kit: generate a migration from schema.ts
 pnpm db:migrate          # apply migrations (uses POSTGRES_URL_NON_POOLING / DIRECT)
-pnpm db:seed             # ⚠️ DESTRUCTIVE: deletes+recreates centers/requests/supplies (cascades memberships). NEVER run in CI against the shared DB.
+pnpm db:seed             # ⚠️ DESTRUCTIVE: deletes+recreates centers/requests/supplies (cascades memberships). Safe against LOCAL; NEVER against a shared/prod DB.
 pnpm db:studio           # drizzle studio
 pnpm test:e2e            # Playwright smoke (builds+serves on :3210, runs e2e/)
+
+# Local Supabase lifecycle (see "Local development DB" below):
+pnpm supabase:start      # boot local Supabase (Postgres + Auth + Storage) on Docker
+pnpm supabase:stop       # tear down (data persists across start/stop)
+pnpm supabase:status     # print local URLs + the deterministic local anon/service keys
+pnpm db:setup            # drizzle migrate + seed against local .env.local
+pnpm dev:local           # one-shot: supabase:start && db:setup && dev
 ```
 
-Env comes from `.env.local` (pulled via `vercel env pull`; gitignored). See `.env.example`. The Supabase env names are `POSTGRES_URL` (pooler, runtime, `prepare:false`), `POSTGRES_URL_NON_POOLING` (direct, migrations), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Plus `CRON_SECRET`, `TEST_CENTER_PHONE`, `TEST_CENTER_PHONE_2`, `TEST_OTP_CODE`.
+Env comes from `.env.local` (gitignored). See `.env.example`. The Supabase env names are `POSTGRES_URL` (pooler, runtime, `prepare:false`), `POSTGRES_URL_NON_POOLING` (direct, migrations), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Plus `CRON_SECRET`, `TEST_CENTER_PHONE`, `TEST_CENTER_PHONE_2`, `TEST_OTP_CODE`. **Local dev + e2e default to a local Supabase** (below); `vercel env pull .env.local` restores the prod creds when you need them.
+
+## Local development DB
+
+`pnpm dev` and `pnpm test:e2e` run against a **fully-local Supabase stack** (Postgres + Auth + Storage) via the Supabase CLI on Docker — never the prod/cloud DB. We use Supabase Auth (`app_user.id` = `auth.users.id`), so a bare Postgres won't do; we need the full stack. See `docs/specs/local-dev-db.md`.
+
+```bash
+pnpm supabase:start   # blank Postgres + Auth + Storage on Docker (first start pulls images)
+pnpm db:setup         # drizzle migrate + seed → local DB  (== db:migrate && db:seed)
+pnpm dev              # serves against local (donor list shows seeded requests)
+# … work …
+pnpm supabase:stop    # tear down when done (data persists across start/stop)
+```
+
+- **Migrations stay Drizzle-owned.** We do **not** use Supabase's migration system — nothing goes in `supabase/migrations/`. `supabase start` boots a blank Postgres + Auth and we apply Drizzle (`db:migrate`) + `db:seed` on top. `supabase/config.toml` is the only committed Supabase file we hand-tune.
+- **Deterministic local creds.** API `http://127.0.0.1:54321`, DB `postgresql://postgres:postgres@127.0.0.1:54322/postgres`, Studio `http://127.0.0.1:54323`. The local anon/service keys printed by `pnpm supabase:status` are the well-known local demo keys — **public, not secrets** (safe to inline in CI / `.env.example`). No pooler locally → both POSTGRES URLs use the direct `:54322` port (`prepare:false` is a harmless no-op there).
+- **Offline phone OTP.** `supabase/config.toml` enables phone auth + an `[auth.sms.test_otp]` map (`584241234567` and `584221234567` → `123456`) so center login/registration work fully offline. The keys are canonical E.164 digits (what `normalizeVePhone()` produces from `TEST_CENTER_PHONE` / `TEST_CENTER_PHONE_2`). A dummy Twilio provider is enabled so GoTrue keeps phone login active; `test_otp` short-circuits any real send.
+- **Env backup / recovery.** `.env.local` now holds LOCAL creds. The prior PROD creds were backed up to **`.env.vercel.local`** (gitignored). Restore prod locally with `cp .env.vercel.local .env.local`, or canonically `vercel env pull .env.local`. Prod env stays authoritative on Vercel and is never touched by local/CI runs. Never commit `.env*` (only `.env.example`).
 
 ## Repo layout
 
@@ -87,8 +111,8 @@ docs/specs/              # the canonical specs — READ THESE (data-model, cron-
 4. **Phone normalization**: always use `normalizeVePhone()` — it strips `+58` then a trunk `0` and returns canonical `+58XXXXXXXXXX`. The OTP-verified session phone is the only source of truth for `center.whatsapp_phone`. Supabase test numbers must be configured in canonical E.164 (no trunk `0`), or the app's send won't match them.
 5. **Secure-context APIs**: `navigator.share` / `navigator.clipboard` only work on HTTPS or `localhost` — they silently no-op over a plain-HTTP LAN IP. Test share/copy on the deployed HTTPS URL.
 6. **Don't run two repo-mutating/build workflows on the same working tree at once** (they clobber `.next` + git). Stop the dev server before a workflow runs its own builds.
-7. **e2e runs against the shared *prod* Supabase DB.** Never add `db:seed`/`db:migrate` to CI (it deletes/recreates centers). Donor specs are written **data-independently**; center specs **write a bounded pending test center** (idempotent). A **dedicated test DB is a recommended follow-up.**
-8. **OTP rate-limit**: Supabase limits OTP sends to ~1/min per number. Tests that each send an OTP must use **different** test numbers (`TEST_CENTER_PHONE` vs `TEST_CENTER_PHONE_2`).
+7. **e2e + local dev now run against a LOCAL Supabase**, not prod (see "Local development DB"). CI's `e2e` job spins up an ephemeral local Supabase on the runner, runs `db:setup` (Drizzle migrate + seed), and Playwright against it — so `db:seed`/`db:migrate` in CI is now safe (ephemeral per-job DB, never prod). The "dedicated test DB" follow-up is effectively delivered for CI. Donor specs are still written **data-independently**; center specs **write a bounded pending test center**. The OTP test code (`123456`) comes from `[auth.sms.test_otp]` in `supabase/config.toml`. The `expire-requests.yml` cron still hits prod and keeps its prod secrets.
+8. **OTP rate-limit**: against cloud Supabase, sends are limited to ~1/min per number, so tests that each send an OTP must use **different** test numbers (`TEST_CENTER_PHONE` vs `TEST_CENTER_PHONE_2`). Locally the `test_otp` map sidesteps real sending, but keep the two-number split for parity.
 
 ## Workflow & CI/CD
 

@@ -67,8 +67,17 @@ test.describe("center auth + registration", () => {
     await expect(page.getByRole("textbox", { name: "Dígito 1" })).toBeVisible();
     await fillOtp(page);
 
-    // The POINT: the server action ran and we landed on a real screen — even on
-    // an idempotent re-run where the center already exists.
+    // The POINT: wait for the server action to actually COMPLETE and redirect
+    // us OFF the wizard (`/centro/registro`) to a post-registration status
+    // screen. Asserting CENTER_URL alone would pass instantly because the
+    // wizard already lives at `/centro/registro` — tearing down the page before
+    // the async action runs and silently aborting the DB write (AGENTS.md
+    // gotcha #2). A fresh center lands on en-revisión (pending_review); an
+    // idempotent re-run routes by existing status (en-revisión / rechazado /
+    // dashboard) — all leave the wizard.
+    await page.waitForURL(/\/centro(\/(en-revision|rechazado))?$/, {
+      timeout: 15_000,
+    });
     await expect(page).toHaveURL(CENTER_URL);
     await expectNoErrorOverlay(page);
   });
