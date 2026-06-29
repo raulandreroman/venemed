@@ -5,7 +5,7 @@ import { AppBar, Tag } from "@/components/ui";
 import { getCenterForReview } from "@/db/admin-queries";
 import type { CenterStatus } from "@/lib/auth/current-center";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { formatRelativeTime } from "@/lib/format";
+import { formatRelativeTime, formatVePhone } from "@/lib/format";
 
 import { CenterAvatar } from "../../../_components/center-avatar";
 import {
@@ -96,6 +96,9 @@ export default async function CenterReviewPage({ params }: PageProps) {
         {/* Persona responsable */}
         <Section title="Persona responsable">
           <Field label="Nombre" value={c.responsable?.name ?? null} />
+          {c.responsable?.cargo && (
+            <Field label="Cargo" value={c.responsable.cargo} />
+          )}
           <div>
             <p className="text-xs text-neutral-500">Teléfono WhatsApp</p>
             <a
@@ -104,7 +107,7 @@ export default async function CenterReviewPage({ params }: PageProps) {
               rel="noopener noreferrer"
               className="mt-0.5 inline-flex items-center gap-1 text-[15px] font-semibold text-accent"
             >
-              {c.whatsappPhone}
+              {formatVePhone(c.whatsappPhone)}
               <ExternalGlyph />
             </a>
             <p className="mt-0.5 text-xs text-neutral-500">

@@ -52,7 +52,11 @@ export type CenterReview = {
   rejectionReason: string | null;
   verifiedAt: Date | null;
   createdAt: Date;
-  responsable: { name: string | null; phone: string | null } | null;
+  responsable: {
+    name: string | null;
+    phone: string | null;
+    cargo: string | null;
+  } | null;
   counts: { requestsTotal: number };
   history: ModerationHistoryRow[];
 };
@@ -170,7 +174,7 @@ export async function getCenterForReview(
   // Responsable: the center_admin member's app_user (one user per center in v1,
   // queried defensively with limit(1)).
   const [resp] = await db
-    .select({ name: appUser.name, phone: appUser.phone })
+    .select({ name: appUser.name, phone: appUser.phone, cargo: appUser.cargo })
     .from(membership)
     .innerJoin(appUser, eq(appUser.id, membership.userId))
     .where(
