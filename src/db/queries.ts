@@ -73,6 +73,44 @@ export type LandingStats = {
   lastUpdated: Date | null;
 };
 
+export type CenterRequestStatus =
+  | "active"
+  | "paused"
+  | "closed"
+  | "expired"
+  | "draft";
+
+/** A center's own request, for the back-office dashboard card. */
+export type CenterRequestCardData = {
+  id: string;
+  kind: "need" | "surplus";
+  status: CenterRequestStatus;
+  city: string | null;
+  title: string | null;
+  categories: string[] | null;
+  publishedAt: Date | null;
+  expiresAt: Date | null;
+  windowHours: number;
+  shareCount: number;
+  closedReason: "fulfilled" | "cancelled" | "expired" | null;
+  createdAt: Date;
+  items: RequestItemData[];
+};
+
+export type CenterDashboardStats = {
+  /** count of status = 'active' */
+  activas: number;
+  /** active AND expiring within the next EXPIRING_SOON_HOURS (and not yet past) */
+  porVencer: number;
+};
+
+/**
+ * "Por vencer" threshold: an active request counts as expiring soon when its
+ * expiry is within the next 6 hours (and still in the future). Independent of
+ * the card's UrgencyTag color buckets (12h/24h) — this is the product "soon".
+ */
+export const EXPIRING_SOON_HOURS = 6;
+
 // ---- 4.1 getActiveRequests -------------------------------------------------
 
 async function queryActiveRequests(
@@ -313,4 +351,107 @@ export function getLandingStats(): Promise<LandingStats> {
     revalidate: 60,
     tags: ["landing-stats"],
   })();
+}
+
+// ---- 4.4 center dashboard (PRIVATE, uncached) ------------------------------
+//
+// These two are CENTER-PRIVATE: scoped by the logged-in center's id (resolved
+// server-side via requireCenter — never a client id) and authorized by that
+// single centerId predicate (Drizzle bypasses RLS). They are deliberately NOT
+// wrapped in unstable_cache and carry NONE of the donor surge tags
+// (active-requests / landing-stats / request:<id>) so the dashboard reflects
+// the center's own writes immediately.
+
+/**
+ * A center's own non-draft requests (active/paused/closed/expired), newest /
+ * most-urgent first: active first, then soonest expiry, then most recent.
+ */
+export async function getCenterRequests(
+  centerId: string,
+): Promise<CenterRequestCardData[]> {
+  const rows = await db
+    .select({
+      id: request.id,
+      kind: request.kind,
+      status: request.status,
+      city: request.city,
+      title: request.title,
+      categories: request.categories,
+      publishedAt: request.publishedAt,
+      expiresAt: request.expiresAt,
+      windowHours: request.windowHours,
+      shareCount: request.shareCount,
+      closedReason: request.closedReason,
+      createdAt: request.createdAt,
+    })
+    .from(request)
+    .where(
+      and(
+        eq(request.centerId, centerId),
+        sql`${request.status} <> 'draft'`,
+      ),
+    )
+    .orderBy(
+      // active first
+      asc(sql`case when ${request.status} = 'active' then 0 else 1 end`),
+      asc(request.expiresAt), // soonest expiry (NULLs sort last under asc)
+      desc(request.createdAt),
+    );
+
+  const ids = rows.map((r) => r.id);
+  const items = ids.length
+    ? await db
+        .select({
+          id: requestItem.id,
+          requestId: requestItem.requestId,
+          name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
+          category: requestItem.category,
+        })
+        .from(requestItem)
+        .leftJoin(supply, eq(supply.id, requestItem.supplyId))
+        .where(inArray(requestItem.requestId, ids))
+        .orderBy(asc(requestItem.createdAt))
+    : [];
+
+  const itemsByRequest = new Map<string, RequestItemData[]>();
+  for (const it of items) {
+    const list = itemsByRequest.get(it.requestId) ?? [];
+    list.push({ id: it.id, name: it.name, category: it.category });
+    itemsByRequest.set(it.requestId, list);
+  }
+
+  return rows.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    status: r.status,
+    city: r.city,
+    title: r.title,
+    categories: r.categories,
+    publishedAt: r.publishedAt,
+    expiresAt: r.expiresAt,
+    windowHours: r.windowHours,
+    shareCount: r.shareCount,
+    closedReason: r.closedReason,
+    createdAt: r.createdAt,
+    items: itemsByRequest.get(r.id) ?? [],
+  }));
+}
+
+/**
+ * Live stat tiles for the center dashboard. `now()`-based, so it stays accurate
+ * between cron runs (the expiry cron only flips status; the <6h window count is
+ * derived from expiresAt here, not from a flag).
+ */
+export async function getCenterDashboardStats(
+  centerId: string,
+): Promise<CenterDashboardStats> {
+  const [row] = await db
+    .select({
+      activas: sql<number>`count(*) filter (where ${request.status} = 'active')::int`,
+      porVencer: sql<number>`count(*) filter (where ${request.status} = 'active' and ${request.expiresAt} > now() and ${request.expiresAt} < now() + (${EXPIRING_SOON_HOURS} * interval '1 hour'))::int`,
+    })
+    .from(request)
+    .where(eq(request.centerId, centerId));
+
+  return { activas: row?.activas ?? 0, porVencer: row?.porVencer ?? 0 };
 }
