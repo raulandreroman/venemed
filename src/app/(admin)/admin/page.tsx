@@ -40,7 +40,7 @@ export default async function AdminQueuePage({
 
   return (
     <>
-      {/* Header — centered two-line title + inert overflow (A5 directory later). */}
+      {/* Header — centered two-line title, flanked by spacers. */}
       <header className="sticky top-0 z-10 border-b border-neutral-100 bg-surface">
         <div className="flex items-center justify-between px-4 py-2.5">
           <span className="h-9 w-9" />
@@ -50,12 +50,8 @@ export default async function AdminQueuePage({
             </h1>
             <p className="text-xs text-neutral-500">{updatedLabel}</p>
           </div>
-          <span
-            aria-hidden
-            className="inline-flex h-9 w-9 items-center justify-center text-lg leading-none text-neutral-500"
-          >
-            ···
-          </span>
+          {/* Balances the left spacer so the title stays centered. */}
+          <span className="h-9 w-9" />
         </div>
         <QueueTabs active={activeTab} pendingCount={pendingCount} />
       </header>
