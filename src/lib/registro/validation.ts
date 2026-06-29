@@ -6,6 +6,7 @@
  * drift. No `server-only` / `use client` directive: this module is isomorphic.
  * No validation library (the project intentionally has no zod — see spec §8).
  */
+import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import { VE_STATES } from "@/lib/geo/ve-states";
 
 export { VE_STATES };
@@ -32,7 +33,8 @@ const CENTER_TYPE_VALUES = CENTER_TYPE_OPTIONS.map((o) => o.value);
 /** The validated, server-bound payload. `whatsappPhone` is E.164 ("+58…"). */
 export type CreateCenterInput = {
   name: string;
-  type: CenterType;
+  /** null when the center-type feature is off (see `CENTER_TYPE_ENABLED`). */
+  type: CenterType | null;
   state: string;
   city: string;
   addressLine: string;
@@ -89,7 +91,8 @@ export function validateRegistro(
     errors.name = "Ingresa el nombre del centro (2 a 120 caracteres).";
   }
 
-  if (!input.type || !CENTER_TYPE_VALUES.includes(input.type)) {
+  // Only required when the center-type feature is on; off → type is null.
+  if (CENTER_TYPE_ENABLED && (!input.type || !CENTER_TYPE_VALUES.includes(input.type))) {
     errors.type = "Selecciona el tipo de centro.";
   }
 

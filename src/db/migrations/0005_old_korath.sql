@@ -1,0 +1,1 @@
+ALTER TABLE "center" ALTER COLUMN "type" DROP NOT NULL;

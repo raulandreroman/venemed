@@ -18,7 +18,7 @@ export type CenterType =
 export type CenterQueueRow = {
   id: string;
   name: string;
-  type: CenterType;
+  type: CenterType | null;
   city: string;
   state: string | null;
   whatsappPhone: string;
@@ -40,7 +40,7 @@ export type ModerationHistoryRow = {
 export type CenterReview = {
   id: string;
   name: string;
-  type: CenterType;
+  type: CenterType | null;
   description: string | null;
   city: string;
   state: string | null;

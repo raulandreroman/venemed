@@ -85,7 +85,8 @@ export const moderationSubjectType = pgEnum("moderation_subject_type", [
 export const center = pgTable("center", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
-  type: centerType("type").notNull(),
+  // Nullable: stored null when the center-type feature is off (no placeholder).
+  type: centerType("type"),
   description: text("description"),
   city: text("city").notNull(),
   state: text("state"),

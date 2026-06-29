@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
 import { AppBar, Button } from "@/components/ui";
 import { requireCenter } from "@/lib/auth/require-center";
+import { supportWhatsappHref } from "@/lib/support";
 import { SignOutButton } from "../../_components/sign-out-button";
-
-const SUPPORT_HREF =
-  "https://wa.me/?text=Hola%2C%20necesito%20ayuda%20con%20el%20registro%20de%20mi%20centro%20en%20VeneMed.";
 
 /**
  * PLACEHOLDER for rejected (and suspended) centers — Figma 29:2030
@@ -52,7 +50,7 @@ export default async function RechazadoPage() {
 
         <div className="mt-auto flex flex-col gap-2 pt-6">
           <SignOutButton />
-          <Button href={SUPPORT_HREF} variant="ghost" fullWidth>
+          <Button href={supportWhatsappHref()} variant="ghost" fullWidth>
             Contactar a soporte
           </Button>
         </div>

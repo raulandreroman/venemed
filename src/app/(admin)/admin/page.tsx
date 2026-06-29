@@ -6,6 +6,7 @@ import {
   type CenterQueueRow,
 } from "@/db/admin-queries";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import { formatRelativeTime, isOlderThanHours } from "@/lib/format";
 
 import { AdminToast } from "../_components/admin-toast";
@@ -94,7 +95,9 @@ function QueueRow({ center: c, tab }: { center: CenterQueueRow; tab: QueueTab })
             )}
           </div>
           <p className="truncate text-sm text-neutral-500">
-            {centerTypeLabel(c.type)} · {c.city}
+            {CENTER_TYPE_ENABLED && c.type
+              ? `${centerTypeLabel(c.type)} · ${c.city}`
+              : c.city}
           </p>
           <p className="mt-1.5 text-sm text-neutral-700">{metaLine(c, tab)}</p>
         </div>
