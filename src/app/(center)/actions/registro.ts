@@ -54,7 +54,9 @@ export async function createCenterForCurrentUser(
   // the client `whatsappPhone` is never trusted to bind the number — it is at
   // most a display hint. Reject any submission whose phone does not match the
   // number proven by OTP, and persist the server-trusted value below.
-  const verifiedPhone = user.phone ? `+${user.phone}` : null;
+  // Normalize BOTH sides with the same canonicalizer so equivalent formats
+  // (stray trunk-0, +58 prefix, raw digits) compare equal.
+  const verifiedPhone = normalizeVePhone(user.phone);
   if (!verifiedPhone) redirect("/centro/login"); // no verified phone on session
   if (normalizeVePhone(input.whatsappPhone) !== verifiedPhone) {
     throw new Error("El teléfono no coincide con el número verificado.");

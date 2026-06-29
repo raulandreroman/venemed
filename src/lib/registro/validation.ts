@@ -51,11 +51,11 @@ export type FieldErrors = Partial<Record<keyof CreateCenterInput, string>>;
  */
 export function normalizeVePhone(raw: string | undefined | null): string | null {
   let d = (raw ?? "").replace(/\D/g, "");
-  if (d.startsWith("58") && d.length === 12) {
-    d = d.slice(2); // already had the +58 country code
-  } else if (d.startsWith("0") && d.length === 11) {
-    d = d.slice(1); // national trunk prefix: 0412… → 412…
-  }
+  // Strip sequentially so a number carrying BOTH the country code and the
+  // national trunk-0 (e.g. "5804241234567" — how Supabase may store a phone
+  // whose OTP was sent un-normalized) still reduces to the canonical 10 digits.
+  if (d.startsWith("58")) d = d.slice(2); // +58 country code
+  if (d.startsWith("0")) d = d.slice(1); // national trunk prefix: 0412… → 412…
   if (d.length !== 10) return null;
   return `+58${d}`;
 }
