@@ -1,5 +1,3 @@
-import { isAreaCategory } from "@/lib/areas";
-
 /**
  * Publish-solicitud payload + validation. No-dependency, isomorphic (mirrors
  * `@/lib/registro/validation`) so BOTH the client form and the `publishRequest`
@@ -22,8 +20,6 @@ export type PublishRequestItemInput = {
 
 export type PublishRequestInput = {
   title: string;
-  /** the selected area, which IS the supply_category (areas §5.6). */
-  area: string;
   windowHours: number;
   deliveryInstructions?: string;
   items: PublishRequestItemInput[];
@@ -32,7 +28,7 @@ export type PublishRequestInput = {
 };
 
 export type PublishFieldErrors = Partial<
-  Record<"title" | "area" | "windowHours" | "deliveryInstructions" | "items", string>
+  Record<"title" | "windowHours" | "deliveryInstructions" | "items", string>
 >;
 
 export function isWindowHours(value: unknown): value is WindowHours {
@@ -51,8 +47,6 @@ export function validatePublishRequest(
   if (!title) errors.title = "Escribe un título para la solicitud.";
   else if (title.length > TITLE_MAX)
     errors.title = `Máximo ${TITLE_MAX} caracteres.`;
-
-  if (!isAreaCategory(input.area)) errors.area = "Selecciona el área del centro.";
 
   if (!isWindowHours(input.windowHours))
     errors.windowHours = "Selecciona la ventana de tiempo.";

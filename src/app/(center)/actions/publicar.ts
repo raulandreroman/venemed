@@ -1,11 +1,11 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { center, request, requestItem } from "@/db/schema";
+import { center, request, requestItem, supply } from "@/db/schema";
 import { requireCenter } from "@/lib/auth/require-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { categoryLabel } from "@/lib/format";
@@ -51,8 +51,26 @@ export async function publishRequest(
     .where(eq(center.id, centerId))
     .limit(1);
 
-  const area = input.area;
-  const categorySpanish = categoryLabel(area); // request_item.category is the Spanish label
+  // (3b) Derive categories from the chosen catalog items — the "área" facet was
+  // dropped from authoring. Each catalog supply carries its supply_category;
+  // custom (free-text) items fall back to the dormant 'general' bucket.
+  const supplyIds = input.items
+    .map((it) => it.supplyId)
+    .filter((id): id is string => !!id);
+  const supplyRows = supplyIds.length
+    ? await db
+        .select({ id: supply.id, category: supply.category })
+        .from(supply)
+        .where(inArray(supply.id, supplyIds))
+    : [];
+  const categoryBySupply = new Map<string, string>(
+    supplyRows.map((r) => [r.id, r.category]),
+  );
+  const hasCustom = input.items.some((it) => !it.supplyId);
+  const categorySet = new Set<string>(supplyRows.map((r) => r.category));
+  if (hasCustom || categorySet.size === 0) categorySet.add("general");
+  const categories = [...categorySet]; // English enum values (donor filters arrayContains)
+
   const now = new Date();
   const expiresAt = new Date(now.getTime() + input.windowHours * 3600 * 1000);
 
@@ -72,7 +90,7 @@ export async function publishRequest(
           publishedAt: now,
           expiresAt,
           city: c?.city ?? null,
-          categories: [area], // English enum value (donor filters arrayContains this)
+          categories,
           idempotencyKey: input.idempotencyKey,
         })
         .returning({ id: request.id });
@@ -82,7 +100,11 @@ export async function publishRequest(
           requestId: inserted.id,
           supplyId: it.supplyId ?? null,
           customName: it.supplyId ? null : it.customName?.trim() || null,
-          category: categorySpanish,
+          // request_item.category is the Spanish label; catalog items use their
+          // supply's category, customs fall back to 'general'.
+          category: categoryLabel(
+            (it.supplyId && categoryBySupply.get(it.supplyId)) || "general",
+          ),
         })),
       );
 

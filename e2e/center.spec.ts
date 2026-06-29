@@ -83,14 +83,15 @@ test.describe("center auth + registration", () => {
     ).toBeVisible();
 
     await page.getByLabel("Título de la solicitud").fill(title);
-    await page.getByRole("button", { name: "Quirófano" }).click();
 
-    // open the selector, check a catalog item + add a custom one
+    // open the selector, check a catalog item, and add a custom one by typing a
+    // non-matching string into the search and tapping the "Crear «…»" row.
     await page.getByRole("button", { name: "Agregar insumos" }).click();
     await page.getByRole("button", { name: "Guantes quirúrgicos" }).click();
-    await page.getByRole("button", { name: "Otro insumo (escríbelo)" }).click();
-    await page.getByLabel("Otro insumo").fill("Bisturíes desechables");
-    await page.getByRole("button", { name: "Añadir" }).click();
+    await page.getByLabel("Buscar insumo").fill("Bisturíes desechables");
+    await page
+      .getByRole("button", { name: "Crear Bisturíes desechables" })
+      .click();
     await page.getByRole("button", { name: /Agregar \d+ insumos/ }).click();
 
     await page.getByRole("radio", { name: "48 h" }).click();

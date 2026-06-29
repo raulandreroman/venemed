@@ -1,10 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { Button, SegmentedControl } from "@/components/ui";
 import { publishRequest } from "@/app/(center)/actions/publicar";
-import { AREAS, type AreaCategory } from "@/lib/areas";
 import {
   INSTRUCTIONS_MAX,
   TITLE_MAX,
@@ -23,7 +22,7 @@ export type SelectedItem = {
   name: string;
 };
 
-type SuppliesByArea = Record<string, { id: string; name: string }[]>;
+type Supply = { id: string; name: string };
 
 /**
  * Local, dependency-free redirect detection (mirrors edit-center-form). A
@@ -37,17 +36,13 @@ function isNextRedirectError(e: unknown): boolean {
 
 /**
  * Crear solicitud (Figma 32:4929). Client-owned form state: título + counter,
- * área single-select chips, donation items (filled via the co-located selector
- * sheet), 12/24/48 segmented window, instrucciones + counter. Submits the real
- * `publishRequest` server action; the selector returns its picks into state.
+ * donation items (filled via the co-located selector sheet), 12/24/48 segmented
+ * window, instrucciones + counter. Submits the real `publishRequest` server
+ * action; the selector returns its picks into state. (The "área" facet was
+ * dropped — categories are derived from the chosen insumos server-side.)
  */
-export function CreateRequestForm({
-  suppliesByArea,
-}: {
-  suppliesByArea: SuppliesByArea;
-}) {
+export function CreateRequestForm({ supplies }: { supplies: Supply[] }) {
   const [title, setTitle] = useState("");
-  const [area, setArea] = useState<AreaCategory | "">("");
   const [items, setItems] = useState<SelectedItem[]>([]);
   const [windowHours, setWindowHours] = useState<WindowHours>(24);
   const [instructions, setInstructions] = useState("");
@@ -58,42 +53,30 @@ export function CreateRequestForm({
   // Stable per mount so a retried submit dedupes via request.idempotency_key.
   const idempotencyKey = useRef<string>(crypto.randomUUID());
 
-  const areaSupplies = useMemo(
-    () => (area ? suppliesByArea[area] ?? [] : []),
-    [area, suppliesByArea],
-  );
-  const areaLabel = area ? AREAS.find((a) => a.value === area)?.label ?? null : null;
-
   const removeItem = useCallback((key: string) => {
     setItems((prev) => prev.filter((it) => it.key !== key));
   }, []);
 
   const openSelector = useCallback(() => {
-    if (!area) {
-      setError("Primero selecciona el área del centro.");
-      return;
-    }
     setError(null);
     setSelectorOpen(true);
-  }, [area]);
+  }, []);
 
   const canSubmit =
     title.trim().length > 0 &&
     title.trim().length <= TITLE_MAX &&
-    !!area &&
     items.length > 0 &&
     instructions.length <= INSTRUCTIONS_MAX;
 
   const handleSubmit = useCallback(async () => {
-    if (!area || !canSubmit) {
-      setError("Completa el título, el área y al menos un insumo.");
+    if (!canSubmit) {
+      setError("Completa el título y agrega al menos un insumo.");
       return;
     }
     setError(null);
     setPending(true);
     const input: PublishRequestInput = {
       title: title.trim(),
-      area,
       windowHours,
       deliveryInstructions: instructions.trim() || undefined,
       items: items.map((it) =>
@@ -108,7 +91,7 @@ export function CreateRequestForm({
       setError("No pudimos publicar la solicitud. Inténtalo de nuevo.");
       setPending(false);
     }
-  }, [area, canSubmit, title, windowHours, instructions, items]);
+  }, [canSubmit, title, windowHours, instructions, items]);
 
   return (
     <>
@@ -137,31 +120,6 @@ export function CreateRequestForm({
           <p className="mt-1.5 text-right text-xs text-neutral-400">
             {title.length} / {TITLE_MAX}
           </p>
-        </section>
-
-        {/* Área del centro */}
-        <section>
-          <h2 className="text-lg font-bold text-neutral-900">Área del centro</h2>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {AREAS.map((a) => {
-              const selected = a.value === area;
-              return (
-                <button
-                  key={a.value}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => setArea(a.value)}
-                  className={`inline-flex shrink-0 items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                    selected
-                      ? "border-accent bg-accent text-accent-on"
-                      : "border-neutral-300 bg-surface text-neutral-700 hover:bg-neutral-100"
-                  }`}
-                >
-                  {a.label}
-                </button>
-              );
-            })}
-          </div>
         </section>
 
         {/* Detalle de donación */}
@@ -257,8 +215,7 @@ export function CreateRequestForm({
       <InsumoSelector
         open={selectorOpen}
         onClose={() => setSelectorOpen(false)}
-        areaLabel={areaLabel}
-        supplies={areaSupplies}
+        supplies={supplies}
         selected={items}
         onConfirm={setItems}
       />

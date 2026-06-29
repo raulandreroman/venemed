@@ -16,34 +16,30 @@ type Supply = { id: string; name: string };
  * (neutral scrim, max-w-[390px] rounded-t panel, drag handle, body-scroll-lock,
  * Escape, focus-trap) but is driven by open/onClose props, not router.back().
  *
- * Merge model: items already selected that don't belong to THIS area's catalog
- * (e.g. picked under a different area, or earlier customs) are preserved; the
- * area's checkboxes + newly typed customs drive the rest.
+ * One flat catalog (the "área" facet was dropped). The search box doubles as the
+ * custom-item entry: typing a string with no catalog match surfaces a "Crear
+ * «…»" row that adds it as a free-text insumo.
  */
 export function InsumoSelector({
   open,
   onClose,
-  areaLabel,
   supplies,
   selected,
   onConfirm,
 }: {
   open: boolean;
   onClose: () => void;
-  areaLabel: string | null;
   supplies: Supply[];
   selected: SelectedItem[];
   onConfirm: (items: SelectedItem[]) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const areaIds = useMemo(() => new Set(supplies.map((s) => s.id)), [supplies]);
+  const catalogIds = useMemo(() => new Set(supplies.map((s) => s.id)), [supplies]);
 
   // Local working state — initialized from `selected` each time the sheet opens.
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [customs, setCustoms] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const [customOpen, setCustomOpen] = useState(false);
-  const [customDraft, setCustomDraft] = useState("");
 
   // Seed working state when the sheet opens. State only ever mutates from an
   // effect that GATES on `open` flipping true (not a synchronous body write on
@@ -56,19 +52,17 @@ export function InsumoSelector({
         setChecked(
           new Set(
             selected
-              .filter((it) => it.supplyId && areaIds.has(it.supplyId))
+              .filter((it) => it.supplyId && catalogIds.has(it.supplyId))
               .map((it) => it.supplyId as string),
           ),
         );
         setCustoms(selected.filter((it) => !it.supplyId).map((it) => it.name));
         setSearch("");
-        setCustomOpen(false);
-        setCustomDraft("");
       });
       return () => cancelAnimationFrame(raf);
     }
     if (!open) wasOpen.current = false;
-  }, [open, selected, areaIds]);
+  }, [open, selected, catalogIds]);
 
   // Escape + body-scroll-lock + focus-trap while open (RequestSheet recipe).
   useEffect(() => {
@@ -127,36 +121,40 @@ export function InsumoSelector({
     });
   }, []);
 
-  const addCustom = useCallback(() => {
-    const name = customDraft.trim();
+  /** Add a free-text custom insumo (from the search box) and clear the search. */
+  const addCustomNamed = useCallback((raw: string) => {
+    const name = raw.trim();
     if (!name) return;
     setCustoms((prev) =>
       prev.some((c) => c.toLowerCase() === name.toLowerCase())
         ? prev
         : [...prev, name],
     );
-    setCustomDraft("");
-    setCustomOpen(false);
-  }, [customDraft]);
+    setSearch("");
+  }, []);
 
   const removeCustom = useCallback((name: string) => {
     setCustoms((prev) => prev.filter((c) => c !== name));
   }, []);
 
+  const query = search.trim();
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = query.toLowerCase();
     return q ? supplies.filter((s) => s.name.toLowerCase().includes(q)) : supplies;
-  }, [supplies, search]);
+  }, [supplies, query]);
+
+  // Offer "create as new insumo" when the typed text matches nothing already
+  // present (catalog item or an already-added custom).
+  const canCreateFromSearch =
+    query.length > 0 &&
+    !supplies.some((s) => s.name.toLowerCase() === query.toLowerCase()) &&
+    !customs.some((c) => c.toLowerCase() === query.toLowerCase());
 
   const total = checked.size + customs.length;
 
   const confirm = useCallback(() => {
-    // Preserve selected items outside this area's catalog (cross-area picks).
-    const preserved = selected.filter(
-      (it) => it.supplyId && !areaIds.has(it.supplyId),
-    );
     const byId = new Map(supplies.map((s) => [s.id, s.name]));
-    const fromArea: SelectedItem[] = [...checked].map((id) => ({
+    const fromCatalog: SelectedItem[] = [...checked].map((id) => ({
       key: id,
       supplyId: id,
       name: byId.get(id) ?? "Insumo",
@@ -165,9 +163,9 @@ export function InsumoSelector({
       key: `custom:${name.toLowerCase()}`,
       name,
     }));
-    onConfirm([...preserved, ...fromArea, ...fromCustom]);
+    onConfirm([...fromCatalog, ...fromCustom]);
     onClose();
-  }, [selected, areaIds, supplies, checked, customs, onConfirm, onClose]);
+  }, [supplies, checked, customs, onConfirm, onClose]);
 
   if (!open) return null;
 
@@ -224,8 +222,48 @@ export function InsumoSelector({
 
         {/* scrollable body */}
         <div data-sheet-scroll className="flex-1 overflow-y-auto px-4 pb-4">
-          <p className="pb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-            Sugeridos · {areaLabel ?? "Área"}
+          {/* Create the typed string as a new custom insumo. */}
+          {canCreateFromSearch && (
+            <button
+              type="button"
+              onClick={() => addCustomNamed(query)}
+              aria-label={`Crear ${query}`}
+              className="mb-1 flex w-full items-center gap-3 border-b border-neutral-100 py-3 text-left"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-subtle text-accent">
+                <PlusIcon />
+              </span>
+              <span className="text-[15px] text-neutral-900">
+                Crear{" "}
+                <span className="font-semibold text-accent">
+                  &ldquo;{query}&rdquo;
+                </span>
+              </span>
+            </button>
+          )}
+
+          {/* Selected custom (free-text) insumos render as checked rows at the
+              top — tapping one removes it. */}
+          {customs.length > 0 && (
+            <ul>
+              {customs.map((name) => (
+                <li key={name} className="border-b border-neutral-100">
+                  <button
+                    type="button"
+                    onClick={() => removeCustom(name)}
+                    aria-pressed={true}
+                    className="flex w-full items-center justify-between gap-3 py-3 text-left"
+                  >
+                    <span className="text-[15px] text-neutral-900">{name}</span>
+                    <Checkbox checked={true} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <p className="pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            Insumos del catálogo
           </p>
 
           <ul>
@@ -245,69 +283,14 @@ export function InsumoSelector({
                 </li>
               );
             })}
-            {filtered.length === 0 && (
+            {filtered.length === 0 && !canCreateFromSearch && (
               <li className="py-6 text-center text-sm text-neutral-500">
-                Sin coincidencias. Usa &ldquo;Otro insumo&rdquo; abajo.
+                {query
+                  ? "Sin coincidencias."
+                  : "No hay insumos en el catálogo."}
               </li>
             )}
           </ul>
-
-          {/* added customs (removable) */}
-          {customs.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {customs.map((name) => (
-                <span
-                  key={name}
-                  className="inline-flex items-center gap-1 rounded-full bg-accent-subtle px-2.5 py-1 text-xs font-medium text-accent"
-                >
-                  {name}
-                  <button
-                    type="button"
-                    onClick={() => removeCustom(name)}
-                    aria-label={`Quitar ${name}`}
-                    className="text-accent/70 hover:text-accent"
-                  >
-                    <CloseIcon size={12} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* "Otro insumo (escríbelo)" */}
-          <div className="mt-3">
-            {customOpen ? (
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  autoFocus
-                  value={customDraft}
-                  onChange={(e) => setCustomDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addCustom();
-                    }
-                  }}
-                  placeholder="Nombre del insumo"
-                  aria-label="Otro insumo"
-                  className="h-11 flex-1 rounded-xl border border-neutral-300 bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300 focus:border-accent focus:ring-2 focus:ring-accent/30"
-                />
-                <Button type="button" size="sm" onClick={addCustom}>
-                  Añadir
-                </Button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setCustomOpen(true)}
-                className="flex items-center gap-2 py-2 text-[15px] font-semibold text-accent"
-              >
-                <PlusIcon />
-                Otro insumo (escríbelo)
-              </button>
-            )}
-          </div>
         </div>
 
         {/* footer */}

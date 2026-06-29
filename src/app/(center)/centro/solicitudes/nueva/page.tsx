@@ -1,16 +1,16 @@
 import { redirect } from "next/navigation";
 
 import { AppBar } from "@/components/ui";
-import { getSuppliesByCategory } from "@/db/queries";
-import { AREA_VALUES } from "@/lib/areas";
+import { getActiveSupplies } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 
 import { CreateRequestForm } from "./_components/create-request-form";
 
 /**
  * Crear solicitud (Figma 32:4929). Server wrapper: same status gate as the
- * dashboard (only approved centers author), then loads the catalog grouped by
- * area for the co-located selector and hands it to the client form.
+ * dashboard (only approved centers author), then loads the full catalog for the
+ * co-located selector and hands it to the client form. The "área" facet was
+ * dropped — the selector searches one flat list.
  */
 export default async function NuevaSolicitudPage() {
   const center = await requireCenter();
@@ -19,19 +19,12 @@ export default async function NuevaSolicitudPage() {
     redirect("/centro/rechazado");
   }
 
-  // Tiny catalog (3 supplies/area) — fetch all 6 areas so the client selector
-  // can switch areas with no async round-trip when the sheet opens.
-  const lists = await Promise.all(
-    AREA_VALUES.map((v) => getSuppliesByCategory(v)),
-  );
-  const suppliesByArea = Object.fromEntries(
-    AREA_VALUES.map((v, i) => [v, lists[i]]),
-  );
+  const supplies = await getActiveSupplies();
 
   return (
     <>
       <AppBar title="Nueva solicitud" backHref="/centro" align="start" />
-      <CreateRequestForm suppliesByArea={suppliesByArea} />
+      <CreateRequestForm supplies={supplies} />
     </>
   );
 }
