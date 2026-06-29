@@ -37,9 +37,10 @@ export default async function CenterRequestDetailPage({
     ? `Ayuda al centro con: ${req.title}`
     : "Ayuda al centro en VeneMed:";
 
-  // Window-start for the progress bar: extend resets `expiresAt = now + window`
-  // while keeping the true `publishedAt`, so derive the start from the window so
-  // the bar reads fresh while "Publicado hace X" stays honest.
+  // Window-start for the progress bar = `expiresAt − windowHours`. Extend ADDS
+  // the same amount to both, so this start stays anchored at the original
+  // publish and the bar just gains remaining time. ("Publicado hace X" uses the
+  // real `publishedAt` separately.)
   const windowStart =
     req.expiresAt != null
       ? new Date(
@@ -81,7 +82,14 @@ export default async function CenterRequestDetailPage({
               windowStart={windowStart}
               windowHours={req.windowHours}
               initialNow={new Date()}
-              action={<ExtenderButton requestId={req.id} />}
+              action={
+                <ExtenderButton
+                  requestId={req.id}
+                  expiresAtMs={
+                    req.expiresAt ? new Date(req.expiresAt).getTime() : null
+                  }
+                />
+              }
             />
           </div>
         )}

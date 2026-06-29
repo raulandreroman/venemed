@@ -64,11 +64,12 @@ export async function finalizeRequest(requestId: string): Promise<void> {
 }
 
 /**
- * Re-open the 12/24/48 window for a solicitud the logged-in center owns
- * (decision §5.5): `windowHours = chosen`, `expiresAt = now + chosen` (the
- * window resets from now; `publishedAt`/`status` are untouched). Same ownership
- * + terminal-state guards as finalize — extending a closed/expired request is
- * meaningless. `hours` is re-validated server-side (the action is a public POST).
+ * Extend the window of a solicitud the logged-in center owns (Figma "Sheet ·
+ * Extender ventana"): ADD the chosen +12/+24/+48 h to the current window —
+ * `expiresAt += chosen`, `windowHours += chosen` (`publishedAt`/`status`
+ * untouched). Same ownership + terminal-state guards as finalize — extending a
+ * closed/expired request is meaningless. `hours` is re-validated server-side
+ * (the action is a public POST).
  */
 export async function extendWindow(
   requestId: string,
@@ -85,7 +86,12 @@ export async function extendWindow(
   }
 
   const [row] = await db
-    .select({ id: request.id, status: request.status })
+    .select({
+      id: request.id,
+      status: request.status,
+      expiresAt: request.expiresAt,
+      windowHours: request.windowHours,
+    })
     .from(request)
     .where(and(eq(request.id, requestId), eq(request.centerId, centerId)))
     .limit(1);
@@ -95,12 +101,17 @@ export async function extendWindow(
     redirect(`/centro/solicitudes/${requestId}`);
   }
 
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + hours * 3600 * 1000);
+  // ADD time to the current window (Figma "Sheet · Extender ventana": "Suma
+  // tiempo extra") — not a reset. Bumping both expiresAt and windowHours by the
+  // same amount keeps the detail progress bar's start (expiresAt − windowHours)
+  // anchored at the original publish, so the bar simply gains remaining time.
+  const base = row.expiresAt ?? new Date();
+  const expiresAt = new Date(base.getTime() + hours * 3600 * 1000);
+  const windowHours = (row.windowHours ?? 0) + hours;
 
   await db
     .update(request)
-    .set({ windowHours: hours, expiresAt })
+    .set({ windowHours, expiresAt })
     .where(and(eq(request.id, requestId), eq(request.centerId, centerId)));
 
   revalidateRequest(requestId);

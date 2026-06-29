@@ -14,19 +14,25 @@ function isNextRedirectError(e: unknown): boolean {
 }
 
 /**
- * "+ Extender ventana" trigger (inside the countdown card) → a bottom-sheet that
- * re-opens the 12/24/48 picker (decision §5.5, reuses SegmentedControl) → the
- * real `extendWindow` action (gotcha #2). State toggles on click events only and
- * the open effect only attaches listeners — never a synchronous setState in the
- * body (gotcha #3).
+ * "+ Extender ventana" trigger (inside the countdown card) → a bottom-sheet with
+ * the +12/+24/+48 picker (reuses SegmentedControl) → the real `extendWindow`
+ * action (gotcha #2). Extend ADDS time to the current expiry, so the preview is
+ * `expiresAt + chosen`. State toggles on click events only and the open effect
+ * only attaches listeners — never a synchronous setState in the body (gotcha #3).
  */
-export function ExtenderButton({ requestId }: { requestId: string }) {
+export function ExtenderButton({
+  requestId,
+  expiresAtMs,
+}: {
+  requestId: string;
+  expiresAtMs: number | null;
+}) {
   const [open, setOpen] = useState(false);
   const [hours, setHours] = useState<WindowHours>(24);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Captured on open (event handler, not render) so the close-time preview is a
-  // stable value — react-hooks/purity forbids calling Date.now() during render.
+  // Captured on open (event handler, not render) so "cierra en X h" is a stable
+  // value — react-hooks/purity forbids calling Date.now() during render.
   const [openedAt, setOpenedAt] = useState<number>(0);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -66,11 +72,16 @@ export function ExtenderButton({ requestId }: { requestId: string }) {
     }
   }, [requestId, hours]);
 
-  // Preview from the timestamp captured on open (client-only) — no SSR mismatch.
+  // Extend is additive: the new cutoff is the CURRENT expiry + chosen hours.
   const newCutoff =
-    open && openedAt
-      ? formatDeliveryCutoff(new Date(openedAt + hours * 3600 * 1000))
+    open && expiresAtMs != null
+      ? formatDeliveryCutoff(new Date(expiresAtMs + hours * 3600 * 1000))
       : "";
+  // Hours left right now (client clock captured on open), for "cierra en X h".
+  const hoursLeft =
+    open && openedAt && expiresAtMs != null
+      ? Math.max(0, Math.round((expiresAtMs - openedAt) / 3600000))
+      : null;
 
   return (
     <>
@@ -113,7 +124,10 @@ export function ExtenderButton({ requestId }: { requestId: string }) {
                 Extender ventana
               </h2>
               <p className="mt-1 text-sm text-neutral-500">
-                Reinicia el tiempo para recibir donaciones desde ahora.
+                {hoursLeft != null
+                  ? `La solicitud cierra en ${hoursLeft} h. `
+                  : ""}
+                Suma tiempo extra para seguir recibiendo donaciones.
               </p>
             </div>
 
