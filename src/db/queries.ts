@@ -98,6 +98,22 @@ export type CenterRequestCardData = {
   items: RequestItemData[];
 };
 
+/**
+ * A center-owned request enriched for the center DETAIL screen: the card data
+ * plus the per-request drop-off note and the center's address/schedule (joined
+ * from `center`, since requireCenter() doesn't carry them). Superset of
+ * CenterRequestCardData, so the dashboard/publicada card consumers stay
+ * compatible.
+ */
+export type CenterRequestDetailData = CenterRequestCardData & {
+  deliveryInstructions: string | null;
+  center: {
+    addressLine: string | null;
+    addressReference: string | null;
+    regularScheduleText: string | null;
+  };
+};
+
 export type CenterDashboardStats = {
   /** count of status = 'active' */
   activas: number;
@@ -449,7 +465,7 @@ export async function getCenterRequests(
 export async function getCenterRequestById(
   centerId: string,
   requestId: string,
-): Promise<CenterRequestCardData | null> {
+): Promise<CenterRequestDetailData | null> {
   const [r] = await db
     .select({
       id: request.id,
@@ -465,8 +481,13 @@ export async function getCenterRequestById(
       shareCount: request.shareCount,
       closedReason: request.closedReason,
       createdAt: request.createdAt,
+      deliveryInstructions: request.deliveryInstructions,
+      addressLine: center.addressLine,
+      addressReference: center.addressReference,
+      regularScheduleText: center.regularScheduleText,
     })
     .from(request)
+    .innerJoin(center, eq(center.id, request.centerId))
     .where(and(eq(request.id, requestId), eq(request.centerId, centerId)))
     .limit(1);
 
@@ -483,7 +504,12 @@ export async function getCenterRequestById(
     .where(eq(requestItem.requestId, requestId))
     .orderBy(asc(requestItem.createdAt));
 
-  return { ...r, items };
+  const { addressLine, addressReference, regularScheduleText, ...rest } = r;
+  return {
+    ...rest,
+    items,
+    center: { addressLine, addressReference, regularScheduleText },
+  };
 }
 
 /**
