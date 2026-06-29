@@ -115,12 +115,30 @@ async function main() {
   const supplies = await db
     .insert(supply)
     .values([
-      { name: "Acetaminofén 500 mg", category: "pediatrics" },
-      { name: "Suero fisiológico 500 ml", category: "pediatrics" },
-      { name: "Jeringas 5 ml estériles", category: "pediatrics" },
+      // surgical (Quirófano)
       { name: "Guantes quirúrgicos", category: "surgical" },
-      { name: "Gasas estériles", category: "general" },
-      { name: "Alcohol isopropílico", category: "general" },
+      { name: "Gasas estériles", category: "surgical" },
+      { name: "Suturas", category: "surgical" },
+      // emergency (Emergencias)
+      { name: "Suero fisiológico 500 ml", category: "emergency" },
+      { name: "Jeringas 5 ml estériles", category: "emergency" },
+      { name: "Solución antiséptica", category: "emergency" },
+      // pharmacy (Farmacia)
+      { name: "Acetaminofén 500 mg", category: "pharmacy" },
+      { name: "Alcohol isopropílico", category: "pharmacy" },
+      { name: "Antibióticos (amoxicilina)", category: "pharmacy" },
+      // inpatient (Hospitalización)
+      { name: "Sábanas clínicas", category: "inpatient" },
+      { name: "Sonda Foley", category: "inpatient" },
+      { name: "Mascarillas N95", category: "inpatient" },
+      // pediatrics (Refugio infantil)
+      { name: "Acetaminofén pediátrico (jarabe)", category: "pediatrics" },
+      { name: "Suero oral", category: "pediatrics" },
+      { name: "Pañales infantiles", category: "pediatrics" },
+      // geriatrics (Adultos mayores)
+      { name: "Pañales para adulto", category: "geriatrics" },
+      { name: "Suplemento nutricional", category: "geriatrics" },
+      { name: "Tensiómetro", category: "geriatrics" },
     ])
     .returning({ id: supply.id, name: supply.name });
   const supplyId = (name: string) => supplies.find((s) => s.name === name)!.id;

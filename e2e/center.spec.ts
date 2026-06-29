@@ -44,12 +44,21 @@ test.describe("center auth + registration", () => {
 
   // The seed (provisionTestMembership) links TEST_CENTER_PHONE to an APPROVED
   // center that has an active request, so this login deterministically lands on
-  // the real /centro dashboard (not /centro/registro). One OTP send for this
-  // number (registration uses PHONE_REG) to stay clear of the OTP rate limit
-  // (gotcha #8). Asserts the populated dashboard renders without crashing.
-  test("login: phone → OTP → approved center dashboard (name + a request)", async ({
+  // the real /centro dashboard (not /centro/registro). This single test does
+  // ONE OTP send for TEST_CENTER_PHONE (registration uses PHONE_REG) and reuses
+  // that one session to also exercise the slice-2 publish flow — logging in a
+  // second time with the same number would trip the local OTP rate limit
+  // ([auth.sms] max_frequency, gotcha #8) and never reach the OTP screen.
+  //
+  // It asserts: (a) the populated dashboard renders without crashing, then
+  // (b) publishing a request through the REAL create form + insumo selector
+  // (gotcha #2: build+GET never exercises the action) reaches BOTH the donor
+  // /solicitudes list (cache revalidated) and the center dashboard.
+  test("login → approved dashboard → publish solicitud → donor list + dashboard", async ({
     page,
   }) => {
+    const title = `E2E insumos ${Date.now()}`;
+
     await loginAs(page, PHONE);
 
     await page.waitForURL(/\/centro$/, { timeout: 15_000 });
@@ -60,6 +69,56 @@ test.describe("center auth + registration", () => {
     ).toBeVisible();
     // At least one of the center's own request cards.
     await expect(page.getByTestId("center-request-card").first()).toBeVisible();
+    await expectNoErrorOverlay(page);
+
+    await page.goto("/centro/solicitudes/nueva");
+    await expect(
+      page.getByRole("heading", { name: "Título de la solicitud" }),
+    ).toBeVisible();
+
+    await page.getByLabel("Título de la solicitud").fill(title);
+    await page.getByRole("button", { name: "Quirófano" }).click();
+
+    // open the selector, check a catalog item + add a custom one
+    await page.getByRole("button", { name: "Agregar insumos" }).click();
+    await page.getByRole("button", { name: "Guantes quirúrgicos" }).click();
+    await page.getByRole("button", { name: "Otro insumo (escríbelo)" }).click();
+    await page.getByLabel("Otro insumo").fill("Bisturíes desechables");
+    await page.getByRole("button", { name: "Añadir" }).click();
+    await page.getByRole("button", { name: /Agregar \d+ insumos/ }).click();
+
+    await page.getByRole("radio", { name: "48 h" }).click();
+    await page
+      .getByLabel("Instrucciones de entrega")
+      .fill("Entrada principal · Recepción de donaciones");
+
+    await page.getByRole("button", { name: "Publicar solicitud" }).click();
+
+    // The POINT (gotcha #2): the action must actually run, commit + redirect.
+    await page.waitForURL(/\/centro\/solicitudes\/[^/]+\/publicada$/, {
+      timeout: 15_000,
+    });
+    await expect(
+      page.getByRole("heading", { name: "¡Solicitud publicada!" }),
+    ).toBeVisible();
+    await expectNoErrorOverlay(page);
+
+    // Donor list reflects the publish (active-requests tag revalidated). The
+    // list is ISR (stale-while-revalidate), so re-navigate until the
+    // regenerated HTML carries the new request.
+    await expect
+      .poll(
+        async () => {
+          await page.goto("/solicitudes", { waitUntil: "networkidle" });
+          return page.getByText(title).count();
+        },
+        { timeout: 45_000, intervals: [1000, 2000, 3000, 5000] },
+      )
+      .toBeGreaterThan(0);
+
+    // Center dashboard shows it too.
+    await page.goto("/centro");
+    await expect(page.getByText(title).first()).toBeVisible();
     await expectNoErrorOverlay(page);
   });
 

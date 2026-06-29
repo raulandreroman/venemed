@@ -7,3 +7,4 @@ export { RequestCard } from "./request-card";
 export { AppBar } from "./app-bar";
 export { Countdown } from "./countdown";
 export { ProgressBar } from "./progress-bar";
+export { SegmentedControl } from "./segmented-control";

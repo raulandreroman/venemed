@@ -13,6 +13,7 @@ import {
   boolean,
   smallint,
   integer,
+  bigint,
   numeric,
   timestamp,
 } from "drizzle-orm/pg-core";
@@ -51,10 +52,20 @@ export const closedReason = pgEnum("closed_reason", [
   "expired",
 ]);
 
+// Area = category, 1:1 (center-workspace §5.6). The 4 area values added in 0004
+// are APPENDED to keep existing enum positions stable (so drizzle emits clean
+// `ALTER TYPE … ADD VALUE` statements, not a destructive type recreation).
+// `general` is retired as a DORMANT value (kept, never dropped — dropping would
+// force a full USING-cast type recreation). Spanish UI labels live in a labels
+// map, not the enum.
 export const supplyCategory = pgEnum("supply_category", [
   "pediatrics",
   "surgical",
   "general",
+  "emergency",
+  "pharmacy",
+  "inpatient",
+  "geriatrics",
 ]);
 
 export const shareChannel = pgEnum("share_channel", [
@@ -85,6 +96,10 @@ export const center = pgTable("center", {
   lng: numeric("lng"),
   whatsappPhone: text("whatsapp_phone").notNull(),
   status: centerStatus("status").notNull().default("pending_review"),
+  // center-level "Recepción de donaciones" switch (center-workspace §2b).
+  // null = receiving; a timestamp = paused since (so "Pausada · desde hace 12 min"
+  // renders for free). Donor-list exclusion + toggle write land in slice 3.4.
+  receptionPausedAt: timestamp("reception_paused_at", { withTimezone: true }),
   rejectionReason: text("rejection_reason"),
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -140,6 +155,10 @@ export const request = pgTable("request", {
   centerId: uuid("center_id")
     .notNull()
     .references(() => center.id, { onDelete: "cascade" }),
+  // human-friendly global monotonic display id ("#1044"), matching the Figma
+  // descending numbers. ADD COLUMN … GENERATED ALWAYS AS IDENTITY backfills
+  // existing seeded rows automatically (center-workspace §2c).
+  shortId: bigint("short_id", { mode: "number" }).generatedAlwaysAsIdentity(),
   kind: requestKind("kind").notNull().default("need"),
   status: requestStatus("status").notNull().default("draft"),
   // center-written descriptor for the donor card/detail (data-model §4.4; Figma 30:15714).
