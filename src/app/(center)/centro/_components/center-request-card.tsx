@@ -26,9 +26,8 @@ export function CenterRequestCard({
   const area = request.categories?.[0]
     ? categoryLabel(request.categories[0])
     : null;
-  // Cosmetic short id — request.id is a UUID, there is no human-friendly id
-  // column in the schema (slice 1 forbids schema changes). Flagged in PR.
-  const shortId = request.id.slice(0, 8);
+  // Human-friendly global display id (request.short_id, added in migration 0004).
+  const shortId = request.shortId;
 
   const isTerminal = request.status === "closed" || request.status === "expired";
   const shareMessage = request.title

@@ -35,7 +35,7 @@ The schema already models everything Phase 3 writes. Confirmed against `src/db/s
 
 **Schema changes** (migration `0004`) — three parts:
 
-**(a) `supply_category` 3 → 6 values** (decision §5.6): area = category, 1:1. Postgres caveat: `ALTER TYPE … ADD VALUE` can't run inside a transaction with dependent statements and values can't be removed, so drizzle-kit may recreate the enum — generate the migration, then **review the SQL** before applying. Retag the 6 seeded supplies; resolve the `general` keep-or-drop question. Donor list/detail + landing-stats already read `categories[]` generically, but the donor **chip set** widens to 6.
+**(a) `supply_category` → 6 area values** (decision §5.6): area = category, 1:1. **Only ADD the 4 new values** (`emergency`, `pharmacy`, `inpatient`, `geriatrics`) alongside the existing `surgical`/`pediatrics` via `ALTER TYPE … ADD VALUE`. **Do NOT drop `general`** — removing an enum value forces a full type recreation (USING-cast every dependent column, drop/recreate) for zero benefit; instead **retire it as a dormant value** (the §8 seed retags every supply off `general`, so nothing uses it). `ADD VALUE` is transaction-safe on PG12+ *as long as the new value isn't used in the same migration* — and it isn't (seed runs separately), so the generated SQL should be clean; still **review it**. Donor list/detail + landing-stats read `categories[]` generically; the donor **chip set** widens to 6 (+ dormant `general`).
 
 **(b) center-level reception switch.** The `Perfil · Pausado` frame shows a **"Recepción de donaciones"** toggle whose OFF state "cierra las solicitudes activas" and hides the center from the public list. No such column exists today. Proposed:
 
@@ -103,7 +103,7 @@ New `"use server"` module(s) under `src/app/(center)/actions/` — remember gotc
    | Refugio infantil | `pediatrics` |
    | Adultos mayores | `geriatrics` |
 
-   **Ripples** (tracked under the migration in §2): **`general` is dropped** — the 6 seeded supplies are retagged into the new buckets and the catalog is expanded so every area has suggestions (full list in §8). The donor surface category chips now render 6 values, not 3.
+   **Ripples** (tracked under the migration in §2): **`general` is retired (dormant, not dropped)** — the 6 seeded supplies are retagged off it into the new buckets and the catalog is expanded so every area has suggestions (full list in §8). The donor surface category chips render the 6 area values.
 
 ## 6. Testing
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
-type Variant = "primary" | "ghost" | "secondary";
+type Variant = "primary" | "ghost" | "secondary" | "outline";
 type Size = "md" | "sm";
 
 const base =
@@ -14,6 +14,8 @@ const variants: Record<Variant, string> = {
     "bg-accent-subtle text-accent hover:bg-accent-subtle/70",
   ghost:
     "bg-transparent text-accent hover:bg-accent/10",
+  outline:
+    "border border-neutral-300 bg-surface text-neutral-900 hover:bg-neutral-100",
 };
 
 const sizes: Record<Size, string> = {

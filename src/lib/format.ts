@@ -175,11 +175,19 @@ export function formatClock(date: Date | string | null): string {
   return `${h}:${m.toString().padStart(2, "0")} ${ampm}`;
 }
 
-/** category enum (request.categories[]) -> Spanish label for filter chips. */
+/**
+ * supply_category enum (== area, 1:1) -> Spanish label. Drives the area chips,
+ * the "Sugeridos · {área}" selector header, the card meta, and donor chips.
+ * `general` is dormant (center-workspace §5.6) but kept so legacy rows render.
+ */
 export function categoryLabel(value: string): string {
   const map: Record<string, string> = {
-    pediatrics: "Pediatría",
     surgical: "Quirófano",
+    emergency: "Emergencias",
+    pharmacy: "Farmacia",
+    inpatient: "Hospitalización",
+    pediatrics: "Refugio infantil",
+    geriatrics: "Adultos mayores",
     general: "General",
   };
   return map[value] ?? capitalize(value);

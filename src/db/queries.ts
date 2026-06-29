@@ -83,6 +83,7 @@ export type CenterRequestStatus =
 /** A center's own request, for the back-office dashboard card. */
 export type CenterRequestCardData = {
   id: string;
+  shortId: number; // human-friendly global display id → "#1044"
   kind: "need" | "surplus";
   status: CenterRequestStatus;
   city: string | null;
@@ -372,6 +373,7 @@ export async function getCenterRequests(
   const rows = await db
     .select({
       id: request.id,
+      shortId: request.shortId,
       kind: request.kind,
       status: request.status,
       city: request.city,
@@ -422,6 +424,7 @@ export async function getCenterRequests(
 
   return rows.map((r) => ({
     id: r.id,
+    shortId: r.shortId,
     kind: r.kind,
     status: r.status,
     city: r.city,
@@ -435,6 +438,72 @@ export async function getCenterRequests(
     createdAt: r.createdAt,
     items: itemsByRequest.get(r.id) ?? [],
   }));
+}
+
+/**
+ * A single center-owned request (any non-draft status), scoped by center_id so
+ * one center can never read another's. Center-private + uncached (same contract
+ * as getCenterRequests) so the just-published confirm screen reflects the write
+ * immediately. Returns null when not found / not owned.
+ */
+export async function getCenterRequestById(
+  centerId: string,
+  requestId: string,
+): Promise<CenterRequestCardData | null> {
+  const [r] = await db
+    .select({
+      id: request.id,
+      shortId: request.shortId,
+      kind: request.kind,
+      status: request.status,
+      city: request.city,
+      title: request.title,
+      categories: request.categories,
+      publishedAt: request.publishedAt,
+      expiresAt: request.expiresAt,
+      windowHours: request.windowHours,
+      shareCount: request.shareCount,
+      closedReason: request.closedReason,
+      createdAt: request.createdAt,
+    })
+    .from(request)
+    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)))
+    .limit(1);
+
+  if (!r) return null;
+
+  const items = await db
+    .select({
+      id: requestItem.id,
+      name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
+      category: requestItem.category,
+    })
+    .from(requestItem)
+    .leftJoin(supply, eq(supply.id, requestItem.supplyId))
+    .where(eq(requestItem.requestId, requestId))
+    .orderBy(asc(requestItem.createdAt));
+
+  return { ...r, items };
+}
+
+/**
+ * Catalog supplies for one area/category, for the insumo selector. Center-facing
+ * + uncached (carries none of the donor surge tags), mirroring §4.4. Returns
+ * id+name pairs, name-sorted, active only.
+ */
+export async function getSuppliesByCategory(
+  category: string,
+): Promise<{ id: string; name: string }[]> {
+  return db
+    .select({ id: supply.id, name: supply.name })
+    .from(supply)
+    .where(
+      and(
+        eq(supply.category, category as typeof supply.category.enumValues[number]),
+        eq(supply.isActive, true),
+      ),
+    )
+    .orderBy(asc(supply.name));
 }
 
 /**
