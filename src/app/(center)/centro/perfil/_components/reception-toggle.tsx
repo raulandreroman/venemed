@@ -193,8 +193,8 @@ export function ReceptionToggle({
 
             <p className="text-xs leading-relaxed text-neutral-400">
               Podrás reactivar la recepción cuando vuelvas a poder recibir
-              donaciones. Si solo quieres pausar nuevas solicitudes, mejor espera
-              a que cierren las actuales.
+              donaciones. Si solo quieres cerrar algunas solicitudes, puedes
+              finalizarlas una por una sin desactivar la recepción.
             </p>
 
             {error && (
