@@ -62,7 +62,15 @@ export function ReceptionToggle({
     try {
       await setReception(next); // ends in redirect()
     } catch (e) {
-      if (isNextRedirectError(e)) throw e; // let Next navigate
+      if (isNextRedirectError(e)) {
+        // setReception redirects to THIS same route → Next soft-navigates and
+        // PRESERVES this client component (the sheet never unmounts). Close it
+        // ourselves so it doesn't linger on "Desactivando…". Re-throw so Next
+        // still performs the navigation. (Mirrors extender-button.)
+        setConfirmOpen(false);
+        setPending(false);
+        throw e;
+      }
       setError("No pudimos actualizar la recepción. Inténtalo de nuevo.");
       setPending(false);
     }
