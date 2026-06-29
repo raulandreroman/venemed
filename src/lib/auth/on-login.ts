@@ -4,7 +4,10 @@ import { appUser } from "@/db/schema";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentCenter } from "./current-center";
 
-const ROUTE_BY_STATUS = {
+/** Status → landing route. Exported so the registration flow (page-level and
+ * server-action idempotency checks) routes existing-membership users the same
+ * way login does. */
+export const ROUTE_BY_STATUS = {
   approved: "/centro",
   pending_review: "/centro/en-revision",
   rejected: "/centro/rechazado",

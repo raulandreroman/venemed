@@ -6,6 +6,7 @@
 import {
   pgTable,
   pgEnum,
+  uniqueIndex,
   uuid,
   text,
   varchar,
@@ -103,17 +104,24 @@ export const appUser = pgTable("app_user", {
 });
 
 // ---- membership (one user per center in v1) --------------------------------
-export const membership = pgTable("membership", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => appUser.id, { onDelete: "cascade" }),
-  centerId: uuid("center_id")
-    .notNull()
-    .references(() => center.id, { onDelete: "cascade" }),
-  role: memberRole("role").notNull().default("center_admin"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const membership = pgTable(
+  "membership",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => appUser.id, { onDelete: "cascade" }),
+    centerId: uuid("center_id")
+      .notNull()
+      .references(() => center.id, { onDelete: "cascade" }),
+    role: memberRole("role").notNull().default("center_admin"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  // Enforces "one user per center in v1" at the DB layer: closes the TOCTOU race
+  // where two concurrent verified submissions both pass the app-level pre-check
+  // and create duplicate centers + memberships for the same user.
+  (t) => [uniqueIndex("membership_user_id_key").on(t.userId)],
+);
 
 // ---- supply (catalog) ------------------------------------------------------
 export const supply = pgTable("supply", {

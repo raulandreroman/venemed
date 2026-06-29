@@ -12,17 +12,31 @@ import type { ReactNode } from "react";
 export function AppBar({
   title,
   backHref = "/solicitudes",
+  onBack,
   trailing,
   align = "center",
 }: {
   title: string;
   backHref?: string | null;
+  /** When set, the back arrow becomes a button calling this instead of
+   * navigating — used by the registration wizard to step back without a route
+   * change (which would drop the in-memory form payload). */
+  onBack?: () => void;
   trailing?: ReactNode;
   align?: "center" | "start";
 }) {
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-neutral-100 bg-surface px-4">
-      {backHref ? (
+      {onBack ? (
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Volver"
+          className="-ml-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-700 hover:bg-neutral-100"
+        >
+          <BackArrow />
+        </button>
+      ) : backHref ? (
         <Link
           href={backHref}
           aria-label="Volver"
@@ -40,7 +54,7 @@ export function AppBar({
       >
         {title}
       </h1>
-      <span className="inline-flex h-9 w-9 items-center justify-center">
+      <span className="inline-flex h-9 min-w-9 items-center justify-end whitespace-nowrap">
         {trailing}
       </span>
     </header>
