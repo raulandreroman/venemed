@@ -10,7 +10,7 @@ export function SignOutButton({
   variant = "primary",
 }: {
   label?: string;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: "primary" | "secondary" | "ghost" | "outline";
 }) {
   return (
     <form action={signOut} className="w-full">
