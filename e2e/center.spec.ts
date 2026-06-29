@@ -57,6 +57,12 @@ test.describe("center auth + registration", () => {
   test("login → approved dashboard → publish solicitud → donor list + dashboard", async ({
     page,
   }) => {
+    // This test chains login → publish → manage and polls the cached donor list
+    // twice (appear + leave); the donor list is unstable_cache(revalidate 60) and
+    // revalidateTag(…,"max") is stale-while-revalidate, so the "leaves" poll can
+    // run up to the ISR window. Raise the wall-clock budget beyond the default 60s.
+    test.setTimeout(180_000);
+
     const title = `E2E insumos ${Date.now()}`;
 
     await loginAs(page, PHONE);
@@ -103,6 +109,9 @@ test.describe("center auth + registration", () => {
     ).toBeVisible();
     await expectNoErrorOverlay(page);
 
+    // /centro/solicitudes/<id>/publicada → grab <id> for the detail + manage steps.
+    const requestId = new URL(page.url()).pathname.split("/")[3];
+
     // Donor list reflects the publish (active-requests tag revalidated). The
     // list is ISR (stale-while-revalidate), so re-navigate until the
     // regenerated HTML carries the new request.
@@ -120,6 +129,58 @@ test.describe("center auth + registration", () => {
     await page.goto("/centro");
     await expect(page.getByText(title).first()).toBeVisible();
     await expectNoErrorOverlay(page);
+
+    // --- Center detail + manage (gotcha #2: drive the REAL extend + finalize
+    // actions; build+GET never exercises them). ---
+    await page.goto(`/centro/solicitudes/${requestId}`);
+    await expect(
+      page.getByRole("heading", { name: "Detalle de solicitud" }),
+    ).toBeVisible();
+    await expect(page.getByText(title).first()).toBeVisible();
+
+    // Extender: re-open the 12/24/48 picker and reset the window from now.
+    await page.getByRole("button", { name: "Extender ventana" }).click();
+    await page.getByRole("radio", { name: "+12 h" }).click();
+    await page.getByRole("button", { name: "Extender", exact: true }).click();
+    await page.waitForURL(new RegExp(`/centro/solicitudes/${requestId}$`), {
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/Vence en/).first()).toBeVisible();
+    await expectNoErrorOverlay(page);
+
+    // Finalizar: sticky CTA → confirm dialog → real finalizeRequest → /centro.
+    await page.getByRole("button", { name: "Finalizar solicitud" }).click();
+    await page.getByRole("button", { name: "Finalizar", exact: true }).click();
+    await page.waitForURL(/\/centro$/, { timeout: 15_000 });
+    await expectNoErrorOverlay(page);
+
+    // Deterministic effect of the REAL finalize action (gotcha #2): the center
+    // detail is UNCACHED, so reopening it reflects the DB write immediately —
+    // the request now renders its terminal "cumplida" banner and the active-only
+    // sticky "Finalizar solicitud" CTA is gone. This proves the action committed
+    // status=closed/closedReason=fulfilled, independent of donor-cache timing.
+    await page.goto(`/centro/solicitudes/${requestId}`);
+    await expect(
+      page.getByText(/se marcó como cumplida/i),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Finalizar solicitud" }),
+    ).toHaveCount(0);
+    await expectNoErrorOverlay(page);
+
+    // …and it LEAVES the donor active list. The list is cached
+    // (unstable_cache, revalidate 60) and revalidateTag(…,"max") is
+    // stale-while-revalidate, so eventual consistency is bounded by the ISR
+    // window — re-navigate until the regenerated HTML drops the request.
+    await expect
+      .poll(
+        async () => {
+          await page.goto("/solicitudes", { waitUntil: "networkidle" });
+          return page.getByText(title).count();
+        },
+        { timeout: 75_000, intervals: [2000, 3000, 5000, 5000] },
+      )
+      .toBe(0);
   });
 
   test("registration submit invokes the action without crashing", async ({

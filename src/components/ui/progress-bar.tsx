@@ -6,10 +6,11 @@ export function ProgressBar({
 }: {
   value: number;
   className?: string;
-  tone?: "error" | "neutral";
+  tone?: "error" | "neutral" | "accent";
 }) {
   const pct = Math.min(100, Math.max(0, value * 100));
-  const fill = tone === "error" ? "bg-error" : "bg-neutral-500";
+  const fill =
+    tone === "error" ? "bg-error" : tone === "accent" ? "bg-accent" : "bg-neutral-500";
   return (
     <div
       className={`h-1.5 w-full overflow-hidden rounded-full bg-black/10 ${className}`}

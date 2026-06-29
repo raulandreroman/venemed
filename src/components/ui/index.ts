@@ -8,3 +8,4 @@ export { AppBar } from "./app-bar";
 export { Countdown } from "./countdown";
 export { ProgressBar } from "./progress-bar";
 export { SegmentedControl } from "./segmented-control";
+export { ConfirmDialog } from "./confirm-dialog";
