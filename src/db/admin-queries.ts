@@ -90,11 +90,19 @@ async function queryCentersByStatus(
 export async function listCentersByStatus(
   status: CenterStatus,
 ): Promise<CenterQueueRow[]> {
-  return unstable_cache(
+  const rows = await unstable_cache(
     () => queryCentersByStatus(status),
     ["admin-centers", status],
     { revalidate: 30, tags: ["admin-centers", `admin-centers:${status}`] },
   )();
+  // unstable_cache JSON-serializes Dates → strings on read; re-hydrate so the
+  // UI's date math (.getTime(), formatRelativeTime, isOlderThanHours) works.
+  return rows.map((r) => ({
+    ...r,
+    createdAt: new Date(r.createdAt),
+    verifiedAt: r.verifiedAt ? new Date(r.verifiedAt) : null,
+    updatedAt: new Date(r.updatedAt),
+  }));
 }
 
 // ---- 3.3 listModerationHistory --------------------------------------------

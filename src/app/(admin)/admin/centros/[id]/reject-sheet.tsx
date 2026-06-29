@@ -97,6 +97,7 @@ export function RejectSheet({
     const result = await rejectCenter(centerId, reason);
     if (result.ok) {
       router.push("/admin?tab=pendientes&done=rejected");
+      router.refresh(); // bust the client router cache so the queue reflects the change
       return;
     }
     setSubmitting(false);

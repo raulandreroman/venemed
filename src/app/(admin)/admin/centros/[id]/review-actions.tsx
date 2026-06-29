@@ -33,6 +33,7 @@ export function ReviewActions({
     const result = await approveCenter(centerId);
     if (result.ok) {
       router.push("/admin?tab=pendientes&done=approved");
+      router.refresh(); // bust the client router cache so the queue reflects the change
       return;
     }
     setApproving(false);

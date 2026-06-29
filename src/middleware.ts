@@ -30,6 +30,12 @@ export async function middleware(request: NextRequest) {
     (p) => pathname === p || pathname.startsWith(p + "/"),
   );
 
+  // Server Action requests (POST + Next-Action header) must NOT be redirected
+  // by middleware — the action issues its own redirect (finishLogin). Bouncing
+  // the action POST yields "An unexpected response was received from the server"
+  // and the form hangs. The bounce rules below are for GET navigations only.
+  const isServerAction = request.headers.has("next-action");
+
   // Gate ONLY the (center) app routes. Never gate (public).
   if (isCenter && !isPublicCenter && !user) {
     const url = request.nextUrl.clone();
@@ -39,7 +45,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Already authed and sitting on the login page → bounce into the app.
-  if (pathname === "/centro/login" && user) {
+  if (!isServerAction && pathname === "/centro/login" && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/centro";
     return redirectWithCookies(url);
@@ -56,7 +62,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Already authed and sitting on the admin login → bounce into the queue.
-  if (pathname === "/admin/login" && user) {
+  if (!isServerAction && pathname === "/admin/login" && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin";
     return redirectWithCookies(url);
