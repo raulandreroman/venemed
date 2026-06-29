@@ -4,6 +4,9 @@ import { updateSession } from "@/lib/supabase/middleware";
 // Paths under (center) that are reachable WITHOUT a session.
 const PUBLIC_CENTER_PATHS = ["/centro/login", "/centro/registro"];
 
+// Paths under (admin) that are reachable WITHOUT a session.
+const PUBLIC_ADMIN_PATHS = ["/admin/login"];
+
 export async function middleware(request: NextRequest) {
   const { response, user } = await updateSession(request);
 
@@ -22,8 +25,18 @@ export async function middleware(request: NextRequest) {
   const isPublicCenter = PUBLIC_CENTER_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/"),
   );
+  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+  const isPublicAdmin = PUBLIC_ADMIN_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
 
-  // Gate ONLY the (center) app routes. Never gate (public) or (admin).
+  // Server Action requests (POST + Next-Action header) must NOT be redirected
+  // by middleware — the action issues its own redirect (finishLogin). Bouncing
+  // the action POST yields "An unexpected response was received from the server"
+  // and the form hangs. The bounce rules below are for GET navigations only.
+  const isServerAction = request.headers.has("next-action");
+
+  // Gate ONLY the (center) app routes. Never gate (public).
   if (isCenter && !isPublicCenter && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/centro/login";
@@ -32,9 +45,26 @@ export async function middleware(request: NextRequest) {
   }
 
   // Already authed and sitting on the login page → bounce into the app.
-  if (pathname === "/centro/login" && user) {
+  if (!isServerAction && pathname === "/centro/login" && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/centro";
+    return redirectWithCookies(url);
+  }
+
+  // Gate (admin) routes on SESSION PRESENCE only — Drizzle isn't available in
+  // middleware. The is_platform_admin authorization is enforced in server code
+  // (requireAdmin() per page). Unauth → admin login.
+  if (isAdmin && !isPublicAdmin && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin/login";
+    url.search = "";
+    return redirectWithCookies(url);
+  }
+
+  // Already authed and sitting on the admin login → bounce into the queue.
+  if (!isServerAction && pathname === "/admin/login" && user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin";
     return redirectWithCookies(url);
   }
 

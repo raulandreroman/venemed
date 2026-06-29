@@ -83,6 +83,20 @@ export function formatRelativeTime(
   return `hace ${Math.round(ms / DAY)} d`;
 }
 
+/**
+ * True when `date` is at least `hours` in the past. Powers the admin queue's
+ * "Urgente" badge (pending centers waiting ≥ 24 h). Keeps the `now` read out of
+ * the component render (react-hooks/purity).
+ */
+export function isOlderThanHours(
+  date: Date | string | null,
+  hours: number,
+  now: Date = new Date(),
+): boolean {
+  if (!date) return false;
+  return now.getTime() - toDate(date).getTime() >= hours * HOUR;
+}
+
 /** "Solicitado hace 3 min" / "Solicitado ayer" — relative card meta line. */
 export function formatRequestedAt(
   date: Date | string | null,

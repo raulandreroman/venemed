@@ -1,4 +1,5 @@
 import "server-only";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { appUser } from "@/db/schema";
 import { createClient } from "@/lib/supabase/server";
@@ -49,7 +50,18 @@ export async function resolveLoginDestination(): Promise<string> {
       },
     });
 
-  // (2) + (3) Resolve membership → center → route.
+  // (2) Admins short-circuit BEFORE membership routing. The upsert above never
+  //     touches is_platform_admin (onConflictDoUpdate.set omits it), so the
+  //     manually-provisioned flag is preserved. Admins frequently have NO
+  //     membership and must never be routed to /centro/registro.
+  const [adminRow] = await db
+    .select({ isAdmin: appUser.isPlatformAdmin })
+    .from(appUser)
+    .where(eq(appUser.id, user.id))
+    .limit(1);
+  if (adminRow?.isAdmin) return "/admin";
+
+  // (3) Otherwise: existing center-membership routing (unchanged).
   const result = await getCurrentCenter();
   if (result.kind === "no-membership") return "/centro/registro";
   if (result.kind === "anon") return "/centro/login";

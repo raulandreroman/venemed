@@ -37,6 +37,9 @@ jobs:
           TEST_CENTER_PHONE: ${{ secrets.TEST_CENTER_PHONE }}
           # Second number for the registration test (avoids OTP rate-limit vs login).
           TEST_CENTER_PHONE_2: ${{ secrets.TEST_CENTER_PHONE_2 }}
+          # Third, distinct number for the gated admin moderation spec. Unset → the
+          # admin actions test skips cleanly (like center.spec without TEST_OTP_CODE).
+          TEST_ADMIN_PHONE: ${{ secrets.TEST_ADMIN_PHONE }}
           # If the secret is unset, this resolves to "" and center.spec skips.
           TEST_OTP_CODE: ${{ secrets.TEST_OTP_CODE }}
 
