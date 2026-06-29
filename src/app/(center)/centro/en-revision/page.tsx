@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation";
-import { AppBar } from "@/components/ui";
+import { AppBar, Button } from "@/components/ui";
 import { requireCenter } from "@/lib/auth/require-center";
 import { SignOutButton } from "../../_components/sign-out-button";
 
 /**
- * PLACEHOLDER for pending_review centers — Figma 8:733 ("Casi listo").
- * The "Editar datos del centro" CTA is dropped (registro is out of scope);
- * the primary CTA is sign-out.
+ * "Casi listo" — pending_review centers (Figma 8:733). The phone is verified;
+ * a moderator must approve the center before it can publish.
  */
 export default async function EnRevisionPage() {
   const center = await requireCenter();
@@ -17,68 +16,111 @@ export default async function EnRevisionPage() {
   // status === "pending_review" → render
 
   const steps = [
-    "Te escribiremos por WhatsApp en un plazo de 24 a 48 horas.",
+    `Te escribiremos por WhatsApp al ${maskPhone(center.phone)} en un plazo de 24 a 48 horas.`,
     "Confirmaremos la identidad del responsable y la legitimidad del centro.",
     "Activamos tu cuenta y podrás publicar tus alertas de necesidades.",
   ];
 
   return (
     <>
-      <AppBar title="Casi listo" backHref={null} align="start" />
-      <main className="flex flex-1 flex-col p-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-warning-tint text-warning">
-          <ClockIcon />
+      <AppBar
+        title="Casi listo"
+        backHref={null}
+        align="start"
+        trailing={
+          <span className="text-[13px] font-medium text-neutral-500">3 de 3</span>
+        }
+      />
+
+      <main className="flex flex-1 flex-col">
+        <div className="flex flex-col gap-[18px] px-5 py-[22px]">
+          {/* stepper — all three steps complete */}
+          <div className="flex gap-1.5">
+            <span className="h-1.5 flex-1 rounded-full bg-accent" />
+            <span className="h-1.5 flex-1 rounded-full bg-accent" />
+            <span className="h-1.5 flex-1 rounded-full bg-accent" />
+          </div>
+
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-warning-tint text-warning">
+            <ClockIcon />
+          </div>
+
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-warning-tint py-1.5 pl-2.5 pr-3 text-[13px] font-semibold text-warning">
+            <span aria-hidden className="text-[10px]">
+              ●
+            </span>
+            Pendiente de verificación
+          </span>
+
+          <div className="flex flex-col gap-2">
+            <h1 className="text-[22px] font-bold leading-7 text-neutral-900">
+              Estamos verificando tu centro
+            </h1>
+            <p className="text-[15px] leading-[22px] text-neutral-500">
+              Tu teléfono quedó verificado. Ahora nuestro equipo confirmará la
+              veracidad del centro y de la persona responsable antes de activar
+              tus alertas.
+            </p>
+          </div>
+
+          <ol className="flex flex-col gap-3.5">
+            {steps.map((text, i) => (
+              <li key={i} className="flex gap-3">
+                <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-accent-subtle text-[13px] font-bold text-accent-hover">
+                  {i + 1}
+                </span>
+                <span className="text-[14px] leading-[21px] text-neutral-700">
+                  {text}
+                </span>
+              </li>
+            ))}
+          </ol>
+
+          {/* moderator note — inner accent bar + subtle box */}
+          <div className="flex gap-2.5 rounded-md border border-neutral-300 bg-neutral-50 px-3.5 py-3">
+            <span className="w-1 shrink-0 self-stretch rounded-sm bg-accent" />
+            <div className="flex flex-col gap-0.5">
+              <p className="text-[13px] font-semibold leading-[18px] text-neutral-900">
+                Somos el equipo moderador de VeneMed.
+              </p>
+              <p className="text-[13px] leading-[18px] text-neutral-500">
+                Nunca te pedimos dinero ni claves. Verificamos para proteger la
+                red de ayuda.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <span className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-warning-tint px-3 py-1 text-sm font-medium text-warning">
-          <span aria-hidden>●</span> Pendiente de verificación
-        </span>
-
-        <h1 className="mt-3 text-2xl font-bold text-neutral-900">
-          Estamos verificando tu centro
-        </h1>
-        <p className="mt-2 text-[15px] leading-relaxed text-neutral-500">
-          Tu teléfono quedó verificado. Ahora nuestro equipo confirmará la
-          veracidad del centro y de la persona responsable antes de activar tus
-          alertas.
-        </p>
-
-        <ol className="mt-5 flex flex-col gap-4">
-          {steps.map((text, i) => (
-            <li key={i} className="flex gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-xs font-semibold text-accent">
-                {i + 1}
-              </span>
-              <span className="text-[15px] leading-relaxed text-neutral-700">
-                {text}
-              </span>
-            </li>
-          ))}
-        </ol>
-
-        <div className="mt-5 rounded-xl border-l-4 border-accent bg-neutral-50 p-4">
-          <p className="text-sm font-semibold text-neutral-900">
-            Somos el equipo moderador de VeneMed.
-          </p>
-          <p className="mt-1 text-sm leading-relaxed text-neutral-500">
-            Nunca te pedimos dinero ni claves. Verificamos para proteger la red
-            de ayuda.
-          </p>
-        </div>
-
-        <div className="mt-auto pt-6">
-          <SignOutButton label="Entendido · Cerrar sesión" />
+        {/* footer */}
+        <div className="mt-auto flex flex-col gap-2.5 border-t border-neutral-100 px-5 pb-5 pt-3.5">
+          <SignOutButton label="Entendido" variant="primary" />
+          <Button
+            href="/centro/registro"
+            variant="ghost"
+            fullWidth
+            className="border-[1.5px] border-neutral-300 bg-surface text-neutral-900 hover:bg-neutral-50"
+          >
+            Editar datos del centro
+          </Button>
         </div>
       </main>
     </>
   );
 }
 
+/** "+584241234567" → "+58 424 ••• 4567". */
+function maskPhone(e164: string | null): string {
+  const d = (e164 ?? "").replace(/\D/g, "");
+  const nat = d.startsWith("58") ? d.slice(2) : d;
+  if (nat.length < 7) return e164 ?? "";
+  return `+58 ${nat.slice(0, 3)} ••• ${nat.slice(-4)}`;
+}
+
 function ClockIcon() {
   return (
     <svg
-      width="26"
-      height="26"
+      width="30"
+      height="30"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

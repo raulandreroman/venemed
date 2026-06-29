@@ -5,6 +5,12 @@
  * client select and the server-side validator so both agree on the allowed set.
  */
 export const VE_STATES = [
+  // Surfaced first: states most affected by the earthquake (the bulk of centers
+  // registering right now are here). The rest follow alphabetically.
+  "Distrito Capital",
+  "La Guaira",
+  "Miranda",
+  // ---- rest, alphabetical ----
   "Amazonas",
   "Anzoátegui",
   "Apure",
@@ -14,13 +20,10 @@ export const VE_STATES = [
   "Carabobo",
   "Cojedes",
   "Delta Amacuro",
-  "Distrito Capital",
   "Falcón",
   "Guárico",
-  "La Guaira",
   "Lara",
   "Mérida",
-  "Miranda",
   "Monagas",
   "Nueva Esparta",
   "Portuguesa",
