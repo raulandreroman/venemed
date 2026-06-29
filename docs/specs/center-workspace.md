@@ -33,7 +33,7 @@ The schema already models everything Phase 3 writes. Confirmed against `src/db/s
 - `supply`: catalog with `category` + `isActive`. Seed has 6.
 - Cron `expireDueRequests()` already flips lapsed active/paused → expired and revalidates tags.
 
-**Schema changes** (migration `0004`) — two parts:
+**Schema changes** (migration `0004`) — three parts:
 
 **(a) `supply_category` 3 → 6 values** (decision §5.6): area = category, 1:1. Postgres caveat: `ALTER TYPE … ADD VALUE` can't run inside a transaction with dependent statements and values can't be removed, so drizzle-kit may recreate the enum — generate the migration, then **review the SQL** before applying. Retag the 6 seeded supplies; resolve the `general` keep-or-drop question. Donor list/detail + landing-stats already read `categories[]` generically, but the donor **chip set** widens to 6.
 
@@ -45,12 +45,22 @@ center.reception_paused_at  timestamp with time zone  null   -- null = receiving
 
 (A timestamp, not a bool, so "Pausada · desde hace 12 min" renders for free.) Donor list/detail queries must exclude requests whose center is paused — though if pausing also closes active requests, the existing `status = active` filter already covers the live surge; the flag mainly gates re-publishing and the public directory.
 
+**(c) `request` human-friendly short id** (decision 2026-06-29). The card meta is "{área} · #{id}" and Figma shows global descending numbers (#1044, #1043, …). UUIDs aren't human-friendly, so add a monotonic display id:
+
+```
+request.short_id  bigint  generated always as identity   -- → "#1044"
+```
+
+Global sequence (not per-center), matching the Figma. Slice 1 (PR #14) ships the interim `#{id.slice(0,8)}`; **slice 2 adds the column and swaps `center-request-card.tsx` to render `request.short_id`**. Backfill is automatic (identity assigns to existing rows on add? no — `ADD COLUMN … GENERATED ALWAYS AS IDENTITY` backfills existing rows with a sequence, so seeded requests get numbers too; verify the generated SQL).
+
 ## 3. Slices (suggested PR breakdown)
 
 Each slice is an independently shippable PR with its own e2e.
 
 ### 3.1 — Dashboard (read-only) + queries
-`/centro` becomes the real dashboard (`32:4898`): header with center name + `Verificado` chip, two stat tiles (**Solicitudes activas**, **Por vencer** = active expiring < N h), **"Tus solicitudes"** list of the center's own requests (card shows title, area · #id, item chips + "+N más", relative published time / window, Compartir + countdown), sticky **"+ Crear solicitud"**. Empty state = `4b`.
+`/centro` becomes the real dashboard (`32:4898`): header with center name + `Verificado` chip, two stat tiles (**Solicitudes activas**, **Por vencer** = active expiring **< 6 h**, `EXPIRING_SOON_HOURS`, confirmed), **"Tus solicitudes"** list of the center's own requests (card shows title, area · #id, item chips + "+N más", relative published time / window, Compartir + countdown), sticky **"+ Crear solicitud"**. Empty state = `4b`.
+
+> **Routing**: routes stay **Spanish** (e.g. create flow = `/centro/solicitudes/nueva`, detail = `/centro/solicitudes/[id]`), consistent with the existing `/centro`, `/solicitudes`, `/centro/registro` paths. The "identifiers English" rule covers code (tables/columns/vars); URL paths are user-facing and already circulate in Spanish (donor links `/solicitudes/[id]`).
 - **Queries** (new, `center_id`-scoped, *not* the cached donor ones): `getCenterRequests(centerId)`, `getCenterDashboardStats(centerId)`.
 - No writes. Lowest-risk first slice; unblocks visual review of everything else.
 
