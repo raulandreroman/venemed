@@ -73,7 +73,7 @@ The core authoring flow (`5` → `6` → `7`):
 ### 3.3 — Request detail (center) + Finalizar + Extender
 Center-side detail (`29:3527`) — distinct from the donor sheet:
 - Countdown card with progress bar, **"+ Extender ventana"**, donation items, Dónde/Cuándo entregar, share row, sticky **"Finalizar solicitud"** (→ `closed` / `fulfilled`, confirm sheet `77:1525`).
-- **Actions**: `finalizeRequest(id)` → status `closed`, `closedReason='fulfilled'`, `closedAt=now`; `extendWindow(id, hours)` → **re-opens the 12/24/48 picker** (decision §5.4) and resets the window: `windowHours = chosen`, `expiresAt = now + chosen`. Both `center_id`-guarded + revalidate (`active-requests`, `request:<id>`).
+- **Actions**: `finalizeRequest(id)` → status `closed`, `closedReason='fulfilled'`, `closedAt=now`; `extendWindow(id, hours)` → the **+12/+24/+48 picker** (Figma `Sheet · Extender ventana` `80:1873`) **adds** time: `expiresAt += chosen`, `windowHours += chosen` (anchors the progress-bar start at the original publish). Both `center_id`-guarded + revalidate (`active-requests`, `request:<id>`).
 
 ### 3.4 — Center profile + reception toggle
 `Perfil del centro` (`57:1886`/`57:2009`): read-only center info (reuses `formatVePhone` + `cargo` we just shipped), links to edit + "Cambiar responsable", **Cerrar sesión**, lifetime stats (**Activas** + **Cumplidas** only — `Donantes` is being **removed per product** (decision §5.3), so the row drops from 3 stats to 2), and the **Recepción de donaciones** toggle. OFF (`Modal · Desactivar recepción` confirm) → set `reception_paused_at`, **close all active requests** with `closedReason='cancelled'` (decision §5.2), revalidate donor tags. ON → clear the flag.
@@ -91,7 +91,7 @@ New `"use server"` module(s) under `src/app/(center)/actions/` — remember gotc
 2. **Reception-OFF closes active requests with `closedReason = 'cancelled'`.**
 3. **`Donantes` profile stat removed** (product). Profile shows **Activas + Cumplidas** (the latter derived from `closed/fulfilled` count).
 4. **Surplus redesigned & deferred** — not a separate solicitud. It becomes a center-level "no enviar más de X" shown as a banner on a future center page + a mini-banner on each of that center's solicitudes. Needs its own design + mini-spec; out of Phase 3 (see §1). Create flow is need-only.
-5. **"Extender ventana" re-opens the 12/24/48 picker** and resets the window (`windowHours` + `expiresAt = now + chosen`).
+5. **"Extender ventana" = the +12/+24/+48 picker that ADDS time** (Figma `80:1873` "Suma tiempo extra"): `expiresAt += chosen`, `windowHours += chosen`. *(Corrected from the earlier "reset from now" reading after the designer added the dedicated Extender sheet.)*
 6. **Area = category, 1:1.** Expand `supply_category` from 3 → 6 values matching the areas, so area *is* the category (drives "Sugeridos · {área}", the denormalized `categories[]`, and donor chips):
 
    | Area | `supply_category` |
