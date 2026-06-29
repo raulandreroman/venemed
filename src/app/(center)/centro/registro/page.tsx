@@ -1,35 +1,25 @@
-import { AppBar, Button, Card } from "@/components/ui";
+import { redirect } from "next/navigation";
 import { getCurrentCenter } from "@/lib/auth/current-center";
-import { SignOutButton } from "../../_components/sign-out-button";
+import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
+import { RegistroWizard } from "./registro-wizard";
 
 /**
- * PLACEHOLDER for the "no membership" destination — also the public landing the
- * login screen's "Registra tu centro" link points to. The real registration
- * flow (R0 → datos → verificar → en revisión) ships in a later phase. Public:
- * reachable without a session (see PUBLIC_CENTER_PATHS in middleware).
+ * Center registration entry (R0 → Datos → Verificar → En revisión). Public
+ * (listed in PUBLIC_CENTER_PATHS). Resolves the session to pick the wizard mode:
+ *  - "center"        → already registered → redirect to status (idempotency mirror).
+ *  - "no-membership" → authed user: skip OTP, prefill+lock the verified phone.
+ *  - "anon"          → full flow: intro → datos → otp → create.
  */
 export default async function RegistroPage() {
   const session = await getCurrentCenter();
-  const isAuthed = session.kind !== "anon";
 
-  return (
-    <>
-      <AppBar title="Registrar centro" backHref="/centro/login" />
-      <main className="flex flex-1 flex-col justify-center p-4">
-        <Card className="text-center">
-          <h1 className="text-2xl font-bold text-neutral-900">Regístrate</h1>
-          <p className="mt-2 text-[15px] leading-relaxed text-neutral-500">
-            El registro de centros estará disponible pronto. Si tu centro ya
-            está registrado, inicia sesión con el teléfono del responsable.
-          </p>
-          <div className="mt-5 flex flex-col gap-2">
-            <Button href="/centro/login" fullWidth>
-              Iniciar sesión
-            </Button>
-            {isAuthed && <SignOutButton variant="ghost" />}
-          </div>
-        </Card>
-      </main>
-    </>
-  );
+  if (session.kind === "center") {
+    redirect(ROUTE_BY_STATUS[session.center.status] ?? "/centro/en-revision");
+  }
+
+  if (session.kind === "no-membership") {
+    return <RegistroWizard mode="authed" defaultPhone={session.phone} />;
+  }
+
+  return <RegistroWizard mode="anon" />;
 }
