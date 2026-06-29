@@ -12,7 +12,8 @@ import {
 } from "@/lib/registro/validation";
 import { createClient } from "@/lib/supabase/server";
 
-export type { CreateCenterInput };
+// NOTE: a "use server" module may export ONLY async functions. Do not re-export
+// types here — import CreateCenterInput from "@/lib/registro/validation" instead.
 
 /**
  * Transactional, idempotent registration write. Runs AFTER the phone is
