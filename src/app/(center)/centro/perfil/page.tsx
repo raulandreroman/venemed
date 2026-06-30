@@ -117,11 +117,11 @@ export default async function CenterProfilePage() {
           </section>
         )}
 
-        {/* (3) lifetime stats — Activas + Cumplidas (decision §5.3) */}
+        {/* (3) lifetime stats — Activas + Finalizadas (decision §5.3) */}
         <section className="flex items-stretch rounded-2xl border border-neutral-100 bg-surface shadow-sm">
           <StatCell label="Activas" value={profile.activas} />
           <span className="my-3 w-px self-stretch bg-neutral-100" />
-          <StatCell label="Cumplidas" value={profile.cumplidas} />
+          <StatCell label="Finalizadas" value={profile.cumplidas} />
         </section>
 
         {/* (4) Información del centro */}
