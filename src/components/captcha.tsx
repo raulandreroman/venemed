@@ -75,7 +75,11 @@ export const Captcha = forwardRef<CaptchaHandle, CaptchaProps>(function Captcha(
       <Turnstile
         ref={instance}
         siteKey={SITE_KEY}
-        options={{ size: "flexible" }}
+        // interaction-only: the widget stays invisible (zero height) and solves
+        // silently for low-risk visitors; it only renders a visible challenge
+        // when Cloudflare decides a human check is required. Requires the widget
+        // to be in "Managed" mode in the Turnstile dashboard.
+        options={{ size: "flexible", appearance: "interaction-only" }}
         onSuccess={() => onReadyChange?.(true)}
         onError={() => onReadyChange?.(false)}
         onExpire={() => onReadyChange?.(false)}
