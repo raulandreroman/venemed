@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useRef, useState, type FormEvent } from "react";
 
+import { Captcha, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
@@ -23,6 +24,7 @@ export function AdminLoginForm({ channel = "sms" }: { channel?: Channel }) {
   const [nationalNumber, setNationalNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const captchaRef = useRef<CaptchaHandle>(null);
 
   const national = nationalNumber.replace(/\D/g, "");
   const phoneE164 = `+58${national}`;
@@ -37,9 +39,17 @@ export function AdminLoginForm({ channel = "sms" }: { channel?: Channel }) {
       setLoading(true);
       setError(null);
       const supabase = createClient();
+      let captchaToken: string | undefined;
+      try {
+        captchaToken = await captchaRef.current?.getToken();
+      } catch {
+        setLoading(false);
+        setError("No pudimos verificar que no eres un robot. Recarga e inténtalo de nuevo.");
+        return;
+      }
       const { error: sendError } = await supabase.auth.signInWithOtp({
         phone: phoneE164,
-        options: { channel },
+        options: { channel, captchaToken },
       });
       setLoading(false);
       if (sendError) {
@@ -122,6 +132,8 @@ export function AdminLoginForm({ channel = "sms" }: { channel?: Channel }) {
             {error}
           </p>
         )}
+
+        <Captcha ref={captchaRef} />
 
         <div className="mt-auto pt-6">
           <Button type="submit" fullWidth disabled={loading}>

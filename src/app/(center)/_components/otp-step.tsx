@@ -11,6 +11,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { Captcha, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
@@ -75,6 +76,7 @@ export function OtpStep({
   const [lockIn, setLockIn] = useState(0);
 
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const captchaRef = useRef<CaptchaHandle>(null);
   const code = digits.join("");
 
   // Resend countdown tick (Phase 1 pattern — safe in an effect).
@@ -101,9 +103,17 @@ export function OtpStep({
     setLoading(true);
     setError(null);
     const supabase = createClient();
+    let captchaToken: string | undefined;
+    try {
+      captchaToken = await captchaRef.current?.getToken();
+    } catch {
+      setLoading(false);
+      setError("No pudimos verificar que no eres un robot. Recarga e inténtalo de nuevo.");
+      return;
+    }
     const { error: sendError } = await supabase.auth.signInWithOtp({
       phone: phoneE164,
-      options: { channel },
+      options: { channel, captchaToken },
     });
     setLoading(false);
     if (sendError) {
@@ -333,6 +343,8 @@ export function OtpStep({
             </button>
           )}
         </p>
+
+        <Captcha ref={captchaRef} />
 
         <div className="mt-auto flex flex-col items-center gap-3 pt-6">
           <Button type="submit" fullWidth disabled={loading}>

@@ -89,6 +89,7 @@ export function CenterDatosForm({
   headerSlot,
   footerError,
   footerNote,
+  footerSlot,
 }: {
   initialValues: CenterDatosValues;
   phoneLocked: boolean;
@@ -101,6 +102,9 @@ export function CenterDatosForm({
   headerSlot?: ReactNode;
   footerError?: string | null;
   footerNote?: ReactNode;
+  /** Rendered just above the submit button — used by the wizard to mount the
+   * captcha that gates the OTP send (edit reuses this form without it). */
+  footerSlot?: ReactNode;
 }): ReactElement {
   const [data, setData] = useState<CenterDatosValues>(initialValues);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -275,6 +279,8 @@ export function CenterDatosForm({
           {footerError}
         </p>
       )}
+
+      {footerSlot}
 
       <div className="mt-auto flex flex-col items-center gap-3 pt-8">
         {footerNote ? (
