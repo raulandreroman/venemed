@@ -5,7 +5,7 @@ import { revalidateTag } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { request } from "@/db/schema";
+import { center, request } from "@/db/schema";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { requireCenter } from "@/lib/auth/require-center";
 import { isWindowHours } from "@/lib/solicitudes/validation";
@@ -117,4 +117,65 @@ export async function extendWindow(
   revalidateRequest(requestId);
 
   redirect(`/centro/solicitudes/${requestId}`);
+}
+
+/**
+ * Reactivate (reopen) a closed/expired solicitud the logged-in center owns
+ * (Figma 8:1009 "Reactivar solicitud"): status → `active`, clears
+ * `closedAt`/`closedReason`, and starts a fresh window (`publishedAt = now`,
+ * `expiresAt = now + windowHours`). Ownership-scoped + only valid on terminal
+ * rows; refused while the center's reception is paused (a paused center has no
+ * active requests). Revalidates the donor surge reads, then back to /centro.
+ */
+export async function reactivateRequest(requestId: string): Promise<void> {
+  const current = await requireCenter();
+  if (current.status !== "approved") {
+    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
+  }
+  const { centerId } = current;
+
+  const [row] = await db
+    .select({
+      id: request.id,
+      status: request.status,
+      windowHours: request.windowHours,
+    })
+    .from(request)
+    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)))
+    .limit(1);
+  if (!row) notFound();
+
+  // Only terminal requests can be reactivated; active/paused are a no-op.
+  if (row.status !== "closed" && row.status !== "expired") {
+    redirect(`/centro/solicitudes/${requestId}`);
+  }
+
+  // A paused center can't have active requests — block until reception resumes.
+  const [c] = await db
+    .select({ receptionPausedAt: center.receptionPausedAt })
+    .from(center)
+    .where(eq(center.id, centerId))
+    .limit(1);
+  if (c?.receptionPausedAt) {
+    throw new Error("La recepción de donaciones está pausada.");
+  }
+
+  const now = new Date();
+  const windowHours = row.windowHours ?? 24;
+  const expiresAt = new Date(now.getTime() + windowHours * 3600 * 1000);
+
+  await db
+    .update(request)
+    .set({
+      status: "active",
+      closedAt: null,
+      closedReason: null,
+      publishedAt: now,
+      expiresAt,
+    })
+    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)));
+
+  revalidateRequest(requestId);
+
+  redirect("/centro");
 }
