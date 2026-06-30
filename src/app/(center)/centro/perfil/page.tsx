@@ -61,7 +61,7 @@ export default async function CenterProfilePage() {
 
   return (
     <>
-      <AppBar title="Perfil del centro" backHref="/centro" />
+      <AppBar title="Ajustes" backHref="/centro" />
 
       <main className="flex flex-1 flex-col gap-6 px-4 pb-12 pt-5">
         {/* (1) avatar + name + chips */}
