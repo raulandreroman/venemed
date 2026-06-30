@@ -43,6 +43,13 @@
       "when": 1782772664283,
       "tag": "0005_old_korath",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782900000000,
+      "tag": "0006_locked_data_api",
+      "breakpoints": true
     }
   ]
 }
