@@ -1,22 +1,33 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Button, Card } from "@/components/ui";
-import {
-  getCenterDashboardStats,
-  getCenterRequests,
-} from "@/db/queries";
+import { Button } from "@/components/ui";
+import { getCenterRequests, type CenterRequestCardData } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 
 import { CenterRequestCard } from "./_components/center-request-card";
 import { DashboardHeader } from "./_components/dashboard-header";
 
-const CREATE_HREF = "/centro/solicitudes/nueva"; // slice 2; 404 for now is fine
+const CREATE_HREF = "/centro/solicitudes/nueva";
+
+type SearchParams = { estado?: string };
+
+const FILTERS = [
+  { value: "todas", label: "Todas" },
+  { value: "activas", label: "Activas" },
+  { value: "inactivas", label: "Inactivas" },
+] as const;
 
 /**
- * Center dashboard (Figma 32:4898 / empty 32:4873). Read-only: the center's own
- * stats + requests, scoped server-side by center_id. The create flow is slice 2.
+ * Center dashboard (Figma 8:1009). Read-only: the center's own requests scoped
+ * server-side by center_id, split into Activas (active/paused) and Inactivas
+ * (closed/expired), with a Todas/Activas/Inactivas filter bar (URL `?estado=`).
  */
-export default async function CenterDashboardPage() {
+export default async function CenterDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const center = await requireCenter();
   if (center.status === "pending_review") redirect("/centro/en-revision");
   if (center.status === "rejected" || center.status === "suspended") {
@@ -24,12 +35,24 @@ export default async function CenterDashboardPage() {
   }
   // status === "approved" → render dashboard
 
-  const [stats, requests] = await Promise.all([
-    getCenterDashboardStats(center.centerId),
-    getCenterRequests(center.centerId),
-  ]);
+  const { estado } = await searchParams;
+  const filter =
+    estado === "activas" || estado === "inactivas" ? estado : "todas";
 
+  const requests = await getCenterRequests(center.centerId);
   const isEmpty = requests.length === 0;
+  const activas = requests.filter(
+    (r) => r.status === "active" || r.status === "paused",
+  );
+  const inactivas = requests.filter(
+    (r) => r.status === "closed" || r.status === "expired",
+  );
+
+  // Under "todas" hide an empty section; under a specific tab show its empty note.
+  const showActivas =
+    filter === "activas" || (filter === "todas" && activas.length > 0);
+  const showInactivas =
+    filter === "inactivas" || (filter === "todas" && inactivas.length > 0);
 
   return (
     <>
@@ -39,22 +62,23 @@ export default async function CenterDashboardPage() {
         <EmptyState />
       ) : (
         <>
-          <main className="flex flex-1 flex-col gap-4 px-4 pb-24 pt-4">
-            {/* stat tiles */}
-            <div className="grid grid-cols-2 gap-3">
-              <StatTile label="Solicitudes activas" value={stats.activas} />
-              <StatTile label="Por vencer" value={stats.porVencer} accent />
-            </div>
+          <main className="flex flex-1 flex-col gap-5 px-4 pb-24 pt-4">
+            <FilterChips active={filter} />
 
-            {/* requests */}
-            <section className="flex flex-col gap-3">
-              <h2 className="text-xl font-bold text-neutral-900">
-                Tus solicitudes
-              </h2>
-              {requests.map((r) => (
-                <CenterRequestCard key={r.id} request={r} />
-              ))}
-            </section>
+            {showActivas && (
+              <RequestSection
+                title="Solicitudes activas"
+                requests={activas}
+                emptyText="No tienes solicitudes activas."
+              />
+            )}
+            {showInactivas && (
+              <RequestSection
+                title="Solicitudes inactivas"
+                requests={inactivas}
+                emptyText="No tienes solicitudes inactivas."
+              />
+            )}
           </main>
 
           {/* sticky create CTA */}
@@ -70,24 +94,49 @@ export default async function CenterDashboardPage() {
   );
 }
 
-function StatTile({
-  label,
-  value,
-  accent = false,
+function FilterChips({ active }: { active: string }) {
+  return (
+    <div className="flex gap-2">
+      {FILTERS.map((f) => {
+        const isActive = active === f.value;
+        const href = f.value === "todas" ? "/centro" : `/centro?estado=${f.value}`;
+        return (
+          <Link
+            key={f.value}
+            href={href}
+            aria-current={isActive ? "page" : undefined}
+            className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              isActive
+                ? "bg-accent text-accent-on"
+                : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            }`}
+          >
+            {f.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function RequestSection({
+  title,
+  requests,
+  emptyText,
 }: {
-  label: string;
-  value: number;
-  accent?: boolean;
+  title: string;
+  requests: CenterRequestCardData[];
+  emptyText: string;
 }) {
   return (
-    <Card className="flex flex-col gap-1">
-      <span
-        className={`text-3xl font-bold ${accent ? "text-warning" : "text-neutral-900"}`}
-      >
-        {value}
-      </span>
-      <span className="text-sm text-neutral-500">{label}</span>
-    </Card>
+    <section className="flex flex-col gap-3">
+      <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
+      {requests.length > 0 ? (
+        requests.map((r) => <CenterRequestCard key={r.id} request={r} />)
+      ) : (
+        <p className="py-4 text-sm text-neutral-500">{emptyText}</p>
+      )}
+    </section>
   );
 }
 

@@ -17,7 +17,7 @@ function isNextRedirectError(e: unknown): boolean {
  * the real `finalizeRequest` action (gotcha #2: drives the actual submit). State
  * toggles on click events only (gotcha #3).
  */
-export function FinalizarButton({ requestId }: { requestId: string }) {
+export function FinalizeButton({ requestId }: { requestId: string }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);

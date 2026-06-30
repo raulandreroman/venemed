@@ -1,5 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { expectNoErrorOverlay } from "./_helpers";
+import { hasDbUrl, makeSql, resetSeedCenterReception } from "./_db";
+
+const SEED_CENTER = "Hospital J.M. de los Ríos";
 
 const OTP = process.env.TEST_OTP_CODE;
 const PHONE = process.env.TEST_CENTER_PHONE ?? ""; // login
@@ -61,9 +64,22 @@ test.describe("center auth + registration", () => {
     // twice (appear + leave); the donor list is unstable_cache(revalidate 60) and
     // revalidateTag(…,"max") is stale-while-revalidate, so the "leaves" poll can
     // run up to the ISR window. Raise the wall-clock budget beyond the default 60s.
-    test.setTimeout(180_000);
+    test.setTimeout(240_000);
 
     const title = `E2E insumos ${Date.now()}`;
+
+    // Re-run resilience: a prior run pauses this center + closes its requests via
+    // the kill-switch. Restore the Activa precondition (clear reception_paused_at,
+    // reactivate "Insumos pediátricos") so the toggle-OFF step is meaningful again.
+    // No-op when the DB isn't reachable/seeded (the spec already skips then).
+    if (hasDbUrl()) {
+      const sql = makeSql();
+      try {
+        await resetSeedCenterReception(sql, SEED_CENTER);
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    }
 
     await loginAs(page, PHONE);
 
@@ -178,6 +194,42 @@ test.describe("center auth + registration", () => {
         async () => {
           await page.goto("/solicitudes", { waitUntil: "networkidle" });
           return page.getByText(title).count();
+        },
+        { timeout: 75_000, intervals: [2000, 3000, 5000, 5000] },
+      )
+      .toBe(0);
+
+    // --- Center profile + reception kill-switch (slice 4; gotcha #2: drive the
+    // REAL switch → Desactivar-recepción sheet → setReception, assert the close-all
+    // closes the center's active requests + drops them from the donor list). The
+    // seed's "Insumos pediátricos" request is still active for this center. ---
+    await page.goto("/centro/perfil");
+    await expect(
+      page.getByRole("heading", { name: /Hospital J\.M\. de los Ríos/ }),
+    ).toBeVisible();
+    await expect(page.getByText("Verificado")).toBeVisible();
+
+    // Toggle OFF → confirm → real setReception(true).
+    await page
+      .getByRole("switch", { name: "Recepción de donaciones" })
+      .click();
+    await page.getByRole("button", { name: "Desactivar", exact: true }).click();
+    await page.waitForURL(/\/centro\/perfil$/, { timeout: 15_000 });
+
+    // Profile/dashboard queries are uncached → the pause shows immediately.
+    await expect(page.getByText(/Pausada/)).toBeVisible();
+    await expect(
+      page.getByText("Solicitudes cerradas al pausar"),
+    ).toBeVisible();
+    await expectNoErrorOverlay(page);
+
+    // …and the center's previously-active request LEFT the donor list (the
+    // close-all UPDATE + revalidateTag). Bounded by the ISR window.
+    await expect
+      .poll(
+        async () => {
+          await page.goto("/solicitudes", { waitUntil: "networkidle" });
+          return page.getByText("Insumos pediátricos").count();
         },
         { timeout: 75_000, intervals: [2000, 3000, 5000, 5000] },
       )

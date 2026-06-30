@@ -45,11 +45,17 @@ export async function publishRequest(
   }
 
   // (3) Denormalize city from the center (requireCenter doesn't carry it).
+  // Also read the reception switch: a paused center may not publish (slice 3.4)
+  // — publishing would re-populate the donor list the kill-switch just cleared.
   const [c] = await db
-    .select({ city: center.city })
+    .select({ city: center.city, receptionPausedAt: center.receptionPausedAt })
     .from(center)
     .where(eq(center.id, centerId))
     .limit(1);
+
+  if (c?.receptionPausedAt) {
+    throw new Error("La recepción de donaciones está pausada.");
+  }
 
   // (3b) Derive categories from the chosen catalog items — the "área" facet was
   // dropped from authoring. Each catalog supply carries its supply_category;

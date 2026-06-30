@@ -1,9 +1,11 @@
 import Link from "next/link";
 
 import type { CenterRequestCardData } from "@/db/queries";
-import { Card, ItemChip, Tag, UrgencyTag } from "@/components/ui";
+import { Card, ItemChip, UrgencyTag } from "@/components/ui";
 import { ShareCardButton } from "@/components/ui/share-card-button";
-import { closedReasonLabel, formatRequestedClock } from "@/lib/format";
+import { formatRequestedClock } from "@/lib/format";
+
+import { ReactivateButton } from "./reactivate-button";
 
 // Figma 32:4898 shows 3 chips then "+N más" (donor card uses 4).
 const MAX_VISIBLE_ITEMS = 3;
@@ -30,7 +32,7 @@ export function CenterRequestCard({
     : "Ayuda al centro en VeneMed:";
 
   return (
-    <Card data-testid="center-request-card" className={isTerminal ? "opacity-70" : ""}>
+    <Card data-testid="center-request-card">
       {/* body → center detail (the share button below stays a public link) */}
       <Link
         href={`/centro/solicitudes/${request.id}`}
@@ -65,22 +67,22 @@ export function CenterRequestCard({
         </p>
       </Link>
 
-      {/* footer: share (public link) + countdown/status */}
-      <div className="mt-3 flex items-center gap-2 border-t border-neutral-100 pt-3">
-        <ShareCardButton
-          requestId={request.id}
-          message={shareMessage}
-          path={`/solicitudes/${request.id}`}
-        />
-        <span className="ml-auto">
-          {isTerminal ? (
-            <Tag variant={request.status === "expired" ? "expired" : "fulfilled"}>
-              {closedReasonLabel(request.closedReason)}
-            </Tag>
-          ) : (
-            <UrgencyTag expiresAt={request.expiresAt} />
-          )}
-        </span>
+      {/* footer: inactive → Reactivar; active → share (public link) + countdown */}
+      <div className="mt-3 border-t border-neutral-100 pt-3">
+        {isTerminal ? (
+          <ReactivateButton requestId={request.id} />
+        ) : (
+          <div className="flex items-center gap-2">
+            <ShareCardButton
+              requestId={request.id}
+              message={shareMessage}
+              path={`/solicitudes/${request.id}`}
+            />
+            <span className="ml-auto">
+              <UrgencyTag expiresAt={request.expiresAt} />
+            </span>
+          </div>
+        )}
       </div>
     </Card>
   );

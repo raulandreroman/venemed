@@ -29,7 +29,7 @@ export function DashboardHeader({ centerName }: { centerName: string }) {
           Verificado
         </span>
       </div>
-      <CenterMenu initials={initials} />
+      <CenterMenu />
     </header>
   );
 }

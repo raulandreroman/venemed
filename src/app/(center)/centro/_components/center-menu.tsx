@@ -12,10 +12,10 @@ import { signOut } from "../../actions/auth";
  * stay clear of the react-hooks/set-state-in-effect eslint error.
  *
  * Rows:
- *  - "Ver Centro médico" → /centro/perfil (slice 4; placeholder route for now)
+ *  - "Ajustes" → /centro/perfil (the center profile, slice 4)
  *  - "Cerrar sesión" → posts the existing signOut server action
  */
-export function CenterMenu({ initials }: { initials: string }) {
+export function CenterMenu() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -74,11 +74,8 @@ export function CenterMenu({ initials }: { initials: string }) {
               onClick={close}
               className="flex items-center gap-3 px-4 py-3.5 hover:bg-neutral-100"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-on">
-                {initials}
-              </span>
               <span className="flex-1 text-[15px] font-medium text-neutral-900">
-                Ver Centro médico
+                Ajustes
               </span>
               <ChevronRight className="text-neutral-300" />
             </Link>
@@ -90,9 +87,6 @@ export function CenterMenu({ initials }: { initials: string }) {
                 type="submit"
                 className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-neutral-100"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-error-tint text-error">
-                  <LogoutArrow />
-                </span>
                 <span className="flex-1 text-[15px] font-medium text-error">
                   Cerrar sesión
                 </span>
@@ -137,25 +131,6 @@ function ChevronRight({ className = "" }: { className?: string }) {
       aria-hidden="true"
     >
       <path d="m9 18 6-6-6-6" />
-    </svg>
-  );
-}
-
-function LogoutArrow() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M7 17 17 7" />
-      <path d="M8 7h9v9" />
     </svg>
   );
 }

@@ -6,6 +6,7 @@ import {
   asc,
   desc,
   eq,
+  gte,
   ilike,
   inArray,
   or,
@@ -14,7 +15,7 @@ import {
 import { unstable_cache } from "next/cache";
 
 import { db } from "./index";
-import { center, request, requestItem, supply } from "./schema";
+import { appUser, center, request, requestItem, supply } from "./schema";
 
 // ---- shared types ----------------------------------------------------------
 
@@ -113,20 +114,6 @@ export type CenterRequestDetailData = CenterRequestCardData & {
     regularScheduleText: string | null;
   };
 };
-
-export type CenterDashboardStats = {
-  /** count of status = 'active' */
-  activas: number;
-  /** active AND expiring within the next EXPIRING_SOON_HOURS (and not yet past) */
-  porVencer: number;
-};
-
-/**
- * "Por vencer" threshold: an active request counts as expiring soon when its
- * expiry is within the next 6 hours (and still in the future). Independent of
- * the card's UrgencyTag color buckets (12h/24h) — this is the product "soon".
- */
-export const EXPIRING_SOON_HOURS = 6;
 
 // ---- 4.1 getActiveRequests -------------------------------------------------
 
@@ -548,21 +535,175 @@ export async function getActiveSupplies(): Promise<
     .orderBy(asc(supply.name));
 }
 
+// ---- 4.5 center profile (PRIVATE, uncached) --------------------------------
+//
+// Same center-private contract as §4.4: scoped by the logged-in center's id
+// (resolved server-side via requireCenter — never a client id), NOT cached, and
+// carrying none of the donor surge tags so the profile reflects the center's own
+// writes (the reception toggle) immediately on redirect.
+
+/** The center profile screen's read model (Figma 57:1886 / 57:2009). */
+export type CenterProfileData = {
+  name: string;
+  type: string | null; // NULLABLE — gate display behind CENTER_TYPE_ENABLED
+  city: string;
+  state: string | null;
+  addressLine: string | null;
+  addressReference: string | null;
+  regularScheduleText: string | null;
+  whatsappPhone: string;
+  verifiedAt: Date | null;
+  receptionPausedAt: Date | null;
+  responsibleName: string | null;
+  cargo: string | null;
+  /** lifetime stats (decision §5.3 — Activas + Cumplidas only, no Donantes). */
+  activas: number;
+  /** closed AND closedReason = 'fulfilled' (reception-pause closes are
+   * 'cancelled' and deliberately excluded so pausing never inflates this). */
+  cumplidas: number;
+};
+
 /**
- * Live stat tiles for the center dashboard. `now()`-based, so it stays accurate
- * between cron runs (the expiry cron only flips status; the <6h window count is
- * derived from expiresAt here, not from a flag).
+ * Center info + responsable + lifetime stats for the profile screen. One
+ * center+app_user join (mirrors the editar page select) plus a single FILTER
+ * aggregate for Activas/Cumplidas. `userId` selects the responsable row;
+ * `centerId` scopes everything (Drizzle bypasses RLS). Returns null when the
+ * center row is missing (defensive — requireCenter guarantees it exists).
  */
-export async function getCenterDashboardStats(
+export async function getCenterProfile(
   centerId: string,
-): Promise<CenterDashboardStats> {
+  userId: string,
+): Promise<CenterProfileData | null> {
   const [row] = await db
     .select({
+      name: center.name,
+      type: center.type,
+      city: center.city,
+      state: center.state,
+      addressLine: center.addressLine,
+      addressReference: center.addressReference,
+      regularScheduleText: center.regularScheduleText,
+      whatsappPhone: center.whatsappPhone,
+      verifiedAt: center.verifiedAt,
+      receptionPausedAt: center.receptionPausedAt,
+      responsibleName: appUser.name,
+      cargo: appUser.cargo,
+    })
+    .from(center)
+    .leftJoin(appUser, eq(appUser.id, userId))
+    .where(eq(center.id, centerId))
+    .limit(1);
+
+  if (!row) return null;
+
+  const [stats] = await db
+    .select({
       activas: sql<number>`count(*) filter (where ${request.status} = 'active')::int`,
-      porVencer: sql<number>`count(*) filter (where ${request.status} = 'active' and ${request.expiresAt} > now() and ${request.expiresAt} < now() + (${EXPIRING_SOON_HOURS} * interval '1 hour'))::int`,
+      cumplidas: sql<number>`count(*) filter (where ${request.status} = 'closed' and ${request.closedReason} = 'fulfilled')::int`,
     })
     .from(request)
     .where(eq(request.centerId, centerId));
 
-  return { activas: row?.activas ?? 0, porVencer: row?.porVencer ?? 0 };
+  return {
+    ...row,
+    activas: stats?.activas ?? 0,
+    cumplidas: stats?.cumplidas ?? 0,
+  };
+}
+
+/**
+ * The center's currently-active requests (id + title + expiry), soonest-expiring
+ * first — for the "Desactivar recepción" sheet, which lists what will close.
+ * Center-private + uncached.
+ */
+export async function getCenterActiveRequests(
+  centerId: string,
+): Promise<{ id: string; title: string | null; expiresAt: Date | null }[]> {
+  return db
+    .select({
+      id: request.id,
+      title: request.title,
+      expiresAt: request.expiresAt,
+    })
+    .from(request)
+    .where(and(eq(request.centerId, centerId), eq(request.status, "active")))
+    .orderBy(asc(request.expiresAt));
+}
+
+/**
+ * The center's requests that were CLOSED by a reception pause — `closed` with
+ * `closedReason = 'cancelled'` since the pause timestamp — newest-closed first.
+ * Powers the "Solicitudes cerradas al pausar" list on the Pausado profile.
+ * Scoping to `closedReason = 'cancelled'` AND `closedAt >= since` keeps finalized
+ * (fulfilled) or expired requests out of the list. Center-private + uncached.
+ */
+export async function getCenterRequestsClosedSince(
+  centerId: string,
+  since: Date,
+): Promise<CenterRequestCardData[]> {
+  const rows = await db
+    .select({
+      id: request.id,
+      shortId: request.shortId,
+      kind: request.kind,
+      status: request.status,
+      city: request.city,
+      title: request.title,
+      categories: request.categories,
+      publishedAt: request.publishedAt,
+      expiresAt: request.expiresAt,
+      windowHours: request.windowHours,
+      shareCount: request.shareCount,
+      closedReason: request.closedReason,
+      createdAt: request.createdAt,
+    })
+    .from(request)
+    .where(
+      and(
+        eq(request.centerId, centerId),
+        eq(request.status, "closed"),
+        eq(request.closedReason, "cancelled"),
+        gte(request.closedAt, since),
+      ),
+    )
+    .orderBy(desc(request.closedAt));
+
+  const ids = rows.map((r) => r.id);
+  const items = ids.length
+    ? await db
+        .select({
+          id: requestItem.id,
+          requestId: requestItem.requestId,
+          name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
+          category: requestItem.category,
+        })
+        .from(requestItem)
+        .leftJoin(supply, eq(supply.id, requestItem.supplyId))
+        .where(inArray(requestItem.requestId, ids))
+        .orderBy(asc(requestItem.createdAt))
+    : [];
+
+  const itemsByRequest = new Map<string, RequestItemData[]>();
+  for (const it of items) {
+    const list = itemsByRequest.get(it.requestId) ?? [];
+    list.push({ id: it.id, name: it.name, category: it.category });
+    itemsByRequest.set(it.requestId, list);
+  }
+
+  return rows.map((r) => ({
+    id: r.id,
+    shortId: r.shortId,
+    kind: r.kind,
+    status: r.status,
+    city: r.city,
+    title: r.title,
+    categories: r.categories,
+    publishedAt: r.publishedAt,
+    expiresAt: r.expiresAt,
+    windowHours: r.windowHours,
+    shareCount: r.shareCount,
+    closedReason: r.closedReason,
+    createdAt: r.createdAt,
+    items: itemsByRequest.get(r.id) ?? [],
+  }));
 }
