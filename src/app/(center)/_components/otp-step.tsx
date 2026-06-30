@@ -11,7 +11,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { Captcha, type CaptchaHandle } from "@/components/captcha";
+import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
@@ -74,6 +74,7 @@ export function OtpStep({
   const [attemptsLeft, setAttemptsLeft] = useState(MAX_ATTEMPTS);
   const [locked, setLocked] = useState(false);
   const [lockIn, setLockIn] = useState(0);
+  const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
 
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
   const captchaRef = useRef<CaptchaHandle>(null);
@@ -336,7 +337,7 @@ export function OtpStep({
             <button
               type="button"
               onClick={() => void resend()}
-              disabled={loading}
+              disabled={loading || !captchaReady}
               className="font-semibold text-accent disabled:opacity-50"
             >
               Reenviar código
@@ -344,7 +345,7 @@ export function OtpStep({
           )}
         </p>
 
-        <Captcha ref={captchaRef} />
+        <Captcha ref={captchaRef} onReadyChange={setCaptchaReady} />
 
         <div className="mt-auto flex flex-col items-center gap-3 pt-6">
           <Button type="submit" fullWidth disabled={loading}>

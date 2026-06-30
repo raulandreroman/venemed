@@ -90,6 +90,7 @@ export function CenterDatosForm({
   footerError,
   footerNote,
   footerSlot,
+  submitDisabled = false,
 }: {
   initialValues: CenterDatosValues;
   phoneLocked: boolean;
@@ -105,6 +106,9 @@ export function CenterDatosForm({
   /** Rendered just above the submit button — used by the wizard to mount the
    * captcha that gates the OTP send (edit reuses this form without it). */
   footerSlot?: ReactNode;
+  /** Extra gate on the submit button (besides `pending`) — the wizard uses it
+   * to keep "Continuar" disabled until the captcha is solved. */
+  submitDisabled?: boolean;
 }): ReactElement {
   const [data, setData] = useState<CenterDatosValues>(initialValues);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -286,7 +290,7 @@ export function CenterDatosForm({
         {footerNote ? (
           <p className="text-xs text-neutral-500">{footerNote}</p>
         ) : null}
-        <Button type="submit" fullWidth disabled={pending}>
+        <Button type="submit" fullWidth disabled={pending || submitDisabled}>
           {pending ? submitPendingLabel : submitLabel}
         </Button>
       </div>

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState, type FormEvent } from "react";
 
-import { Captcha, type CaptchaHandle } from "@/components/captcha";
+import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
@@ -24,6 +24,7 @@ export function AdminLoginForm({ channel = "sms" }: { channel?: Channel }) {
   const [nationalNumber, setNationalNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
   const captchaRef = useRef<CaptchaHandle>(null);
 
   const national = nationalNumber.replace(/\D/g, "");
@@ -133,10 +134,10 @@ export function AdminLoginForm({ channel = "sms" }: { channel?: Channel }) {
           </p>
         )}
 
-        <Captcha ref={captchaRef} />
+        <Captcha ref={captchaRef} onReadyChange={setCaptchaReady} />
 
         <div className="mt-auto pt-6">
-          <Button type="submit" fullWidth disabled={loading}>
+          <Button type="submit" fullWidth disabled={loading || !captchaReady}>
             {loading ? "Enviando…" : "Enviar código"}
           </Button>
         </div>

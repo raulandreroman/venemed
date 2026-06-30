@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useRef, useState, type ReactNode } from "react";
-import { Captcha, type CaptchaHandle } from "@/components/captcha";
+import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -43,6 +43,7 @@ export function RegistroWizard({
   });
   const [lastInput, setLastInput] = useState<CreateCenterInput | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
   const captchaRef = useRef<CaptchaHandle>(null);
 
   const submitWrite = useCallback(async () => {
@@ -183,7 +184,12 @@ export function RegistroWizard({
         headerSlot={<Stepper current={1} label="Datos del centro" />}
         footerNote="Paso 1 de 3 · Tus datos están protegidos"
         footerError={sendError}
-        footerSlot={mode === "anon" ? <Captcha ref={captchaRef} /> : null}
+        footerSlot={
+          mode === "anon" ? (
+            <Captcha ref={captchaRef} onReadyChange={setCaptchaReady} />
+          ) : null
+        }
+        submitDisabled={mode === "anon" && !captchaReady}
         onSubmit={onDatosSubmit}
       />
     </>

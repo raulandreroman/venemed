@@ -12,6 +12,14 @@ import { forwardRef, useImperativeHandle, useRef } from "react";
 // captcha. In prod the key is set and Supabase enforces the token server-side.
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
+/**
+ * Whether the captcha is active in this build. Forms use it to decide the
+ * initial "ready" state of their send button: when captcha is disabled
+ * (local/CI), the button is enabled from the start; when enabled, it stays
+ * disabled until the widget solves (onReadyChange(true)).
+ */
+export const CAPTCHA_ENABLED = Boolean(SITE_KEY);
+
 export type CaptchaHandle = {
   /**
    * Resolve a fresh, single-use Turnstile token to pass as `captchaToken` to
@@ -28,7 +36,20 @@ export type CaptchaHandle = {
  * on each phone-entry step and inside <OtpStep> (for "Reenviar"), since those
  * steps are mutually exclusive and every `signInWithOtp` needs its own token.
  */
-export const Captcha = forwardRef<CaptchaHandle>(function Captcha(_props, ref) {
+export type CaptchaProps = {
+  /**
+   * Fires true once the challenge is solved (token available) and false when it
+   * expires or errors. Lets the caller gate its send button on a green captcha.
+   * Never fires when captcha is disabled — callers default to ready in that case
+   * (see CAPTCHA_ENABLED).
+   */
+  onReadyChange?: (ready: boolean) => void;
+};
+
+export const Captcha = forwardRef<CaptchaHandle, CaptchaProps>(function Captcha(
+  { onReadyChange },
+  ref,
+) {
   const instance = useRef<TurnstileInstance | null>(null);
   const consumed = useRef(false);
 
@@ -55,6 +76,9 @@ export const Captcha = forwardRef<CaptchaHandle>(function Captcha(_props, ref) {
         ref={instance}
         siteKey={SITE_KEY}
         options={{ size: "flexible" }}
+        onSuccess={() => onReadyChange?.(true)}
+        onError={() => onReadyChange?.(false)}
+        onExpire={() => onReadyChange?.(false)}
       />
     </div>
   );
