@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Button } from "@/components/ui";
-import { getCenterRequests, type CenterRequestCardData } from "@/db/queries";
+import { AvisoBanner, Button } from "@/components/ui";
+import {
+  getCenterActiveSurplus,
+  getCenterRequests,
+  type CenterRequestCardData,
+} from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 
 import { CenterRequestCard } from "./_components/center-request-card";
@@ -39,7 +43,10 @@ export default async function CenterDashboardPage({
   const filter =
     estado === "activas" || estado === "inactivas" ? estado : "todas";
 
-  const requests = await getCenterRequests(center.centerId);
+  const [requests, aviso] = await Promise.all([
+    getCenterRequests(center.centerId),
+    getCenterActiveSurplus(center.centerId),
+  ]);
   const isEmpty = requests.length === 0;
   const activas = requests.filter(
     (r) => r.status === "active" || r.status === "paused",
@@ -57,6 +64,18 @@ export default async function CenterDashboardPage({
   return (
     <>
       <DashboardHeader centerName={center.centerName} />
+
+      {aviso && (
+        <div className="px-4 pt-4">
+          <AvisoBanner
+            variant="center"
+            editHref="/centro/aviso"
+            items={aviso.items.map((it) => it.name)}
+            expiresAt={aviso.expiresAt}
+            reason={aviso.reason}
+          />
+        </div>
+      )}
 
       {isEmpty ? (
         <EmptyState />

@@ -9,11 +9,11 @@ import { Tag, UrgencyTag } from "./tag";
 const MAX_VISIBLE_ITEMS = 4;
 
 /**
- * Donor list/landing card. Renders a need vs surplus request.
- * Surplus uses an amber "No enviar" treatment instead of the need styling.
+ * Donor list/landing card — needs only. An aviso de exceso (kind='surplus') is
+ * never a card: it renders as a per-center <AvisoBanner> above the center's
+ * cards (getActiveRequests filters to kind='need').
  */
 export function RequestCard({ request }: { request: RequestCardData }) {
-  const isSurplus = request.kind === "surplus";
   const items = request.items;
   const visible = items.slice(0, MAX_VISIBLE_ITEMS);
   const overflow = items.length - visible.length;
@@ -23,19 +23,11 @@ export function RequestCard({ request }: { request: RequestCardData }) {
   } en VeneMed:`;
 
   return (
-    <Card
-      className={isSurplus ? "border-warning/30" : ""}
-      data-testid="request-card"
-      data-center-name={request.centerName}
-    >
+    <Card data-testid="request-card" data-center-name={request.centerName}>
       {/* header pills */}
       <div className="flex items-center justify-between gap-2">
         {request.city ? <Tag variant="neutral">{request.city}</Tag> : <span />}
-        {isSurplus ? (
-          <Tag variant="surplus">No enviar</Tag>
-        ) : (
-          <UrgencyTag expiresAt={request.expiresAt} />
-        )}
+        <UrgencyTag expiresAt={request.expiresAt} />
       </div>
 
       {/* center */}
@@ -56,16 +48,9 @@ export function RequestCard({ request }: { request: RequestCardData }) {
       {/* items */}
       {visible.length > 0 && (
         <div className="mt-3">
-          {isSurplus && (
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-warning">
-              No enviar
-            </p>
-          )}
           <div className="flex flex-wrap gap-1.5">
             {visible.map((item) => (
-              <ItemChip key={item.id} muted={isSurplus}>
-                {item.name}
-              </ItemChip>
+              <ItemChip key={item.id}>{item.name}</ItemChip>
             ))}
             {overflow > 0 && (
               <span className="inline-flex items-center rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-medium text-accent">

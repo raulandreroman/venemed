@@ -1,9 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 
 import { ShareSection } from "@/components/share-section";
-import { AppBar, Countdown, Tag } from "@/components/ui";
+import { AppBar, AvisoBanner, Countdown, Tag } from "@/components/ui";
 import type { CenterRequestDetailData } from "@/db/queries";
-import { getCenterRequestById } from "@/db/queries";
+import { getCenterActiveSurplus, getCenterRequestById } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 import { closedReasonLabel, formatDeliveryCutoff } from "@/lib/format";
 
@@ -32,6 +32,8 @@ export default async function CenterRequestDetailPage({
   const req = await getCenterRequestById(center.centerId, id);
   if (!req) notFound();
 
+  const aviso = await getCenterActiveSurplus(center.centerId);
+
   const isTerminal = req.status === "closed" || req.status === "expired";
   const shareMessage = req.title
     ? `Ayuda al centro con: ${req.title}`
@@ -44,7 +46,7 @@ export default async function CenterRequestDetailPage({
   const windowStart =
     req.expiresAt != null
       ? new Date(
-          new Date(req.expiresAt).getTime() - req.windowHours * 3600 * 1000,
+          new Date(req.expiresAt).getTime() - (req.windowHours ?? 0) * 3600 * 1000,
         )
       : req.publishedAt;
 
@@ -72,6 +74,19 @@ export default async function CenterRequestDetailPage({
         </h1>
         <p className="mt-1 text-sm text-neutral-500">#{req.shortId}</p>
 
+        {/* center-level aviso de exceso banner (if one is active) */}
+        {aviso && (
+          <div className="mt-4">
+            <AvisoBanner
+              variant="center"
+              editHref="/centro/aviso"
+              items={aviso.items.map((it) => it.name)}
+              expiresAt={aviso.expiresAt}
+              reason={aviso.reason}
+            />
+          </div>
+        )}
+
         {/* countdown card (+ Extender) — active only */}
         {!isTerminal && (
           <div className="mt-4">
@@ -80,7 +95,7 @@ export default async function CenterRequestDetailPage({
               publishedAt={req.publishedAt}
               expiresAt={req.expiresAt}
               windowStart={windowStart}
-              windowHours={req.windowHours}
+              windowHours={req.windowHours ?? 0}
               initialNow={new Date()}
               action={
                 <ExtendButton

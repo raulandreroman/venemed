@@ -87,6 +87,25 @@ export default async function PublicadaPage({
             {request.windowHours} h).
           </p>
         </div>
+
+        {/* post-publish prompt → aviso de exceso (decision §6.2) */}
+        <section className="flex flex-col gap-3 rounded-2xl border border-neutral-200 p-4">
+          <div>
+            <h2 className="text-base font-bold text-neutral-900">
+              ¿Hay algo que ya no necesitas?
+            </h2>
+            <p className="mt-1 text-sm text-neutral-500">
+              Publica un aviso de exceso para que los donantes no envíen lo que
+              ya tienes de sobra.
+            </p>
+          </div>
+          <Button href="/centro/aviso" fullWidth>
+            Crear aviso de exceso
+          </Button>
+          <Button href="/centro" variant="outline" fullWidth>
+            Continuar sin aviso de exceso
+          </Button>
+        </section>
       </main>
 
       {/* sticky footer: ver en la lista + ir al panel */}

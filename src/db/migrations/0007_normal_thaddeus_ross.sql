@@ -1,0 +1,2 @@
+ALTER TABLE "request" ALTER COLUMN "window_hours" DROP NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "request_one_active_surplus_per_center" ON "request" USING btree ("center_id") WHERE kind = 'surplus' AND status = 'active';

@@ -8,8 +8,7 @@ type TagVariant =
   | "soon" // amber dot
   | "normal" // neutral dot (low urgency)
   | "fulfilled" // green "Cumplida"
-  | "expired" // muted "Vencida"
-  | "surplus"; // amber "No enviar"
+  | "expired"; // muted "Vencida"
 
 const styles: Record<TagVariant, string> = {
   neutral: "bg-neutral-100 text-neutral-700",
@@ -18,7 +17,6 @@ const styles: Record<TagVariant, string> = {
   normal: "bg-neutral-100 text-neutral-700",
   fulfilled: "bg-success-tint text-success",
   expired: "bg-neutral-100 text-neutral-500",
-  surplus: "bg-warning-tint text-warning",
 };
 
 const dotColor: Partial<Record<TagVariant, string>> = {
