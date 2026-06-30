@@ -7,8 +7,8 @@ import { getCenterRequestById } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 import { closedReasonLabel, formatDeliveryCutoff } from "@/lib/format";
 
-import { ExtenderButton } from "./_components/extender-button";
-import { FinalizarButton } from "./_components/finalizar-button";
+import { ExtendButton } from "./_components/extend-button";
+import { FinalizeButton } from "./_components/finalize-button";
 
 /**
  * Center-side request detail (Figma 29:3527) — distinct from the donor sheet.
@@ -83,7 +83,7 @@ export default async function CenterRequestDetailPage({
               windowHours={req.windowHours}
               initialNow={new Date()}
               action={
-                <ExtenderButton
+                <ExtendButton
                   requestId={req.id}
                   expiresAtMs={
                     req.expiresAt ? new Date(req.expiresAt).getTime() : null
@@ -183,7 +183,7 @@ export default async function CenterRequestDetailPage({
       {/* sticky Finalizar — active only */}
       {!isTerminal && (
         <footer className="sticky bottom-0 z-20 border-t border-neutral-100 bg-background px-4 py-3">
-          <FinalizarButton requestId={req.id} />
+          <FinalizeButton requestId={req.id} />
         </footer>
       )}
     </>

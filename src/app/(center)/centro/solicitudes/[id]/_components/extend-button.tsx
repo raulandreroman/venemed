@@ -20,7 +20,7 @@ function isNextRedirectError(e: unknown): boolean {
  * `expiresAt + chosen`. State toggles on click events only and the open effect
  * only attaches listeners — never a synchronous setState in the body (gotcha #3).
  */
-export function ExtenderButton({
+export function ExtendButton({
   requestId,
   expiresAtMs,
 }: {

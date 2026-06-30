@@ -8,7 +8,7 @@ import { Button } from "@/components/ui";
 type ActiveRequest = { id: string; title: string; vence: string };
 
 /** A successful setReception still throws NEXT_REDIRECT; re-throw so Next
- * navigates instead of showing a false error (mirrors finalizar-button). */
+ * navigates instead of showing a false error (mirrors finalize-button). */
 function isNextRedirectError(e: unknown): boolean {
   const digest = (e as { digest?: unknown })?.digest;
   return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
@@ -38,7 +38,7 @@ export function ReceptionToggle({
   const [error, setError] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Escape + body-scroll-lock while the sheet is open (mirrors extender-button).
+  // Escape + body-scroll-lock while the sheet is open (mirrors extend-button).
   useEffect(() => {
     if (!confirmOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -66,7 +66,7 @@ export function ReceptionToggle({
         // setReception redirects to THIS same route → Next soft-navigates and
         // PRESERVES this client component (the sheet never unmounts). Close it
         // ourselves so it doesn't linger on "Desactivando…". Re-throw so Next
-        // still performs the navigation. (Mirrors extender-button.)
+        // still performs the navigation. (Mirrors extend-button.)
         setConfirmOpen(false);
         setPending(false);
         throw e;

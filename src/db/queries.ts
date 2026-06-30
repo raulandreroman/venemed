@@ -115,20 +115,6 @@ export type CenterRequestDetailData = CenterRequestCardData & {
   };
 };
 
-export type CenterDashboardStats = {
-  /** count of status = 'active' */
-  activas: number;
-  /** active AND expiring within the next EXPIRING_SOON_HOURS (and not yet past) */
-  porVencer: number;
-};
-
-/**
- * "Por vencer" threshold: an active request counts as expiring soon when its
- * expiry is within the next 6 hours (and still in the future). Independent of
- * the card's UrgencyTag color buckets (12h/24h) — this is the product "soon".
- */
-export const EXPIRING_SOON_HOURS = 6;
-
 // ---- 4.1 getActiveRequests -------------------------------------------------
 
 async function queryActiveRequests(
@@ -547,25 +533,6 @@ export async function getActiveSupplies(): Promise<
     .from(supply)
     .where(eq(supply.isActive, true))
     .orderBy(asc(supply.name));
-}
-
-/**
- * Live stat tiles for the center dashboard. `now()`-based, so it stays accurate
- * between cron runs (the expiry cron only flips status; the <6h window count is
- * derived from expiresAt here, not from a flag).
- */
-export async function getCenterDashboardStats(
-  centerId: string,
-): Promise<CenterDashboardStats> {
-  const [row] = await db
-    .select({
-      activas: sql<number>`count(*) filter (where ${request.status} = 'active')::int`,
-      porVencer: sql<number>`count(*) filter (where ${request.status} = 'active' and ${request.expiresAt} > now() and ${request.expiresAt} < now() + (${EXPIRING_SOON_HOURS} * interval '1 hour'))::int`,
-    })
-    .from(request)
-    .where(eq(request.centerId, centerId));
-
-  return { activas: row?.activas ?? 0, porVencer: row?.porVencer ?? 0 };
 }
 
 // ---- 4.5 center profile (PRIVATE, uncached) --------------------------------

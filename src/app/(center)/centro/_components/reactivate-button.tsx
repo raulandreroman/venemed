@@ -6,7 +6,7 @@ import { reactivateRequest } from "@/app/(center)/actions/gestionar";
 import { Button } from "@/components/ui";
 
 /** A successful reactivate still throws NEXT_REDIRECT; re-throw so Next
- * navigates instead of showing a false error (mirrors finalizar-button). */
+ * navigates instead of showing a false error (mirrors finalize-button). */
 function isNextRedirectError(e: unknown): boolean {
   const digest = (e as { digest?: unknown })?.digest;
   return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
