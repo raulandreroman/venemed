@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AppBar, Tag } from "@/components/ui";
@@ -18,8 +17,15 @@ import {
   formatTimeLeft,
   formatVePhone,
 } from "@/lib/format";
+import type { CenterType } from "@/lib/registro/validation";
 
 import { ReceptionToggle } from "./_components/reception-toggle";
+import {
+  CenterDetailsSection,
+  ResponsableSection,
+  type CenterDetailsValues,
+  type ResponsableValues,
+} from "./_components/profile-sections";
 
 /**
  * Center profile (Figma 57:1886 Activo / 57:2009 Pausado). Approved-only — same
@@ -58,6 +64,21 @@ export default async function CenterProfilePage() {
       }));
 
   const subtitle = [typeLabel, profile.city].filter(Boolean).join(" · ");
+
+  const centerDetails: CenterDetailsValues = {
+    name: profile.name,
+    type: (profile.type ?? "") as CenterType | "",
+    state: profile.state ?? "",
+    city: profile.city,
+    addressLine: profile.addressLine ?? "",
+    addressReference: profile.addressReference ?? "",
+    regularScheduleText: profile.regularScheduleText ?? "",
+  };
+  const responsable: ResponsableValues = {
+    responsibleName: profile.responsibleName ?? "",
+    cargo: profile.cargo ?? "",
+    phone: formatVePhone(profile.whatsappPhone),
+  };
 
   return (
     <>
@@ -124,31 +145,11 @@ export default async function CenterProfilePage() {
           <StatCell label="Finalizadas" value={profile.cumplidas} />
         </section>
 
-        {/* (4) Información del centro */}
-        <Section title="Información del centro">
-          <InfoRow label="Nombre legal" value={profile.name} />
-          {showType && <InfoRow label="Tipo" value={typeLabel!} />}
-          <InfoRow label="Ciudad" value={cityLine(profile.city, profile.state)} />
-          <InfoRow
-            label="Dirección"
-            value={profile.addressLine ?? "No especificada"}
-          />
-          <LinkRow href="/centro/editar" label="Editar datos del centro" />
-        </Section>
+        {/* (4) Información del centro — inline editable */}
+        <CenterDetailsSection initial={centerDetails} />
 
-        {/* (5) Persona responsable */}
-        <Section title="Persona responsable">
-          <InfoRow
-            label="Nombre"
-            value={profile.responsibleName ?? "No especificado"}
-          />
-          {profile.cargo && <InfoRow label="Cargo" value={profile.cargo} />}
-          <InfoRow
-            label="Teléfono WhatsApp"
-            value={formatVePhone(profile.whatsappPhone)}
-          />
-          <LinkRow href="/centro/editar" label="Cambiar responsable" />
-        </Section>
+        {/* (5) Persona responsable — inline editable */}
+        <ResponsableSection initial={responsable} />
 
         {/* (6) Cuenta */}
         <Section title="Cuenta">
@@ -185,45 +186,6 @@ function Section({
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-0.5 border-b border-neutral-100 py-3 last:border-b-0">
-      <span className="text-xs text-neutral-500">{label}</span>
-      <span className="text-base text-neutral-900">{value}</span>
-    </div>
-  );
-}
-
-function LinkRow({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center justify-between py-3 text-sm font-semibold text-accent"
-    >
-      {label}
-      <ChevronRight />
-    </Link>
-  );
-}
-
-function ChevronRight() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  );
-}
-
 /** Initials from the center name, e.g. "Hospital J.M. de los Ríos" → "HJ". */
 function initialsFrom(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -232,8 +194,4 @@ function initialsFrom(name: string): string {
     .map((p) => p[0])
     .join("");
   return letters.toUpperCase() || "C";
-}
-
-function cityLine(city: string, state: string | null): string {
-  return [city, state].filter(Boolean).join(", ");
 }

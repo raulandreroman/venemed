@@ -135,3 +135,52 @@ export function validateRegistro(
 
   return errors;
 }
+
+// ---- Focused subsets for the profile's two inline edit sections --------------
+// They reuse validateRegistro's rules (single source) and keep only the keys
+// each section owns. The responsable's phone is NOT editable (OTP-bound).
+
+export type CenterDetailsInput = Pick<
+  CreateCenterInput,
+  | "name"
+  | "type"
+  | "state"
+  | "city"
+  | "addressLine"
+  | "addressReference"
+  | "regularScheduleText"
+>;
+
+export type ResponsableInput = Pick<
+  CreateCenterInput,
+  "responsibleName" | "cargo"
+>;
+
+const CENTER_DETAIL_KEYS = [
+  "name",
+  "type",
+  "state",
+  "city",
+  "addressLine",
+  "addressReference",
+  "regularScheduleText",
+] as const;
+
+const RESPONSABLE_KEYS = ["responsibleName", "cargo"] as const;
+
+function pickErrors(
+  errors: FieldErrors,
+  keys: readonly (keyof CreateCenterInput)[],
+): FieldErrors {
+  const out: FieldErrors = {};
+  for (const k of keys) if (errors[k]) out[k] = errors[k];
+  return out;
+}
+
+export function validateCenterDetails(input: CenterDetailsInput): FieldErrors {
+  return pickErrors(validateRegistro(input), CENTER_DETAIL_KEYS);
+}
+
+export function validateResponsable(input: ResponsableInput): FieldErrors {
+  return pickErrors(validateRegistro(input), RESPONSABLE_KEYS);
+}
