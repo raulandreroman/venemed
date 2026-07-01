@@ -71,20 +71,20 @@ export async function ensurePendingCenter(
 }
 
 /**
- * Flip a test phone's app_user to `is_platform_admin = true` and return its id
- * (= the moderation actor id). The app_user row only exists AFTER the phone has
+ * Flip a test email's app_user to `is_platform_admin = true` and return its id
+ * (= the moderation actor id). The app_user row only exists AFTER the email has
  * logged in once (resolveLoginDestination upserts it), so call this post-login.
  */
-export async function makeAdmin(sql: Sql, phoneE164: string): Promise<string> {
+export async function makeAdmin(sql: Sql, email: string): Promise<string> {
   const rows = await sql<{ id: string }[]>`
     update "app_user"
     set is_platform_admin = true, updated_at = now()
-    where phone = ${phoneE164}
+    where email = ${email.toLowerCase()}
     returning id
   `;
   if (rows.length === 0) {
     throw new Error(
-      `no app_user row for ${phoneE164} — the admin OTP login must run first`,
+      `no app_user row for ${email} — the admin OTP login must run first`,
     );
   }
   return rows[0].id;

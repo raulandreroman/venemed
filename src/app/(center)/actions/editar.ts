@@ -8,7 +8,6 @@ import { appUser, center } from "@/db/schema";
 import { getCurrentCenter } from "@/lib/auth/current-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import {
-  normalizeVePhone,
   validateCenterDetails,
   validateResponsable,
   validateRegistro,
@@ -18,7 +17,6 @@ import type {
   CreateCenterInput,
   ResponsableInput,
 } from "@/lib/registro/validation";
-import { createClient } from "@/lib/supabase/server";
 
 // NOTE: a "use server" module may export ONLY async functions. Do not re-export
 // types here — input types are imported via `import type` above.
@@ -62,8 +60,8 @@ export async function updateCenterDetails(
 
 /**
  * Update ONLY the session center's responsable (name + cargo) — the profile's
- * inline "Cambiar responsable" section. The phone is NOT editable here (it's the
- * OTP-verified login identity). Same authz/validation/return contract.
+ * inline "Cambiar responsable" section. The email is NOT editable here (it's the
+ * verified login identity). Same authz/validation/return contract.
  */
 export async function updateResponsable(input: ResponsableInput): Promise<void> {
   const current = await getCurrentCenter();
@@ -91,8 +89,8 @@ export async function updateResponsable(input: ResponsableInput): Promise<void> 
  * Server-trust update of ONLY the session's center + its responsible person.
  * Authorization is derived from `getCurrentCenter()` (membership → centerId);
  * a client-supplied id is never trusted (Drizzle bypasses RLS). Re-validates
- * the payload, keeps `status`/`verified_at`/`rejection_reason` untouched, and
- * persists the verified session phone (the client phone is never rebindable).
+ * the payload, keeps `status`/`verified_at`/`rejection_reason` untouched. The
+ * WhatsApp number is now an editable, optional contact field.
  *
  * Ends in `redirect(...)`; does not return on the happy path.
  */
@@ -112,19 +110,10 @@ export async function updateCenterForCurrentUser(
     throw new Error("Datos del centro inválidos.");
   }
 
-  // (3) Phone is server-trusted: resolve the verified value from the session and
-  // ignore any client-supplied phone for binding.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/centro/login");
-  const verifiedPhone = normalizeVePhone(user.phone);
-  if (!verifiedPhone) redirect("/centro/login");
-
+  const whatsappPhone = input.whatsappPhone?.trim() || null;
   const now = new Date();
 
-  // (4) Transaction: update center + app_user, both keyed by server-resolved
+  // (3) Transaction: update center + app_user, both keyed by server-resolved
   // ids. status / verified_at / rejection_reason / created_at are never touched.
   await db.transaction(async (tx) => {
     await tx
@@ -137,7 +126,7 @@ export async function updateCenterForCurrentUser(
         addressLine: input.addressLine.trim(),
         addressReference: input.addressReference?.trim() || null,
         regularScheduleText: input.regularScheduleText?.trim() || null,
-        whatsappPhone: verifiedPhone,
+        whatsappPhone,
         updatedAt: now,
       })
       .where(eq(center.id, centerId));
@@ -152,6 +141,6 @@ export async function updateCenterForCurrentUser(
       .where(eq(appUser.id, userId));
   });
 
-  // (5) Redirect AFTER commit to the status-appropriate landing (redirect throws).
+  // (4) Redirect AFTER commit to the status-appropriate landing (redirect throws).
   redirect(ROUTE_BY_STATUS[status] ?? "/centro/en-revision");
 }

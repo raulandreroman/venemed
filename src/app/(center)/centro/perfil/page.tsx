@@ -77,7 +77,10 @@ export default async function CenterProfilePage() {
   const responsable: ResponsableValues = {
     responsibleName: profile.responsibleName ?? "",
     cargo: profile.cargo ?? "",
-    phone: formatVePhone(profile.whatsappPhone),
+    email: current.email ?? "",
+    whatsappPhone: profile.whatsappPhone
+      ? formatVePhone(profile.whatsappPhone)
+      : "",
   };
 
   return (

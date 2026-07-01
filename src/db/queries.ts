@@ -717,7 +717,7 @@ export type CenterProfileData = {
   addressLine: string | null;
   addressReference: string | null;
   regularScheduleText: string | null;
-  whatsappPhone: string;
+  whatsappPhone: string | null;
   verifiedAt: Date | null;
   receptionPausedAt: Date | null;
   responsibleName: string | null;

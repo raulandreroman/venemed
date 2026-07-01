@@ -181,8 +181,10 @@ export function CenterDetailsSection({
 export type ResponsableValues = {
   responsibleName: string;
   cargo: string;
-  /** read-only — the OTP-verified login identity, formatted. */
-  phone: string;
+  /** read-only — the verified login identity (email). */
+  email: string;
+  /** read-only here — optional WhatsApp contact (edit at /centro/editar). "" when unset. */
+  whatsappPhone: string;
 };
 
 export function ResponsableSection({
@@ -251,7 +253,10 @@ export function ResponsableSection({
           value={values.responsibleName || "No especificado"}
         />
         {values.cargo && <ReadRow label="Cargo" value={values.cargo} />}
-        <ReadRow label="Teléfono WhatsApp" value={values.phone} />
+        <ReadRow label="Correo de acceso" value={values.email} />
+        {values.whatsappPhone && (
+          <ReadRow label="Teléfono de contacto" value={values.whatsappPhone} />
+        )}
       </Section>
     );
   }
@@ -270,12 +275,12 @@ export function ResponsableSection({
         onChange={set("cargo")}
         error={errors.cargo}
       />
-      {/* Phone is the OTP-verified login identity — not editable here. */}
+      {/* Email is the verified login identity — not editable here. */}
       <div className="flex flex-col gap-0.5 border-b border-neutral-100 py-3">
-        <span className="text-xs text-neutral-500">Teléfono WhatsApp</span>
-        <span className="text-base text-neutral-400">{values.phone}</span>
+        <span className="text-xs text-neutral-500">Correo de acceso</span>
+        <span className="text-base text-neutral-400">{values.email}</span>
         <span className="text-xs text-neutral-400">
-          Tu número de acceso no se puede cambiar aquí.
+          Tu correo de acceso no se puede cambiar aquí.
         </span>
       </div>
       <EditFooter pending={pending} error={submitError} onCancel={cancel} onSave={save} />

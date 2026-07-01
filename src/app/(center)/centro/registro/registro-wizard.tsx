@@ -6,7 +6,7 @@ import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captc
 import { AppBar, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import {
-  vePhoneToNational,
+  normalizeEmail,
   type CreateCenterInput,
 } from "@/lib/registro/validation";
 import { OtpStep } from "../../_components/otp-step";
@@ -17,31 +17,16 @@ import {
   type CenterDatosValues,
 } from "../_components/center-datos-form";
 
-type Channel = "sms" | "whatsapp";
 type Mode = "anon" | "authed";
 type Step = "intro" | "datos" | "otp";
 
-export function RegistroWizard({
-  mode,
-  defaultPhone,
-  channel = "sms",
-}: {
-  mode: Mode;
-  /** Verified session phone (E.164) for the authed no-membership flow. */
-  defaultPhone?: string | null;
-  channel?: Channel;
-}) {
-  const lockedNational =
-    mode === "authed" && defaultPhone ? vePhoneToNational(defaultPhone) : "";
-
+export function RegistroWizard({ mode }: { mode: Mode }) {
   const [step, setStep] = useState<Step>(mode === "authed" ? "datos" : "intro");
   // Wizard owns the datos values so they survive the datos → otp → datos
   // round-trip (the shared form unmounts while the OTP step is on screen).
-  const [datosValues, setDatosValues] = useState<CenterDatosValues>({
-    ...EMPTY_DATOS,
-    nationalPhone: lockedNational,
-  });
+  const [datosValues, setDatosValues] = useState<CenterDatosValues>(EMPTY_DATOS);
   const [lastInput, setLastInput] = useState<CreateCenterInput | null>(null);
+  const [otpEmail, setOtpEmail] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
   const captchaRef = useRef<CaptchaHandle>(null);
@@ -60,12 +45,19 @@ export function RegistroWizard({
       setLastInput(input);
 
       if (mode === "authed") {
-        // Already verified — no OTP, write directly (redirects).
+        // Already authenticated — no OTP, write directly (redirects).
         await createCenterForCurrentUser(input);
         return;
       }
 
-      // Anon: send the first code, then advance to the shared OTP step.
+      // Anon: send the first code to the responsable's email, then advance to
+      // the shared OTP step. `collectEmail` guarantees a valid email here.
+      const email = normalizeEmail(values.email);
+      if (!email) {
+        setSendError("Ingresa un correo electrónico válido.");
+        throw new Error("invalid-email");
+      }
+      setOtpEmail(email);
       const supabase = createClient();
       let captchaToken: string | undefined;
       try {
@@ -77,8 +69,8 @@ export function RegistroWizard({
         throw new Error("captcha-failed");
       }
       const { error } = await supabase.auth.signInWithOtp({
-        phone: input.whatsappPhone, // already E.164 from toInput
-        options: { channel, captchaToken },
+        email,
+        options: { captchaToken },
       });
       if (error) {
         setSendError(
@@ -91,21 +83,19 @@ export function RegistroWizard({
       }
       setStep("otp");
     },
-    [mode, channel],
+    [mode],
   );
 
   // ── Step: OTP (anon only) ────────────────────────────────────────────────
   if (step === "otp") {
     return (
       <OtpStep
-        phoneE164={lastInput?.whatsappPhone ?? ""}
-        nationalNumber={datosValues.nationalPhone.replace(/\D/g, "")}
-        channel={channel}
+        email={otpEmail}
         backToChangeNumber
         onChangeNumber={() => setStep("datos")}
         onVerified={submitWrite}
         stepLabel="2 de 3"
-        progressSlot={<Stepper current={2} label="Verifica tu teléfono" />}
+        progressSlot={<Stepper current={2} label="Verifica tu correo" />}
       />
     );
   }
@@ -131,7 +121,7 @@ export function RegistroWizard({
             />
             <Benefit
               icon={<PhoneIcon />}
-              title="Un teléfono con WhatsApp"
+              title="Un correo electrónico"
               desc="Lo verificamos con un código."
             />
             <Benefit
@@ -178,7 +168,7 @@ export function RegistroWizard({
       />
       <CenterDatosForm
         initialValues={datosValues}
-        phoneLocked={mode === "authed"}
+        collectEmail={mode === "anon"}
         submitLabel="Continuar"
         submitPendingLabel="Enviando…"
         headerSlot={<Stepper current={1} label="Datos del centro" />}

@@ -30,7 +30,6 @@ export function EditCenterForm({
   return (
     <CenterDatosForm
       initialValues={initialValues}
-      phoneLocked
       submitLabel="Guardar cambios"
       submitPendingLabel="Guardando…"
       headerSlot={null}

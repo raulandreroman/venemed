@@ -71,10 +71,17 @@ export default function PrivacidadPage() {
           <ul className="flex flex-col gap-2">
             <Bullet>
               <strong className="font-semibold text-neutral-900">
-                Teléfono (WhatsApp):
+                Correo electrónico:
               </strong>{" "}
               solo para darte acceso con un código de verificación. Es tu forma
               de iniciar sesión — no usamos contraseñas.
+            </Bullet>
+            <Bullet>
+              <strong className="font-semibold text-neutral-900">
+                Teléfono de contacto (WhatsApp, opcional):
+              </strong>{" "}
+              solo para coordinar la entrega de las donaciones. Puedes dejarlo en
+              blanco.
             </Bullet>
             <Bullet>
               <strong className="font-semibold text-neutral-900">
@@ -112,9 +119,10 @@ export default function PrivacidadPage() {
                 Privado (nunca se muestra)
               </p>
               <p className="mt-1 text-sm leading-relaxed text-neutral-600">
-                El teléfono del centro y de la persona responsable, su nombre y
-                cargo, y cualquier dato de acceso. Esta información solo la usa
-                el equipo de moderación de VeneMed para verificar centros.
+                El correo de acceso y el teléfono de contacto del centro, el
+                nombre y cargo de la persona responsable, y cualquier dato de
+                acceso. Esta información solo la usa el equipo de moderación de
+                VeneMed para verificar centros.
               </p>
             </div>
           </div>
@@ -163,8 +171,8 @@ export default function PrivacidadPage() {
         <Section title="Proveedores que hacen funcionar la plataforma">
           <p className="text-sm leading-relaxed text-neutral-600">
             Para operar usamos servicios de infraestructura reconocidos
-            (alojamiento web, base de datos y envío de códigos por SMS o
-            WhatsApp), alojados fuera de Venezuela. Solo reciben lo mínimo
+            (alojamiento web, base de datos y envío de códigos por correo
+            electrónico), alojados fuera de Venezuela. Solo reciben lo mínimo
             necesario para funcionar y están sujetos a sus propias protecciones
             de seguridad. No compartimos datos con terceros para ningún otro
             fin.

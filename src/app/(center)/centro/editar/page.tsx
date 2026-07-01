@@ -12,15 +12,15 @@ import { EditCenterForm } from "./edit-center-form";
 /**
  * Edit the current center's "Datos del centro + Persona responsable". Authed
  * route (NOT public): self-guards via getCurrentCenter(), loads the center +
- * responsible name scoped to the session, pre-fills the shared form with the
- * phone locked, and submits to `updateCenterForCurrentUser`. No OTP here.
+ * responsible name scoped to the session, pre-fills the shared form, and
+ * submits to `updateCenterForCurrentUser`. No OTP here.
  */
 export default async function EditarPage() {
   const session = await getCurrentCenter();
   if (session.kind === "anon") redirect("/centro/login");
   if (session.kind === "no-membership") redirect("/centro/registro");
 
-  const { centerId, userId, phone, status } = session.center;
+  const { centerId, userId, status } = session.center;
 
   const [row] = await db
     .select({
@@ -48,9 +48,10 @@ export default async function EditarPage() {
     addressLine: row?.addressLine ?? "",
     addressReference: row?.addressReference ?? "",
     regularScheduleText: row?.regularScheduleText ?? "",
-    // Derive national digits from the verified session phone (same value as
-    // center.whatsapp_phone); keep one source for the locked/verified field.
-    nationalPhone: vePhoneToNational(phone ?? row?.whatsappPhone),
+    // Optional WhatsApp contact number (national digits for the input).
+    nationalPhone: vePhoneToNational(row?.whatsappPhone),
+    // Email is the login identity, not editable here — the field is hidden.
+    email: "",
     responsibleName: row?.responsibleName ?? "",
     cargo: row?.cargo ?? "",
   };

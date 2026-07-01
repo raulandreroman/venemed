@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type AdminUser = {
   userId: string; // = supabase auth uid = app_user.id; the moderation actor id
-  phone: string | null;
+  email: string | null;
   name: string | null;
 };
 
@@ -30,7 +30,7 @@ export async function requireAdmin(): Promise<AdminUser> {
   const rows = await db
     .select({
       id: appUser.id,
-      phone: appUser.phone,
+      email: appUser.email,
       name: appUser.name,
       isAdmin: appUser.isPlatformAdmin,
     })
@@ -41,5 +41,5 @@ export async function requireAdmin(): Promise<AdminUser> {
   const row = rows[0];
   // authed-but-not-admin → donor home (anon already bounced to /admin/login).
   if (!row || !row.isAdmin) redirect("/");
-  return { userId: row.id, phone: row.phone, name: row.name };
+  return { userId: row.id, email: row.email, name: row.name };
 }

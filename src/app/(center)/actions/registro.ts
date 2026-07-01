@@ -6,7 +6,6 @@ import { appUser, center, membership } from "@/db/schema";
 import { getCurrentCenter } from "@/lib/auth/current-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import {
-  normalizeVePhone,
   validateRegistro,
   type CreateCenterInput,
 } from "@/lib/registro/validation";
@@ -16,11 +15,11 @@ import { createClient } from "@/lib/supabase/server";
 // types here — import CreateCenterInput from "@/lib/registro/validation" instead.
 
 /**
- * Transactional, idempotent registration write. Runs AFTER the phone is
+ * Transactional, idempotent registration write. Runs AFTER the email is
  * verified (anon flow) or for an already-authed no-membership user. Trust starts
- * at `getUser()`: the new center id is generated server-side and the membership
- * binds `session.user.id` — no client-supplied id is ever trusted. The full
- * payload is re-validated here (defense-in-depth) before the transaction.
+ * at `getUser()`: the new center id is generated server-side, the app_user email
+ * comes from the verified session (never the client), and the membership binds
+ * `session.user.id`. The full payload is re-validated here (defense-in-depth).
  *
  * Ends in `redirect(...)`; does not return on the happy path.
  */
@@ -48,20 +47,11 @@ export async function createCenterForCurrentUser(
     throw new Error("Datos de registro inválidos.");
   }
 
-  // (3a) The OTP-verified session phone is the ONLY source of truth for the
-  // center's contact number (spec §4.3: "this phone is the OTP target AND
-  // center.whatsapp_phone"). A "use server" action is a public POST endpoint, so
-  // the client `whatsappPhone` is never trusted to bind the number — it is at
-  // most a display hint. Reject any submission whose phone does not match the
-  // number proven by OTP, and persist the server-trusted value below.
-  // Normalize BOTH sides with the same canonicalizer so equivalent formats
-  // (stray trunk-0, +58 prefix, raw digits) compare equal.
-  const verifiedPhone = normalizeVePhone(user.phone);
-  if (!verifiedPhone) redirect("/centro/login"); // no verified phone on session
-  if (normalizeVePhone(input.whatsappPhone) !== verifiedPhone) {
-    throw new Error("El teléfono no coincide con el número verificado.");
-  }
-
+  // (3a) Identity comes from the verified session email — never the client. The
+  // WhatsApp number is now an OPTIONAL, unverified contact field, so we persist
+  // the (already-validated) client value as-is.
+  const email = user.email?.trim().toLowerCase() || undefined;
+  const whatsappPhone = input.whatsappPhone?.trim() || null;
   const now = new Date();
 
   // (4) Transaction: upsert app_user, insert center (pending_review), insert
@@ -72,10 +62,10 @@ export async function createCenterForCurrentUser(
         .insert(appUser)
         .values({
           id: user.id,
-          phone: verifiedPhone,
+          email,
           name: input.responsibleName.trim(),
           cargo: input.cargo?.trim() || null,
-          phoneVerifiedAt: now,
+          emailVerifiedAt: now,
           lastLoginAt: now,
         })
         .onConflictDoUpdate({
@@ -83,8 +73,8 @@ export async function createCenterForCurrentUser(
           set: {
             name: input.responsibleName.trim(),
             cargo: input.cargo?.trim() || null,
-            phone: verifiedPhone,
-            phoneVerifiedAt: now,
+            email,
+            emailVerifiedAt: now,
             updatedAt: now,
           },
         });
@@ -99,7 +89,7 @@ export async function createCenterForCurrentUser(
           addressLine: input.addressLine.trim(),
           addressReference: input.addressReference?.trim() || null,
           regularScheduleText: input.regularScheduleText?.trim() || null,
-          whatsappPhone: verifiedPhone,
+          whatsappPhone,
           status: "pending_review",
         })
         .returning({ id: center.id });

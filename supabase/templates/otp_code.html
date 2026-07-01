@@ -1,0 +1,5 @@
+<!-- LOCAL-ONLY email template so the 6-digit OTP ({{ .Token }}) appears in the
+     Mailpit inbox for offline e2e. Prod uses Supabase's dashboard templates. -->
+<h2>Tu código de acceso VeneMed</h2>
+<p>Ingresa este código para entrar: <strong>{{ .Token }}</strong></p>
+<p>Vence pronto y solo puede usarse una vez.</p>

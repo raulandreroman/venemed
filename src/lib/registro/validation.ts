@@ -30,7 +30,9 @@ export const CENTER_TYPE_OPTIONS: { value: CenterType; label: string }[] = [
 
 const CENTER_TYPE_VALUES = CENTER_TYPE_OPTIONS.map((o) => o.value);
 
-/** The validated, server-bound payload. `whatsappPhone` is E.164 ("+58…"). */
+/** The validated, server-bound payload. `whatsappPhone` is an OPTIONAL,
+ * unverified contact number (E.164 "+58…" once normalized) for delivery
+ * coordination — auth is via email, so it's no longer tied to the session. */
 export type CreateCenterInput = {
   name: string;
   /** null when the center-type feature is off (see `CENTER_TYPE_ENABLED`). */
@@ -40,10 +42,22 @@ export type CreateCenterInput = {
   addressLine: string;
   addressReference?: string;
   regularScheduleText?: string;
-  whatsappPhone: string;
+  whatsappPhone?: string;
   responsibleName: string;
   cargo?: string; // responsable's role/title, optional (Figma "Cargo")
 };
+
+/**
+ * Normalize an email for use as the login identity: trim + lowercase, or null
+ * if it doesn't look like a valid address. Kept deliberately simple (no zod) —
+ * Supabase does the authoritative validation on send; this is a UX pre-check.
+ */
+export function normalizeEmail(raw: string | undefined | null): string | null {
+  const e = (raw ?? "").trim().toLowerCase();
+  // Minimal shape check: something@something.tld, no whitespace.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return null;
+  return e;
+}
 
 export type FieldErrors = Partial<Record<keyof CreateCenterInput, string>>;
 
@@ -119,7 +133,8 @@ export function validateRegistro(
       "El horario no debe superar 120 caracteres.";
   }
 
-  if (!normalizeVePhone(input.whatsappPhone)) {
+  // WhatsApp is now an OPTIONAL contact field — only validate a non-empty value.
+  if (len(input.whatsappPhone) > 0 && !normalizeVePhone(input.whatsappPhone)) {
     errors.whatsappPhone = "Ingresa un número de teléfono válido.";
   }
 
@@ -138,7 +153,7 @@ export function validateRegistro(
 
 // ---- Focused subsets for the profile's two inline edit sections --------------
 // They reuse validateRegistro's rules (single source) and keep only the keys
-// each section owns. The responsable's phone is NOT editable (OTP-bound).
+// each section owns. The responsable's login identity (email) is NOT editable.
 
 export type CenterDetailsInput = Pick<
   CreateCenterInput,

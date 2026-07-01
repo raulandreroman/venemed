@@ -1,5 +1,7 @@
 # VeneMed — Center Auth Foundation + Login (Implementation Spec)
 
+> ⚠️ **SUPERSEDED (2026-07-01) — auth moved from phone OTP to EMAIL OTP** (migration `0008`, PR `feat/email-auth`). Wherever this spec says "phone" / "SMS" / "WhatsApp OTP" / `signInWithOtp({ phone })` / `verifyOtp({ type: "sms" })` / `app_user.phone`, the built system now uses **email**: `app_user.email` (unique), `signInWithOtp({ email })`, `verifyOtp({ type: "email" })`, and identity derived from `user.email`. `app_user.phone` was dropped; `center.whatsapp_phone` is now an OPTIONAL, unverified contact field. The architecture/authorization model (§1 — Drizzle bypasses RLS, authz in server code by `center_id`) is unchanged. See AGENTS.md gotcha #4.
+>
 > **Status**: ready to build. Last updated 2026-06-28.
 > **Branch**: `feat/center-auth` (off `main`). `main` is **protected** — land via PR (final phase).
 > **Scope**: the **identity/session layer** for the center back office and the **login (L1)** flow only. Builds the Supabase-SSR plumbing, route protection, phone-OTP login, post-login identity resolution + status routing, a guarded `(center)` shell, and **placeholder** guarded pages for everything downstream.

@@ -8,8 +8,6 @@ import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import { normalizeVePhone } from "@/lib/registro/validation";
-
 import { appUser, center, membership, request, requestItem, supply } from "./schema";
 
 config({ path: ".env.local" });
@@ -24,49 +22,45 @@ const db = drizzle(client, {
 });
 
 /**
- * Provision an APPROVED-center membership for the test phone, so e2e (and manual
+ * Provision an APPROVED-center membership for the test email, so e2e (and manual
  * QA) reach the real /centro dashboard with data. Memberships are normally
  * created on first login; we short-circuit that here by creating (or reusing)
- * the Supabase auth user for TEST_CENTER_PHONE via the service-role admin API,
+ * the Supabase auth user for TEST_CENTER_EMAIL via the service-role admin API,
  * then linking app_user(id = auth uid) → membership → the given center.
  *
- * No-op (with a notice) when the Supabase admin creds or TEST_CENTER_PHONE are
+ * No-op (with a notice) when the Supabase admin creds or TEST_CENTER_EMAIL are
  * absent, so a bare `db:seed` against a plain Postgres still succeeds.
  */
 async function provisionTestMembership(centerId: string) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const canonical = normalizeVePhone(process.env.TEST_CENTER_PHONE);
+  const email = process.env.TEST_CENTER_EMAIL?.trim().toLowerCase();
 
-  if (!supabaseUrl || !serviceKey || !canonical) {
+  if (!supabaseUrl || !serviceKey || !email) {
     console.log(
-      "  • skipped test-membership (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / TEST_CENTER_PHONE not all set)",
+      "  • skipped test-membership (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / TEST_CENTER_EMAIL not all set)",
     );
     return;
   }
-
-  // Supabase/GoTrue stores phone WITHOUT the leading '+' (matches the
-  // [auth.sms.test_otp] key in supabase/config.toml, e.g. "584241234567").
-  const authPhone = canonical.slice(1);
 
   const admin = createClient(supabaseUrl, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Find an existing auth user for this phone (auth.users survives db:seed,
-  // which only resets the domain tables), else create one phone-confirmed.
+  // Find an existing auth user for this email (auth.users survives db:seed,
+  // which only resets the domain tables), else create one email-confirmed.
   let userId: string | undefined;
   const { data: list, error: listErr } = await admin.auth.admin.listUsers({
     perPage: 1000,
   });
   if (listErr) throw listErr;
-  userId = list.users.find((u) => u.phone === authPhone)?.id;
+  userId = list.users.find((u) => u.email === email)?.id;
 
   if (!userId) {
     const { data: created, error: createErr } =
       await admin.auth.admin.createUser({
-        phone: authPhone,
-        phone_confirm: true,
+        email,
+        email_confirm: true,
       });
     if (createErr) throw createErr;
     userId = created.user.id;
@@ -79,13 +73,13 @@ async function provisionTestMembership(centerId: string) {
     .insert(appUser)
     .values({
       id: userId,
-      phone: canonical,
+      email,
       name: "Coordinador de prueba",
-      phoneVerifiedAt: now,
+      emailVerifiedAt: now,
     })
     .onConflictDoUpdate({
       target: appUser.id,
-      set: { phone: canonical, phoneVerifiedAt: now, updatedAt: now },
+      set: { email, emailVerifiedAt: now, updatedAt: now },
     });
 
   // membership was cascade-deleted with the centers above; re-create it.
@@ -95,7 +89,7 @@ async function provisionTestMembership(centerId: string) {
     .onConflictDoNothing();
 
   console.log(
-    `  • linked TEST_CENTER_PHONE (${canonical}) → approved center as center_admin`,
+    `  • linked TEST_CENTER_EMAIL (${email}) → approved center as center_admin`,
   );
 }
 

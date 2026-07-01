@@ -9,9 +9,14 @@ export const SENTRY_ENABLED = Boolean(SENTRY_DSN);
 // these from any free-text that reaches Sentry as a defense-in-depth against a
 // phone number leaking into an error message or breadcrumb.
 const PHONE_RE = /(\+?58\s?\d{9,10}|\b0?4\d{2}\s?\d{7}\b)/g;
+// Email addresses — now the login identity, so the highest-value PII to keep out
+// of error payloads (e.g. a DB error echoing an app_user upsert's params).
+const EMAIL_RE = /[^\s@<>()]+@[^\s@<>()]+\.[^\s@<>()]+/g;
 
 function redact(text: string): string {
-  return text.replace(PHONE_RE, "[redacted-phone]");
+  return text
+    .replace(EMAIL_RE, "[redacted-email]")
+    .replace(PHONE_RE, "[redacted-phone]");
 }
 
 /**

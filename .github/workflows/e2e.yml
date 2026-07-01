@@ -21,10 +21,11 @@ jobs:
       POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       POSTGRES_URL_NON_POOLING: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       CRON_SECRET: local-ci-cron-secret
-      # Center e2e uses the local test OTP wired in supabase/config.toml.
-      TEST_CENTER_PHONE: "4241234567"
-      TEST_CENTER_PHONE_2: "4221234567"
-      TEST_OTP_CODE: "123456"
+      # Center/admin e2e read the real email OTP from the local Supabase mail
+      # sink (Mailpit); a LOCAL-ONLY template surfaces the code (see e2e/_mail.ts).
+      TEST_CENTER_EMAIL: "center@venemed.test"
+      TEST_CENTER_EMAIL_2: "center2@venemed.test"
+      TEST_ADMIN_EMAIL: "admin@venemed.test"
     steps:
       - uses: actions/checkout@v4
 

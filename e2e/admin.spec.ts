@@ -9,6 +9,7 @@ import {
   makeSql,
   type Sql,
 } from "./_db";
+import { clearMailbox, readEmailOtp } from "./_mail";
 
 /**
  * Admin-gating smoke — ALWAYS ON, data-INDEPENDENT (no OTP, no DB writes).
@@ -31,7 +32,7 @@ test.describe("admin gate (unauth)", () => {
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin\/login$/);
     await expect(
-      page.getByRole("heading", { name: /Ingresa tu teléfono/ }),
+      page.getByRole("heading", { name: /Ingresa tu correo/ }),
     ).toBeVisible();
     await expect(page.getByText("Acceso de moderador")).toBeVisible();
     await expectNoErrorOverlay(page);
@@ -64,20 +65,18 @@ test.describe("admin gate (unauth)", () => {
  * `center.status` AND the matching `moderation_event` row (actor_user_id = the
  * logged-in admin's app_user.id) directly in the DB.
  *
- * Phone: uses a DEDICATED admin number (`TEST_ADMIN_PHONE`) — NOT
- * TEST_CENTER_PHONE (login) or TEST_CENTER_PHONE_2 (registration). Those are
- * each already claimed by center.spec; reusing PHONE_2 would (a) flip that
+ * Email: uses a DEDICATED admin email (`TEST_ADMIN_EMAIL`) — NOT
+ * TEST_CENTER_EMAIL (login) or TEST_CENTER_EMAIL_2 (registration). Those are
+ * each already claimed by center.spec; reusing EMAIL_2 would (a) flip that
  * user to is_platform_admin and break the registration routing assertion, and
- * (b) collide on Supabase's ~1/min per-number OTP limit. A distinct number
- * dodges the limit exactly as gotcha #8 prescribes. The whole admin flow sends
- * a SINGLE OTP (one login), then approves one center and rejects another.
+ * (b) collide on Supabase's per-identity OTP limit. A distinct email dodges the
+ * limit. The whole admin flow sends a SINGLE OTP (one login), then approves one
+ * center and rejects another.
  *
- * Skips cleanly until `TEST_OTP_CODE`, `TEST_ADMIN_PHONE`, and a DB URL are set.
+ * Skips cleanly until `TEST_ADMIN_EMAIL` and a DB URL are set.
  */
-const OTP = process.env.TEST_OTP_CODE;
-const ADMIN_PHONE = process.env.TEST_ADMIN_PHONE ?? "";
-const ADMIN_E164 = `+58${ADMIN_PHONE.replace(/\D/g, "")}`;
-const ADMIN_ENABLED = !!OTP && !!ADMIN_PHONE && hasDbUrl();
+const ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL ?? "";
+const ADMIN_ENABLED = !!ADMIN_EMAIL && hasDbUrl();
 
 const APPROVE_CENTER = "Centro E2E Admin · Aprobar";
 const REJECT_CENTER = "Centro E2E Admin · Rechazar";
@@ -85,7 +84,7 @@ const REJECT_CENTER = "Centro E2E Admin · Rechazar";
 test.describe("admin moderation actions (gated)", () => {
   test.skip(
     !ADMIN_ENABLED,
-    "set TEST_OTP_CODE + TEST_ADMIN_PHONE + POSTGRES_URL to enable admin e2e",
+    "set TEST_ADMIN_EMAIL + POSTGRES_URL to enable admin e2e",
   );
 
   let sql: Sql;
@@ -115,8 +114,8 @@ test.describe("admin moderation actions (gated)", () => {
     expect(errors, errors.map((e) => e.message).join("\n")).toEqual([]);
   });
 
-  async function fillOtp(page: Page) {
-    const code = OTP!;
+  async function fillOtp(page: Page, email: string) {
+    const code = await readEmailOtp(email);
     for (let i = 0; i < 6; i++) {
       await page.getByRole("textbox", { name: `Dígito ${i + 1}` }).fill(code[i]);
     }
@@ -127,19 +126,24 @@ test.describe("admin moderation actions (gated)", () => {
   test("login → approve + reject write status + a matching moderation_event", async ({
     page,
   }) => {
+    // Heavier than the default 60s budget: email-OTP login (Mailpit poll) +
+    // two full moderation round-trips (approve, reject) in one serial flow.
+    test.setTimeout(120_000);
     // 1) Admin OTP login (one send for the whole flow).
+    await clearMailbox();
     await page.goto("/admin/login");
-    await page.getByLabel(/Teléfono/).fill(ADMIN_PHONE);
+    await page.getByLabel(/Correo/).fill(ADMIN_EMAIL);
     await page.getByRole("button", { name: "Enviar código" }).click();
     await expect(page.getByRole("textbox", { name: "Dígito 1" })).toBeVisible();
-    await fillOtp(page);
-    // finishLogin redirects somewhere real (the number has no membership and is
-    // not yet an admin → /centro/registro). The destination is irrelevant; the
-    // point is that the session cookie is now set and app_user exists.
-    await page.waitForURL(/\/(centro|admin)/);
+    await fillOtp(page, ADMIN_EMAIL);
+    // finishLogin redirects to /centro/registro (the email has no membership and
+    // is not yet an admin). We MUST wait for that specific destination — a loose
+    // /(centro|admin)/ would match the current /admin/login URL immediately and
+    // race ahead of finishLogin, so makeAdmin below would find no app_user yet.
+    await page.waitForURL(/\/centro\/registro$/, { timeout: 15_000 });
 
-    // 2) Promote this phone to a platform admin (app_user now exists post-login).
-    adminUserId = await makeAdmin(sql, ADMIN_E164);
+    // 2) Promote this email to a platform admin (app_user now exists post-login).
+    adminUserId = await makeAdmin(sql, ADMIN_EMAIL);
 
     // 3) APPROVE: drive the real sticky-bar action.
     await page.goto(`/admin/centros/${approveId}`);
@@ -147,7 +151,13 @@ test.describe("admin moderation actions (gated)", () => {
       page.getByRole("heading", { name: "Revisar centro" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Aprobar" }).click();
-    await page.waitForURL(/\/admin\?.*done=approved/);
+    // Assert the REAL outcome (the DB write) rather than the client router.push
+    // URL, which is the flaky part — the action's success is the mutation.
+    await expect
+      .poll(async () => (await getCenter(sql, approveId)).status, {
+        timeout: 15_000,
+      })
+      .toBe("approved");
     await expectNoErrorOverlay(page);
 
     const approved = await getCenter(sql, approveId);
@@ -168,9 +178,17 @@ test.describe("admin moderation actions (gated)", () => {
 
     const sheet = page.getByRole("dialog", { name: "Rechazar centro" });
     await expect(sheet).toBeVisible();
-    await sheet.getByRole("button", { name: "Datos incompletos" }).click();
+    const motivo = sheet.getByRole("button", { name: "Datos incompletos" });
+    await motivo.click();
+    // Confirm the chip registered before submitting (the submit is gated on it).
+    await expect(motivo).toHaveAttribute("aria-pressed", "true");
     await sheet.getByRole("button", { name: "Rechazar y notificar" }).click();
-    await page.waitForURL(/\/admin\?.*done=rejected/);
+    // Assert the REAL outcome (the DB write), not the flaky client router.push URL.
+    await expect
+      .poll(async () => (await getCenter(sql, rejectId)).status, {
+        timeout: 15_000,
+      })
+      .toBe("rejected");
     await expectNoErrorOverlay(page);
 
     const rejected = await getCenter(sql, rejectId);

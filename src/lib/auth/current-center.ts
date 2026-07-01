@@ -12,7 +12,7 @@ export type CenterStatus =
 
 export type CurrentCenter = {
   userId: string; // = supabase auth uid = app_user.id
-  phone: string | null;
+  email: string | null;
   centerId: string;
   centerName: string;
   status: CenterStatus;
@@ -26,7 +26,7 @@ export type CurrentCenter = {
 //  { kind: "center", center }          session + resolved center
 export type CurrentCenterResult =
   | { kind: "anon" }
-  | { kind: "no-membership"; userId: string; phone: string | null }
+  | { kind: "no-membership"; userId: string; email: string | null }
   | { kind: "center"; center: CurrentCenter };
 
 /**
@@ -45,7 +45,7 @@ export async function getCurrentCenter(): Promise<CurrentCenterResult> {
   const rows = await db
     .select({
       userId: appUser.id,
-      phone: appUser.phone,
+      email: appUser.email,
       centerId: center.id,
       centerName: center.name,
       status: center.status,
@@ -60,13 +60,13 @@ export async function getCurrentCenter(): Promise<CurrentCenterResult> {
 
   const row = rows[0];
   if (!row || !row.centerId) {
-    return { kind: "no-membership", userId: user.id, phone: user.phone ?? null };
+    return { kind: "no-membership", userId: user.id, email: user.email ?? null };
   }
   return {
     kind: "center",
     center: {
       userId: row.userId,
-      phone: row.phone,
+      email: row.email,
       centerId: row.centerId,
       centerName: row.centerName!,
       status: row.status!,
