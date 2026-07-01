@@ -123,6 +123,39 @@ export function centerTypeLabel(value: string): string {
   return map[value] ?? capitalize(value);
 }
 
+/**
+ * "hace un momento" / "hace 4 min" / "hace 3 h" / "hace 1 día" / "hace 5 días"
+ * — the dashboard "Actualizada {X}" line. Distinct from `formatRelativeTime`
+ * (which collapses to "ayer"/"d"): the freshness card copy spells out full
+ * "día(s)".
+ */
+export function formatUpdatedAgo(
+  date: Date | string | null,
+  now: Date = new Date(),
+): string {
+  if (!date) return "";
+  const ms = now.getTime() - toDate(date).getTime();
+  if (ms < MINUTE) return "hace un momento";
+  if (ms < HOUR) return `hace ${Math.round(ms / MINUTE)} min`;
+  if (ms < DAY) return `hace ${Math.round(ms / HOUR)} h`;
+  const days = Math.round(ms / DAY);
+  return days <= 1 ? "hace 1 día" : `hace ${days} días`;
+}
+
+/**
+ * True when `date` is at least `days` in the past (default 3) — powers the
+ * dashboard's "Confirma que sigue vigente" freshness card. Keeps the `now`
+ * read out of component render (purity).
+ */
+export function isListaStale(
+  date: Date | string | null,
+  now: Date = new Date(),
+  days: number = 3,
+): boolean {
+  if (!date) return false;
+  return now.getTime() - toDate(date).getTime() >= days * DAY;
+}
+
 /** closed_reason enum -> Spanish tag label. */
 export function closedReasonLabel(value: string | null): string {
   const map: Record<string, string> = {
