@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
+import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -42,6 +43,8 @@ export function RegistroWizard({
   });
   const [lastInput, setLastInput] = useState<CreateCenterInput | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
+  const captchaRef = useRef<CaptchaHandle>(null);
 
   const submitWrite = useCallback(async () => {
     // Server action re-validates + writes + redirects (no client navigation).
@@ -64,9 +67,18 @@ export function RegistroWizard({
 
       // Anon: send the first code, then advance to the shared OTP step.
       const supabase = createClient();
+      let captchaToken: string | undefined;
+      try {
+        captchaToken = await captchaRef.current?.getToken();
+      } catch {
+        setSendError(
+          "No pudimos verificar que no eres un robot. Recarga e inténtalo de nuevo.",
+        );
+        throw new Error("captcha-failed");
+      }
       const { error } = await supabase.auth.signInWithOtp({
         phone: input.whatsappPhone, // already E.164 from toInput
-        options: { channel },
+        options: { channel, captchaToken },
       });
       if (error) {
         setSendError(
@@ -172,6 +184,12 @@ export function RegistroWizard({
         headerSlot={<Stepper current={1} label="Datos del centro" />}
         footerNote="Paso 1 de 3 · Tus datos están protegidos"
         footerError={sendError}
+        footerSlot={
+          mode === "anon" ? (
+            <Captcha ref={captchaRef} onReadyChange={setCaptchaReady} />
+          ) : null
+        }
+        submitDisabled={mode === "anon" && !captchaReady}
         onSubmit={onDatosSubmit}
       />
     </>

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useRef, useState, type FormEvent } from "react";
+import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { OtpStep } from "../../_components/otp-step";
@@ -22,6 +23,8 @@ export function LoginForm({ channel = "sms" }: { channel?: Channel }) {
   const [nationalNumber, setNationalNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
+  const captchaRef = useRef<CaptchaHandle>(null);
 
   const national = nationalNumber.replace(/\D/g, "");
   const phoneE164 = `+58${national}`;
@@ -36,9 +39,17 @@ export function LoginForm({ channel = "sms" }: { channel?: Channel }) {
       setLoading(true);
       setError(null);
       const supabase = createClient();
+      let captchaToken: string | undefined;
+      try {
+        captchaToken = await captchaRef.current?.getToken();
+      } catch {
+        setLoading(false);
+        setError("No pudimos verificar que no eres un robot. Recarga e inténtalo de nuevo.");
+        return;
+      }
       const { error: sendError } = await supabase.auth.signInWithOtp({
         phone: phoneE164,
-        options: { channel },
+        options: { channel, captchaToken },
       });
       setLoading(false);
       if (sendError) {
@@ -116,8 +127,10 @@ export function LoginForm({ channel = "sms" }: { channel?: Channel }) {
           </p>
         )}
 
+        <Captcha ref={captchaRef} onReadyChange={setCaptchaReady} />
+
         <div className="mt-auto flex flex-col items-center gap-3 pt-6">
-          <Button type="submit" fullWidth disabled={loading}>
+          <Button type="submit" fullWidth disabled={loading || !captchaReady}>
             {loading ? "Enviando…" : "Enviar código"}
           </Button>
           <p className="text-sm text-neutral-500">
