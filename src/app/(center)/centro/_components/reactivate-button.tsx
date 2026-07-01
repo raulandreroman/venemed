@@ -29,7 +29,7 @@ export function ReactivateButton({ requestId }: { requestId: string }) {
         setPending(false);
         throw e; // let Next navigate
       }
-      setError("No pudimos reactivar la solicitud. Inténtalo de nuevo.");
+      setError("No pudimos reactivar la lista. Inténtalo de nuevo.");
       setPending(false);
     }
   }, [requestId]);
@@ -43,7 +43,7 @@ export function ReactivateButton({ requestId }: { requestId: string }) {
         disabled={pending}
         onClick={onClick}
       >
-        {pending ? "Reactivando…" : "Reactivar solicitud"}
+        {pending ? "Reactivando…" : "Reactivar lista"}
       </Button>
       {error && (
         <p role="alert" className="mt-2 text-sm text-error">

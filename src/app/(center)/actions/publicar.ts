@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -16,17 +16,20 @@ import type { PublishListaInput } from "@/lib/listas/validation";
 // `PublishListaInput` is imported via `import type` above — never re-exported.
 
 /**
- * Publish the logged-in center's lista. Authorization derives from
- * `requireCenter()` (session → membership → centerId); a client-supplied center
- * id is never trusted (Drizzle bypasses RLS). Only `approved` centers may
- * publish. The full payload is re-validated server-side (defense-in-depth).
+ * Publish (create OR edit) the logged-in center's single evergreen lista
+ * (lista-model-v2: one live lista per center, no windows). Authorization
+ * derives from `requireCenter()` (session → membership → centerId); a
+ * client-supplied center id is never trusted (Drizzle bypasses RLS). Only
+ * `approved` centers may publish. The full payload is re-validated
+ * server-side (defense-in-depth).
  *
- * One transaction inserts the `lista` (status `active`) plus its `lista_item`
- * rows, keyed by `idempotencyKey` so a double-submit dedupes (23505 →
- * re-resolve the existing lista and proceed to the confirm screen). Then
- * revalidates the donor surge tags (2-arg form, Next 16) and redirects to the
- * published-confirm screen. Ends in `redirect(...)`; never returns on happy
- * path (redirect throws).
+ * Resolves the center's existing `active|paused` row first: if found, this is
+ * an EDIT (last-write-wins — update the lista's fields + fully replace its
+ * items); otherwise it's a CREATE. Keyed by `idempotencyKey` on create so a
+ * double-submit dedupes (23505 → re-resolve and proceed to the confirm
+ * screen). Then revalidates the donor surge tags (2-arg form, Next 16) and
+ * redirects to the published-confirm screen. Ends in `redirect(...)`; never
+ * returns on the happy path (redirect throws).
  */
 export async function publishLista(input: PublishListaInput): Promise<void> {
   // (1) Resolve session/authz. Only approved centers publish.
@@ -55,9 +58,10 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
     throw new Error("La recepción de donaciones está pausada.");
   }
 
-  // (3b) Derive categories from the chosen catalog items — the "área" facet was
-  // dropped from authoring. Each catalog supply carries its supply_category;
-  // custom (free-text) items fall back to the dormant 'general' bucket.
+  // (3b) Derive categories from ALL chosen catalog items (need + excess) — the
+  // "área" facet was dropped from authoring. Each catalog supply carries its
+  // supply_category; custom (free-text) items fall back to the dormant
+  // 'general' bucket.
   const supplyIds = input.items
     .map((it) => it.supplyId)
     .filter((id): id is string => !!id);
@@ -75,63 +79,114 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
   if (hasCustom || categorySet.size === 0) categorySet.add("general");
   const categories = [...categorySet]; // English enum values (donor filters arrayContains)
 
-  const now = new Date();
+  const deliveryInstructions = input.deliveryInstructions?.trim() || null;
+  const excessReason = input.excessReason?.trim() || null;
 
-  // (4) Transaction: insert lista + items, keyed by idempotencyKey.
+  const itemValues = (targetListaId: string) =>
+    input.items.map((it) => ({
+      listaId: targetListaId,
+      supplyId: it.supplyId ?? null,
+      customName: it.supplyId ? null : it.customName?.trim() || null,
+      bucket: it.bucket,
+      // excess items are never urgent — coerce regardless of client input.
+      isUrgent: it.bucket === "need" ? !!it.isUrgent : false,
+      // lista_item.category is the Spanish label; catalog items use their
+      // supply's category, customs fall back to 'general'.
+      category: categoryLabel(
+        (it.supplyId && categoryBySupply.get(it.supplyId)) || "general",
+      ),
+    }));
+
+  // (4) Resolve the center's existing evergreen lista (at most one, enforced
+  // by lista_one_active_per_center).
+  const [existing] = await db
+    .select({ id: lista.id })
+    .from(lista)
+    .where(
+      and(eq(lista.centerId, centerId), inArray(lista.status, ["active", "paused"])),
+    )
+    .limit(1);
+
   let listaId: string;
-  try {
-    listaId = await db.transaction(async (tx) => {
-      const [inserted] = await tx
-        .insert(lista)
-        .values({
-          centerId,
-          status: "active",
-          deliveryInstructions: input.deliveryInstructions?.trim() || null,
-          publishedAt: now,
+
+  if (existing) {
+    // (5a) EDIT — last-write-wins: update fields, then fully replace items.
+    listaId = existing.id;
+    await db.transaction(async (tx) => {
+      await tx
+        .update(lista)
+        .set({
+          deliveryInstructions,
+          excessReason,
           city: c?.city ?? null,
           categories,
-          idempotencyKey: input.idempotencyKey,
+          updatedAt: sql`now()`,
         })
-        .returning({ id: lista.id });
+        .where(and(eq(lista.id, existing.id), eq(lista.centerId, centerId)));
 
-      await tx.insert(listaItem).values(
-        input.items.map((it) => ({
-          listaId: inserted.id,
-          supplyId: it.supplyId ?? null,
-          customName: it.supplyId ? null : it.customName?.trim() || null,
-          // lista_item.category is the Spanish label; catalog items use their
-          // supply's category, customs fall back to 'general'.
-          category: categoryLabel(
-            (it.supplyId && categoryBySupply.get(it.supplyId)) || "general",
-          ),
-        })),
-      );
-
-      return inserted.id;
+      await tx.delete(listaItem).where(eq(listaItem.listaId, existing.id));
+      await tx.insert(listaItem).values(itemValues(existing.id));
     });
-  } catch (err) {
-    // Idempotency-key unique violation: a prior submit already created this
-    // lista. Re-resolve it (scoped to this center) and proceed to confirm.
-    if (isUniqueViolation(err)) {
-      const [existing] = await db
+  } else {
+    // (5b) CREATE — first lista for this center.
+    try {
+      listaId = await db.transaction(async (tx) => {
+        const [inserted] = await tx
+          .insert(lista)
+          .values({
+            centerId,
+            status: "active",
+            deliveryInstructions,
+            excessReason,
+            publishedAt: sql`now()`,
+            city: c?.city ?? null,
+            categories,
+            idempotencyKey: input.idempotencyKey,
+          })
+          .returning({ id: lista.id });
+
+        await tx.insert(listaItem).values(itemValues(inserted.id));
+
+        return inserted.id;
+      });
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
+      // 23505 on either the idempotency key (a retried double-submit) or the
+      // one-active-per-center index (a concurrent create racing this one) —
+      // either way, re-resolve the center's now-existing evergreen lista and
+      // proceed to the confirm screen rather than surfacing an error.
+      const [byIdempotency] = await db
         .select({ id: lista.id })
         .from(lista)
         .where(eq(lista.idempotencyKey, input.idempotencyKey))
         .limit(1);
-      if (!existing) throw err;
-      listaId = existing.id;
-    } else {
-      throw err;
+      const [byCenter] = byIdempotency
+        ? []
+        : await db
+            .select({ id: lista.id })
+            .from(lista)
+            .where(
+              and(
+                eq(lista.centerId, centerId),
+                inArray(lista.status, ["active", "paused"]),
+              ),
+            )
+            .limit(1);
+      const resolved = byIdempotency ?? byCenter;
+      if (!resolved) throw err;
+      listaId = resolved.id;
     }
   }
 
-  // (5) Invalidate the cached donor surge reads (Next 16 two-arg form). The
+  // (6) Invalidate the cached donor surge reads (Next 16 two-arg form). The
   // center dashboard queries are uncached, so they reflect the write already.
   revalidateTag("active-listas", "max");
   revalidateTag("landing-stats", "max");
   revalidateTag(`lista:${listaId}`, "max");
 
-  // (6) Redirect AFTER commit + revalidate (redirect throws).
+  // (7) Redirect AFTER commit + revalidate (redirect throws). Shows
+  // "¡Lista publicada!" for both a create and an edit — no separate "updated"
+  // screen exists in the frames.
   redirect(`/centro/lista/${listaId}/publicada`);
 }
 

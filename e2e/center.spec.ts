@@ -51,26 +51,28 @@ test.describe("center auth + registration", () => {
   // per center_id). This login deterministically lands on the real /centro
   // dashboard (not /centro/registro). This single test does ONE OTP send for
   // TEST_CENTER_EMAIL (registration uses EMAIL_REG) and reuses that one session
-  // for the whole publish → manage → reception-pause chain — logging in a
-  // second time with the same email would trip the local OTP rate limit
+  // for the whole edit → publish → reconfirm → reception-pause chain — logging
+  // in a second time with the same email would trip the local OTP rate limit
   // ([auth.email] max_frequency) and never reach the OTP screen:
   //
-  //   (a) the populated dashboard renders the seeded lista without crashing;
-  //   (b) FINALIZE the seed's lista first (so a new one can be created — the
-  //       unique-active-per-center index would reject a second insert
-  //       otherwise);
-  //   (c) publish a NEW lista through the REAL create form + insumo selector
+  //   (a) the populated dashboard v2 renders the seeded lista's sections
+  //       without crashing;
+  //   (b) EDIT it (the upsert model: publishing again replaces the same
+  //       evergreen row's fields/items — no finalize-first step needed) via
+  //       the REAL editor + insumo selector + urgency-edit + aviso de exceso
   //       (gotcha #2: build+GET never exercises the action), reaching BOTH the
   //       donor /listas list (cache revalidated) and the center dashboard;
-  //   (d) finalize it too, then exercise the reception kill-switch.
-  test("login → approved dashboard → publish lista → donor list + dashboard", async ({
+  //   (c) reconfirm a backdated-stale lista via the freshness card's real
+  //       `confirmVigente` action;
+  //   (d) exercise the reception kill-switch.
+  test("login → approved dashboard → edit lista → donor list + dashboard", async ({
     page,
   }) => {
-    // This test chains login → finalize → publish → manage and polls the cached
-    // donor list twice (appear + leave); the donor list is
-    // unstable_cache(revalidate 60) and revalidateTag(…,"max") is
-    // stale-while-revalidate, so the "leaves" poll can run up to the ISR window.
-    // Raise the wall-clock budget beyond the default 60s.
+    // This test chains login → edit → reconfirm → reception-pause and polls
+    // the cached donor list; the donor list is unstable_cache(revalidate 60)
+    // and revalidateTag(…,"max") is stale-while-revalidate, so the poll can
+    // run up to the ISR window. Raise the wall-clock budget beyond the
+    // default 60s.
     test.setTimeout(240_000);
 
     // itemName stands in for the old per-lista "title" (dropped — lista-model-v2
@@ -100,25 +102,15 @@ test.describe("center auth + registration", () => {
     await expect(
       page.getByRole("heading", { name: /Hospital J\.M\. de los Ríos/ }),
     ).toBeVisible();
-    // The seeded evergreen lista's own card.
-    const seedCard = page.getByTestId("center-request-card").first();
-    await expect(seedCard).toBeVisible();
+    // A seeded section item (seed: an urgent need on this center's lista).
+    await expect(page.getByText("Jeringas 5 ml estériles")).toBeVisible();
     await expectNoErrorOverlay(page);
 
-    // Finalize the seed lista first — lista-model-v2 allows at most ONE
-    // active/paused lista per center, so publishing a new one below requires
-    // this one to be terminal first.
-    await seedCard.click();
-    await page.waitForURL(/\/centro\/lista\/[^/]+$/, { timeout: 15_000 });
-    await page.getByRole("button", { name: "Finalizar solicitud" }).click();
-    await page.getByRole("button", { name: "Finalizar", exact: true }).click();
-    await page.waitForURL(/\/centro$/, { timeout: 15_000 });
-    await expectNoErrorOverlay(page);
-
-    await page.goto("/centro/lista/nueva");
-    await expect(
-      page.getByRole("heading", { name: "Detalle de donación (0)" }),
-    ).toBeVisible();
+    // "Editar lista" (sticky footer) → the editor, pre-filled from the
+    // existing evergreen lista.
+    await page.getByRole("link", { name: "Editar lista" }).click();
+    await page.waitForURL(/\/centro\/lista\/editar$/, { timeout: 15_000 });
+    await expect(page.getByText("Acetaminofén 500 mg")).toBeVisible();
 
     // open the selector, check a catalog item, and add a custom one by typing a
     // non-matching string into the search and tapping the "Crear «…»" row.
@@ -126,27 +118,43 @@ test.describe("center auth + registration", () => {
     await page.getByRole("button", { name: "Guantes quirúrgicos" }).click();
     await page.getByLabel("Buscar insumo").fill(itemName);
     await page.getByRole("button", { name: `Crear ${itemName}` }).click();
-    await page.getByRole("button", { name: /Agregar \d+ insumos/ }).click();
+    await page.getByRole("button", { name: /Agregar \d+ insumos?/ }).click();
+
+    // Mark the new custom item as urgent via the urgency-edit mode.
+    await page.getByRole("button", { name: "Editar urgentes" }).click();
+    await page.getByRole("button", { name: itemName }).click();
+    await page.getByRole("button", { name: "Confirmar" }).click();
+    await expect(
+      page.getByText(itemName).locator("..").getByText("Urgente"),
+    ).toBeVisible();
 
     await page
-      .getByLabel("Instrucciones de entrega")
+      .getByLabel("Nota para los donantes")
       .fill("Entrada principal · Recepción de donaciones");
 
-    await page.getByRole("button", { name: "Publicar solicitud" }).click();
+    await page.getByRole("button", { name: "Siguiente" }).click();
+
+    // Step 2: aviso de exceso — create one with a new excess item + a razón.
+    await page.getByRole("button", { name: "Crear aviso de exceso" }).click();
+    await page.getByRole("button", { name: "Agregar insumos" }).click();
+    await page.getByRole("button", { name: "Sábanas clínicas" }).click();
+    await page.getByRole("button", { name: /Agregar \d+ insumos?/ }).click();
+    await page.getByLabel("Razón del aviso de exceso").fill("Depósito lleno.");
+    await page.getByRole("button", { name: "Publicar aviso" }).click();
 
     // The POINT (gotcha #2): the action must actually run, commit + redirect.
     await page.waitForURL(/\/centro\/lista\/[^/]+\/publicada$/, {
       timeout: 15_000,
     });
     await expect(
-      page.getByRole("heading", { name: "¡Solicitud publicada!" }),
+      page.getByRole("heading", { name: "¡Lista publicada!" }),
     ).toBeVisible();
     await expectNoErrorOverlay(page);
 
-    // /centro/lista/<id>/publicada → grab <id> for the detail + manage steps.
+    // /centro/lista/<id>/publicada → grab <id> for the reconfirm step below.
     const listaId = new URL(page.url()).pathname.split("/")[3];
 
-    // Donor list reflects the publish (active-listas tag revalidated). The
+    // Donor list reflects the edit (active-listas tag revalidated). The
     // list is ISR (stale-while-revalidate), so re-navigate until the
     // regenerated HTML carries the new item.
     await expect
@@ -159,58 +167,30 @@ test.describe("center auth + registration", () => {
       )
       .toBeGreaterThan(0);
 
-    // Center dashboard shows it too.
+    // Center dashboard shows it too, under "Urgente" (marked urgent above).
     await page.goto("/centro");
     await expect(page.getByText(itemName).first()).toBeVisible();
     await expectNoErrorOverlay(page);
 
-    // --- Center detail + manage (gotcha #2: drive the REAL finalize action;
-    // build+GET never exercises it). ---
-    await page.goto(`/centro/lista/${listaId}`);
-    await expect(
-      page.getByRole("heading", { name: "Detalle de solicitud" }),
-    ).toBeVisible();
-    await expect(page.getByText(itemName).first()).toBeVisible();
+    // --- Freshness / reconfirm (gotcha #2: drive the REAL confirmVigente
+    // action). Backdate updated_at via SQL so the card is deterministic. ---
+    if (hasDbUrl()) {
+      const sql = makeSql();
+      try {
+        await sql`update "lista" set updated_at = now() - interval '5 days' where id = ${listaId}`;
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
 
-    // Finalizar: sticky CTA → confirm dialog → real finalizeLista → /centro.
-    await page.getByRole("button", { name: "Finalizar solicitud" }).click();
-    await page.getByRole("button", { name: "Finalizar", exact: true }).click();
-    await page.waitForURL(/\/centro$/, { timeout: 15_000 });
-    await expectNoErrorOverlay(page);
-
-    // Deterministic effect of the REAL finalize action (gotcha #2): the center
-    // detail is UNCACHED, so reopening it reflects the DB write immediately —
-    // the lista now renders its terminal "cumplida" banner and the active-only
-    // sticky "Finalizar solicitud" CTA is gone. This proves the action committed
-    // status=closed/closedReason=fulfilled, independent of donor-cache timing.
-    await page.goto(`/centro/lista/${listaId}`);
-    await expect(
-      page.getByText(/se marcó como cumplida/i),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Finalizar solicitud" }),
-    ).toHaveCount(0);
-    await expectNoErrorOverlay(page);
-
-    // …and it LEAVES the donor active list. The list is cached
-    // (unstable_cache, revalidate 60) and revalidateTag(…,"max") is
-    // stale-while-revalidate, so eventual consistency is bounded by the ISR
-    // window — re-navigate until the regenerated HTML drops the item.
-    await expect
-      .poll(
-        async () => {
-          await page.goto("/listas", { waitUntil: "networkidle" });
-          return page.getByText(itemName).count();
-        },
-        { timeout: 75_000, intervals: [2000, 3000, 5000, 5000] },
-      )
-      .toBe(0);
+      await page.goto("/centro");
+      await expect(page.getByText(/Confirma que sigue vigente/)).toBeVisible();
+      await page.getByRole("button", { name: "Sí, sigue vigente" }).click();
+      await expect(page.getByText(/Confirma que sigue vigente/)).toHaveCount(0);
+      await expectNoErrorOverlay(page);
+    }
 
     // --- Center profile + reception kill-switch (gotcha #2: drive the REAL
-    // switch → Desactivar-recepción sheet → setReception). Both this center's
-    // listas are already terminal at this point, so this exercises the toggle
-    // mechanics themselves (the close-all effect on a still-active lista is
-    // covered by the finalize assertions above). ---
+    // switch → Desactivar-recepción sheet → setReception). ---
     await page.goto("/centro/perfil");
     await expect(
       page.getByRole("heading", { name: /Hospital J\.M\. de los Ríos/ }),
@@ -227,6 +207,20 @@ test.describe("center auth + registration", () => {
     // Profile/dashboard queries are uncached → the pause shows immediately.
     await expect(page.getByText(/Pausada/)).toBeVisible();
     await expectNoErrorOverlay(page);
+
+    // …and the lista LEAVES the donor active list (setReception(true) closes
+    // it). The list is cached (unstable_cache, revalidate 60) and
+    // revalidateTag(…,"max") is stale-while-revalidate, so eventual
+    // consistency is bounded by the ISR window.
+    await expect
+      .poll(
+        async () => {
+          await page.goto("/listas", { waitUntil: "networkidle" });
+          return page.getByText(itemName).count();
+        },
+        { timeout: 75_000, intervals: [2000, 3000, 5000, 5000] },
+      )
+      .toBe(0);
   });
 
   test("registration submit invokes the action without crashing", async ({

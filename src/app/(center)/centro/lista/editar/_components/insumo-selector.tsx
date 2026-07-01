@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui";
 
-import type { SelectedItem } from "./create-request-form";
+import type { SelectedItem } from "./lista-editor";
 
 type Supply = { id: string; name: string };
 

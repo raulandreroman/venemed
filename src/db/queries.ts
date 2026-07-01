@@ -334,72 +334,147 @@ export function getLandingStats(): Promise<LandingStats> {
 // the center's own writes immediately.
 
 /**
- * A center's own non-draft listas (active/paused/closed), newest first: active
- * first, then most recent.
+ * A single item row on the center dashboard v2 (lista-model-v2 §3c): bucket
+ * (need|excess) + isUrgent drive the Urgente/Necesitamos/No aceptamos section
+ * split, done in the component, not here.
  */
-export async function getCenterListas(
+export type CenterListaItem = {
+  id: string;
+  name: string;
+  category: string;
+  bucket: "need" | "excess";
+  isUrgent: boolean;
+};
+
+export type CenterDashboardLista = {
+  id: string;
+  shortId: number;
+  status: "active" | "paused";
+  city: string | null;
+  updatedAt: Date;
+  items: CenterListaItem[];
+};
+
+/**
+ * The center's single evergreen lista (active|paused), for the dashboard v2.
+ * The partial unique index `lista_one_active_per_center` guarantees at most
+ * one row; returns null when the center hasn't published yet. Center-private
+ * + uncached (same contract as the rest of §4.4).
+ */
+export async function getCenterDashboardLista(
   centerId: string,
-): Promise<CenterListaCardData[]> {
-  const rows = await db
+): Promise<CenterDashboardLista | null> {
+  const [row] = await db
     .select({
       id: lista.id,
       shortId: lista.shortId,
       status: lista.status,
       city: lista.city,
-      categories: lista.categories,
-      publishedAt: lista.publishedAt,
-      shareCount: lista.shareCount,
-      closedReason: lista.closedReason,
-      createdAt: lista.createdAt,
+      updatedAt: lista.updatedAt,
     })
     .from(lista)
-    .where(and(eq(lista.centerId, centerId), sql`${lista.status} <> 'draft'`))
-    .orderBy(
-      // active first
-      asc(sql`case when ${lista.status} = 'active' then 0 else 1 end`),
-      desc(lista.createdAt),
-    );
+    .where(
+      and(eq(lista.centerId, centerId), inArray(lista.status, ["active", "paused"])),
+    )
+    .limit(1);
 
-  const ids = rows.map((r) => r.id);
-  const items = ids.length
-    ? await db
-        .select({
-          id: listaItem.id,
-          listaId: listaItem.listaId,
-          name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
-          category: listaItem.category,
-        })
-        .from(listaItem)
-        .leftJoin(supply, eq(supply.id, listaItem.supplyId))
-        .where(inArray(listaItem.listaId, ids))
-        .orderBy(asc(listaItem.createdAt))
-    : [];
+  if (!row) return null;
 
-  const itemsByLista = new Map<string, ListaItemData[]>();
-  for (const it of items) {
-    const list = itemsByLista.get(it.listaId) ?? [];
-    list.push({ id: it.id, name: it.name, category: it.category });
-    itemsByLista.set(it.listaId, list);
-  }
+  const items = await db
+    .select({
+      id: listaItem.id,
+      name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
+      category: listaItem.category,
+      bucket: listaItem.bucket,
+      isUrgent: listaItem.isUrgent,
+    })
+    .from(listaItem)
+    .leftJoin(supply, eq(supply.id, listaItem.supplyId))
+    .where(eq(listaItem.listaId, row.id))
+    .orderBy(asc(listaItem.createdAt));
 
-  return rows.map((r) => ({
-    id: r.id,
-    shortId: r.shortId,
-    status: r.status,
-    city: r.city,
-    categories: r.categories,
-    publishedAt: r.publishedAt,
-    shareCount: r.shareCount,
-    closedReason: r.closedReason,
-    createdAt: r.createdAt,
-    items: itemsByLista.get(r.id) ?? [],
+  return {
+    id: row.id,
+    shortId: row.shortId,
+    // `where status in (...)` guarantees this at runtime; narrow for tsc.
+    status: row.status as "active" | "paused",
+    city: row.city,
+    updatedAt: row.updatedAt,
+    items,
+  };
+}
+
+/** One pre-fillable item for the editor, keyed to match InsumoSelector's
+ * `key` scheme (supplyId, or `custom:${lowercased name}`). */
+export type CenterEditableItem = {
+  key: string;
+  supplyId?: string;
+  name: string;
+  bucket: "need" | "excess";
+  isUrgent: boolean;
+};
+
+export type CenterEditableLista = {
+  id: string;
+  deliveryInstructions: string | null;
+  excessReason: string | null;
+  items: CenterEditableItem[];
+};
+
+/**
+ * The center's single evergreen lista (active|paused), shaped for the editor
+ * pre-fill (create-once → edit). Returns null when the center hasn't
+ * published yet (the editor then starts blank). Center-private + uncached.
+ */
+export async function getCenterListaForEdit(
+  centerId: string,
+): Promise<CenterEditableLista | null> {
+  const [row] = await db
+    .select({
+      id: lista.id,
+      deliveryInstructions: lista.deliveryInstructions,
+      excessReason: lista.excessReason,
+    })
+    .from(lista)
+    .where(
+      and(eq(lista.centerId, centerId), inArray(lista.status, ["active", "paused"])),
+    )
+    .limit(1);
+
+  if (!row) return null;
+
+  const rows = await db
+    .select({
+      supplyId: listaItem.supplyId,
+      name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
+      bucket: listaItem.bucket,
+      isUrgent: listaItem.isUrgent,
+    })
+    .from(listaItem)
+    .leftJoin(supply, eq(supply.id, listaItem.supplyId))
+    .where(eq(listaItem.listaId, row.id))
+    .orderBy(asc(listaItem.createdAt));
+
+  const items: CenterEditableItem[] = rows.map((r) => ({
+    key: r.supplyId ?? `custom:${r.name.toLowerCase()}`,
+    supplyId: r.supplyId ?? undefined,
+    name: r.name,
+    bucket: r.bucket,
+    isUrgent: r.isUrgent,
   }));
+
+  return {
+    id: row.id,
+    deliveryInstructions: row.deliveryInstructions,
+    excessReason: row.excessReason,
+    items,
+  };
 }
 
 /**
  * A single center-owned lista (any non-draft status), scoped by center_id so
- * one center can never read another's. Center-private + uncached (same contract
- * as getCenterListas) so the just-published confirm screen reflects the write
+ * one center can never read another's. Center-private + uncached (same
+ * contract as §4.4) so the just-published confirm screen reflects the write
  * immediately. Returns null when not found / not owned.
  */
 export async function getCenterListaById(

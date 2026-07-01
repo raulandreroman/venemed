@@ -50,7 +50,7 @@ export default async function PublicadaPage({
             <CheckIcon />
           </span>
           <h1 className="text-2xl font-bold text-neutral-900">
-            ¡Solicitud publicada!
+            ¡Lista publicada!
           </h1>
           <p className="max-w-[320px] text-sm text-neutral-500">
             Ya es visible para los donantes. Compártela para que la ayuda llegue
@@ -64,7 +64,7 @@ export default async function PublicadaPage({
         {/* share */}
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-neutral-900">
-            Compartir solicitud
+            Compartir lista
           </h2>
           <PublishedShare
             requestId={request.id}
