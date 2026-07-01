@@ -15,27 +15,21 @@ import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captc
 import { AppBar, Button } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
-type Channel = "sms" | "whatsapp";
-
 const RESEND_SECONDS = 60;
 const OTP_LENGTH = 6;
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_SECONDS = 15 * 60; // display-only; Supabase enforces the real window
 
 export type OtpStepProps = {
-  /** Full +58… number to verify (also the WhatsApp/OTP target). */
-  phoneE164: string;
-  /** National digits, for the masked display. */
-  nationalNumber: string;
-  /** Swappable OTP transport (verifyOtp `type` stays "sms" regardless). */
-  channel: Channel;
-  /** "Cambiar número" — caller decides where back goes (login: phone step;
+  /** Email address to verify (also the OTP send/resend target). */
+  email: string;
+  /** "Cambiar correo" — caller decides where back goes (login: email step;
    * registro: datos step). Also used by the AppBar back arrow + the lockout
-   * "Verificar con otro número" action. */
+   * "Verificar con otro correo" action. */
   onChangeNumber: () => void;
   /** Success handoff (login: finishLogin; registro: createCenterForCurrentUser). */
   onVerified: () => void | Promise<void>;
-  /** AppBar title (default "Verificar teléfono"). */
+  /** AppBar title (default "Verificar correo"). */
   title?: string;
   /** AppBar back arrow target. Ignored when `onChangeNumber` drives the arrow. */
   backHref?: string | null;
@@ -54,12 +48,10 @@ export type OtpStepProps = {
  * on mount and exposes an in-step "Reenviar".
  */
 export function OtpStep({
-  phoneE164,
-  nationalNumber,
-  channel,
+  email,
   onChangeNumber,
   onVerified,
-  title = "Verificar teléfono",
+  title = "Verificar correo",
   backHref = "/",
   backToChangeNumber = false,
   stepLabel,
@@ -113,8 +105,8 @@ export function OtpStep({
       return;
     }
     const { error: sendError } = await supabase.auth.signInWithOtp({
-      phone: phoneE164,
-      options: { channel, captchaToken },
+      email,
+      options: { captchaToken },
     });
     setLoading(false);
     if (sendError) {
@@ -126,7 +118,7 @@ export function OtpStep({
       return;
     }
     setResendIn(RESEND_SECONDS);
-  }, [phoneE164, channel, enterLockout]);
+  }, [email, enterLockout]);
 
   const onVerify = useCallback(
     async (e: FormEvent) => {
@@ -139,9 +131,9 @@ export function OtpStep({
       setError(null);
       const supabase = createClient();
       const { error: verifyError } = await supabase.auth.verifyOtp({
-        phone: phoneE164,
+        email,
         token: code,
-        type: "sms",
+        type: "email",
       });
       if (verifyError) {
         setLoading(false);
@@ -157,7 +149,7 @@ export function OtpStep({
       // Session cookie set by the browser client; hand off to the caller.
       await onVerified();
     },
-    [code, phoneE164, attemptsLeft, enterLockout, onVerified],
+    [code, email, attemptsLeft, enterLockout, onVerified],
   );
 
   const setDigitAt = useCallback((i: number, value: string) => {
@@ -258,7 +250,7 @@ export function OtpStep({
               fullWidth
               onClick={onChangeNumber}
             >
-              Verificar con otro número
+              Verificar con otro correo
             </Button>
           </div>
         </main>
@@ -282,9 +274,9 @@ export function OtpStep({
           Ingresa el código
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-neutral-500">
-          Enviamos un código de 6 dígitos por WhatsApp al{" "}
+          Enviamos un código de 6 dígitos a{" "}
           <span className="font-semibold text-neutral-900">
-            {maskPhone(nationalNumber)}
+            {maskEmail(email)}
           </span>
           .
         </p>
@@ -293,7 +285,7 @@ export function OtpStep({
           onClick={onChangeNumber}
           className="mt-2 w-fit text-sm font-semibold text-accent"
         >
-          Cambiar número
+          Cambiar correo
         </button>
 
         <div className="mt-5 flex justify-between gap-2" onPaste={onOtpPaste}>
@@ -360,13 +352,12 @@ export function OtpStep({
   );
 }
 
-/** "4120000034" → "+58 412 ••• 0034" (area + masked + last 4). */
-function maskPhone(national: string): string {
-  const d = national.replace(/\D/g, "");
-  if (d.length < 4) return "+58 ••• ••• ••••";
-  const area = d.slice(0, 3);
-  const last4 = d.slice(-4);
-  return `+58 ${area} ••• ${last4}`;
+/** "coordinadora@centro.org" → "co•••@centro.org" (first 2 chars + domain). */
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  const head = local.slice(0, 2);
+  return `${head}${local.length > 2 ? "•••" : ""}@${domain}`;
 }
 
 function formatCountdown(seconds: number): string {

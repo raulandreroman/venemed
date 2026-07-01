@@ -12,6 +12,7 @@ import { Button } from "@/components/ui";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import {
   CENTER_TYPE_OPTIONS,
+  normalizeEmail,
   normalizeVePhone,
   validateRegistro,
   VE_STATES,
@@ -21,7 +22,8 @@ import {
 } from "@/lib/registro/validation";
 
 /** Raw field state for the "Datos del centro + Persona responsable" form. The
- * phone is national digits only ("412 000 0000"); "" when unknown. */
+ * phone is national digits only ("412 000 0000"); "" when unknown. `email` is
+ * the responsable's login identity, only collected during registration. */
 export type CenterDatosValues = {
   name: string;
   type: CenterType | "";
@@ -31,6 +33,7 @@ export type CenterDatosValues = {
   addressReference: string;
   regularScheduleText: string;
   nationalPhone: string;
+  email: string;
   responsibleName: string;
   cargo: string;
 };
@@ -44,14 +47,16 @@ export const EMPTY_DATOS: CenterDatosValues = {
   addressReference: "",
   regularScheduleText: "",
   nationalPhone: "",
+  email: "",
   responsibleName: "",
   cargo: "",
 };
 
-/** Map the form state to the validated/server payload shape. The phone is
- * normalized to E.164; an invalid phone yields the raw value so the validator
- * flags it. */
+/** Map the form state to the validated/server payload shape. WhatsApp is now an
+ * OPTIONAL contact field: blank → undefined; otherwise normalized to E.164 (an
+ * invalid value passes through raw so the validator flags it). */
 export function toInput(d: CenterDatosValues): CreateCenterInput {
+  const rawPhone = d.nationalPhone.trim();
   return {
     name: d.name,
     // Center-type feature off → the field isn't shown and we store no type (null).
@@ -61,7 +66,9 @@ export function toInput(d: CenterDatosValues): CreateCenterInput {
     addressLine: d.addressLine,
     addressReference: d.addressReference || undefined,
     regularScheduleText: d.regularScheduleText || undefined,
-    whatsappPhone: normalizeVePhone(d.nationalPhone) ?? d.nationalPhone,
+    whatsappPhone: rawPhone
+      ? (normalizeVePhone(rawPhone) ?? rawPhone)
+      : undefined,
     responsibleName: d.responsibleName,
     cargo: d.cargo || undefined,
   };
@@ -82,7 +89,7 @@ export function toInput(d: CenterDatosValues): CreateCenterInput {
  */
 export function CenterDatosForm({
   initialValues,
-  phoneLocked,
+  collectEmail = false,
   submitLabel,
   submitPendingLabel,
   onSubmit,
@@ -93,7 +100,9 @@ export function CenterDatosForm({
   submitDisabled = false,
 }: {
   initialValues: CenterDatosValues;
-  phoneLocked: boolean;
+  /** Render the responsable's email field (the login identity). Only true in
+   * anonymous registration — the OTP is sent to it. Edit/authed omit it. */
+  collectEmail?: boolean;
   submitLabel: string;
   submitPendingLabel: string;
   onSubmit: (
@@ -112,6 +121,7 @@ export function CenterDatosForm({
 }): ReactElement {
   const [data, setData] = useState<CenterDatosValues>(initialValues);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [emailError, setEmailError] = useState<string | undefined>();
   const [pending, setPending] = useState(false);
 
   const set = useCallback(
@@ -127,12 +137,18 @@ export function CenterDatosForm({
     async (e: FormEvent) => {
       e.preventDefault();
       const found = validateRegistro(toInput(data));
-      if (Object.keys(found).length > 0) {
+      const emailErr =
+        collectEmail && !normalizeEmail(data.email)
+          ? "Ingresa un correo electrónico válido."
+          : undefined;
+      if (Object.keys(found).length > 0 || emailErr) {
         setErrors(found);
+        setEmailError(emailErr);
         if (typeof window !== "undefined") window.scrollTo({ top: 0 });
         return;
       }
       setErrors({});
+      setEmailError(undefined);
       setPending(true);
       try {
         await onSubmit(toInput(data), data);
@@ -143,10 +159,10 @@ export function CenterDatosForm({
         setPending(false);
       }
     },
-    [data, onSubmit],
+    [data, collectEmail, onSubmit],
   );
 
-  const errorCount = Object.keys(errors).length;
+  const errorCount = Object.keys(errors).length + (emailError ? 1 : 0);
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-1 flex-col p-4" noValidate>
@@ -253,7 +269,6 @@ export function CenterDatosForm({
         value={data.nationalPhone}
         onChange={set("nationalPhone")}
         error={errors.whatsappPhone}
-        locked={phoneLocked}
       />
 
       <h2 className="mt-8 text-lg font-bold text-neutral-900">
@@ -277,6 +292,14 @@ export function CenterDatosForm({
         onChange={set("cargo")}
         error={errors.cargo}
       />
+
+      {collectEmail && (
+        <EmailField
+          value={data.email}
+          onChange={set("email")}
+          error={emailError}
+        />
+      )}
 
       {footerError && (
         <p role="alert" className="mt-4 text-sm text-error">
@@ -407,12 +430,10 @@ function PhoneField({
   value,
   onChange,
   error,
-  locked,
 }: {
   value: string;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   error?: string;
-  locked?: boolean;
 }) {
   return (
     <div className="mt-5">
@@ -420,14 +441,14 @@ function PhoneField({
         htmlFor="whatsappPhone"
         className="block text-sm font-medium text-neutral-700"
       >
-        Teléfono (WhatsApp)
+        Teléfono de contacto (WhatsApp) · opcional
       </label>
       <div
         className={`mt-1.5 flex overflow-hidden rounded-xl border ${
           error
             ? "border-error focus-within:ring-2 focus-within:ring-error/30"
             : "border-neutral-300 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30"
-        } ${locked ? "opacity-70" : ""}`}
+        }`}
       >
         <span className="flex items-center border-r border-neutral-300 bg-neutral-50 px-3 text-[15px] font-semibold text-neutral-900">
           +58
@@ -440,18 +461,61 @@ function PhoneField({
           placeholder="412 000 0000"
           value={value}
           onChange={onChange}
-          disabled={locked}
           aria-invalid={error ? true : undefined}
-          className="h-12 w-full bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300 disabled:bg-neutral-50"
+          className="h-12 w-full bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300"
         />
       </div>
       {error ? (
         <p className="mt-1.5 text-sm text-error">{error}</p>
-      ) : locked ? (
+      ) : (
         <p className="mt-1.5 text-xs text-neutral-500">
-          Verificado en tu sesión.
+          Para coordinar la entrega. Puedes dejarlo en blanco.
         </p>
-      ) : null}
+      )}
+    </div>
+  );
+}
+
+function EmailField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  error?: string;
+}) {
+  return (
+    <div className="mt-5">
+      <label
+        htmlFor="email"
+        className="block text-sm font-medium text-neutral-700"
+      >
+        Correo electrónico
+      </label>
+      <input
+        id="email"
+        type="email"
+        inputMode="email"
+        autoComplete="email"
+        autoCapitalize="none"
+        placeholder="tucentro@correo.com"
+        value={value}
+        onChange={onChange}
+        aria-invalid={error ? true : undefined}
+        className={`mt-1.5 h-12 w-full rounded-xl border bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300 focus:ring-2 ${
+          error
+            ? "border-error focus:border-error focus:ring-error/30"
+            : "border-neutral-300 focus:border-accent focus:ring-accent/30"
+        }`}
+      />
+      {error ? (
+        <p className="mt-1.5 text-sm text-error">{error}</p>
+      ) : (
+        <p className="mt-1.5 text-xs text-neutral-500">
+          Con este correo entrarás a tu centro.
+        </p>
+      )}
     </div>
   );
 }

@@ -197,7 +197,10 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# Raised well above the Supabase default of 2 so the e2e suite (and repeated
+# local runs) aren't throttled by the per-hour email cap. Prod rate limits live
+# in the dashboard.
+email_sent = 100
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
@@ -234,6 +237,15 @@ otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
+# LOCAL-ONLY custom templates so the 6-digit OTP token is visible in Mailpit for
+# offline e2e (the default magic-link email only carries a hashed link, not the
+# code). Applies to both the sign-in (magic_link) and sign-up (confirmation)
+# flows. Prod email templates live in the Supabase dashboard, untouched by this.
+[auth.email.template.magic_link]
+content_path = "./supabase/templates/otp_code.html"
+[auth.email.template.confirmation]
+content_path = "./supabase/templates/otp_code.html"
+
 # Use a production-ready SMTP server
 # [auth.email.smtp]
 # enabled = true
@@ -255,23 +267,11 @@ otp_expiry = 3600
 # subject = "Your password has been changed"
 # content_path = "./templates/password_changed_notification.html"
 
+# Phone/SMS auth is DISABLED — center + admin login moved to email OTP
+# (migration 0008). Left here commented for historical reference only.
 [auth.sms]
-# Allow/disallow new user signups via SMS to your project.
-enable_signup = true
-# If enabled, users need to confirm their phone number before signing in.
+enable_signup = false
 enable_confirmations = false
-# Template for sending OTP to users
-template = "Your code is {{ `{{ .Code }}` }}"
-# Controls the minimum amount of time that must pass before sending another sms otp.
-max_frequency = "5s"
-
-# Use pre-defined map of phone number to OTP for testing. No real SMS provider
-# is configured locally — these short-circuit OTP sending entirely so
-# login/registration work fully offline. Keys are canonical E.164 digits (no '+',
-# no trunk 0) — exactly what normalizeVePhone() produces from the TEST_* numbers.
-[auth.sms.test_otp]
-"584241234567" = "123456"   # TEST_CENTER_PHONE  (center login spec)
-"584221234567" = "123456"   # TEST_CENTER_PHONE_2 (center registration spec)
 
 # Configure logged in session timeouts.
 # [auth.sessions]
@@ -290,16 +290,9 @@ max_frequency = "5s"
 # enabled = true
 # uri = "pg-functions://<database>/<schema>/<hook_name>"
 
-# Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
-# A provider must be "enabled" for GoTrue to keep phone login active, but the
-# [auth.sms.test_otp] map short-circuits actual sending for our test numbers, so
-# these are throwaway local placeholders — no real Twilio account is contacted.
-[auth.sms.twilio]
-enabled = true
-account_sid = "local-test-account-sid"
-message_service_sid = "local-test-message-service-sid"
-# Throwaway local placeholder, NOT a real Twilio token (test_otp short-circuits sending).
-auth_token = "local-test-auth-token"
+# No SMS provider — phone auth retired in favor of email OTP (migration 0008).
+# [auth.sms.twilio]
+# enabled = false
 
 # Multi-factor-authentication is available to Supabase Pro plan.
 [auth.mfa]

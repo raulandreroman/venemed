@@ -37,7 +37,7 @@ export default async function CenterReviewPage({ params }: PageProps) {
   const c = await getCenterForReview(id);
   if (!c) notFound();
 
-  const waDigits = c.whatsappPhone.replace(/\D/g, "");
+  const waDigits = c.whatsappPhone?.replace(/\D/g, "") ?? "";
   const decidedAt = c.verifiedAt ?? c.createdAt;
 
   return (
@@ -104,21 +104,24 @@ export default async function CenterReviewPage({ params }: PageProps) {
           {c.responsable?.cargo && (
             <Field label="Cargo" value={c.responsable.cargo} />
           )}
-          <div>
-            <p className="text-xs text-neutral-500">Teléfono WhatsApp</p>
-            <a
-              href={`https://wa.me/${waDigits}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-0.5 inline-flex items-center gap-1 text-[15px] font-semibold text-accent"
-            >
-              {formatVePhone(c.whatsappPhone)}
-              <ExternalGlyph />
-            </a>
-            <p className="mt-0.5 text-xs text-neutral-500">
-              Toca para abrir WhatsApp
-            </p>
-          </div>
+          <Field label="Correo de acceso" value={c.responsable?.email ?? null} />
+          {c.whatsappPhone && (
+            <div>
+              <p className="text-xs text-neutral-500">Teléfono de contacto</p>
+              <a
+                href={`https://wa.me/${waDigits}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-0.5 inline-flex items-center gap-1 text-[15px] font-semibold text-accent"
+              >
+                {formatVePhone(c.whatsappPhone)}
+                <ExternalGlyph />
+              </a>
+              <p className="mt-0.5 text-xs text-neutral-500">
+                Toca para abrir WhatsApp
+              </p>
+            </div>
+          )}
         </Section>
 
         {/* Historial de moderación */}

@@ -17,5 +17,5 @@ export default async function AdminLoginPage() {
   } = await supabase.auth.getUser();
   if (user) redirect("/admin");
 
-  return <AdminLoginForm channel="sms" />;
+  return <AdminLoginForm />;
 }

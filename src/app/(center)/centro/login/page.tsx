@@ -22,5 +22,5 @@ export default async function LoginPage() {
   if (session.kind === "no-membership") {
     redirect("/centro/registro");
   }
-  return <LoginForm channel="sms" />;
+  return <LoginForm />;
 }

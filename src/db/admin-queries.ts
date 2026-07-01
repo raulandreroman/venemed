@@ -21,7 +21,7 @@ export type CenterQueueRow = {
   type: CenterType | null;
   city: string;
   state: string | null;
-  whatsappPhone: string;
+  whatsappPhone: string | null;
   status: CenterStatus;
   rejectionReason: string | null;
   createdAt: Date; // "Solicitado hace X" (pending)
@@ -47,14 +47,14 @@ export type CenterReview = {
   addressLine: string | null;
   addressReference: string | null;
   regularScheduleText: string | null;
-  whatsappPhone: string;
+  whatsappPhone: string | null;
   status: CenterStatus;
   rejectionReason: string | null;
   verifiedAt: Date | null;
   createdAt: Date;
   responsable: {
     name: string | null;
-    phone: string | null;
+    email: string | null;
     cargo: string | null;
   } | null;
   counts: { requestsTotal: number };
@@ -140,7 +140,7 @@ export async function listModerationHistory(
 // ---- 3.2 getCenterForReview -----------------------------------------------
 
 /**
- * Full center record + responsable (the center_admin member's name/phone) +
+ * Full center record + responsable (the center_admin member's name/email) +
  * request count + moderation history. Not cached — review detail is low-traffic
  * and must reflect the latest decision immediately. Returns null for a missing
  * id (page renders notFound()). Caller MUST be authorized via requireAdmin().
@@ -174,7 +174,7 @@ export async function getCenterForReview(
   // Responsable: the center_admin member's app_user (one user per center in v1,
   // queried defensively with limit(1)).
   const [resp] = await db
-    .select({ name: appUser.name, phone: appUser.phone, cargo: appUser.cargo })
+    .select({ name: appUser.name, email: appUser.email, cargo: appUser.cargo })
     .from(membership)
     .innerJoin(appUser, eq(appUser.id, membership.userId))
     .where(

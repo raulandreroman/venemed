@@ -4,7 +4,7 @@ import { requireCenter } from "@/lib/auth/require-center";
 import { supportWhatsappHref } from "@/lib/support";
 
 /**
- * "Casi listo" — pending_review centers (Figma 8:733). The phone is verified;
+ * "Casi listo" — pending_review centers (Figma 8:733). The email is verified;
  * a moderator must approve the center before it can publish.
  */
 export default async function EnRevisionPage() {
@@ -16,7 +16,7 @@ export default async function EnRevisionPage() {
   // status === "pending_review" → render
 
   const steps = [
-    `Te escribiremos por WhatsApp al ${maskPhone(center.phone)} en un plazo de 24 a 48 horas.`,
+    `Te escribiremos por correo a ${center.email ?? "tu correo"} en un plazo de 24 a 48 horas.`,
     "Confirmaremos la identidad del responsable y la legitimidad del centro.",
     "Activamos tu cuenta y podrás publicar tus alertas de necesidades.",
   ];
@@ -108,14 +108,6 @@ export default async function EnRevisionPage() {
       </main>
     </>
   );
-}
-
-/** "+584241234567" → "+58 424 ••• 4567". */
-function maskPhone(e164: string | null): string {
-  const d = (e164 ?? "").replace(/\D/g, "");
-  const nat = d.startsWith("58") ? d.slice(2) : d;
-  if (nat.length < 7) return e164 ?? "";
-  return `+58 ${nat.slice(0, 3)} ••• ${nat.slice(-4)}`;
 }
 
 function ClockIcon() {

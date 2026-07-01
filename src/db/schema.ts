@@ -96,7 +96,10 @@ export const center = pgTable("center", {
   regularScheduleText: text("regular_schedule_text"),
   lat: numeric("lat"),
   lng: numeric("lng"),
-  whatsappPhone: text("whatsapp_phone").notNull(),
+  // Optional, UNVERIFIED contact number for delivery coordination. Since auth
+  // moved to email (migration 0008) this is no longer sourced from a verified
+  // OTP session — it's a plain form field the center can edit.
+  whatsappPhone: text("whatsapp_phone"),
   status: centerStatus("status").notNull().default("pending_review"),
   // center-level "Recepción de donaciones" switch (center-workspace §2b).
   // null = receiving; a timestamp = paused since (so "Pausada · desde hace 12 min"
@@ -111,13 +114,17 @@ export const center = pgTable("center", {
 // ---- app_user --------------------------------------------------------------
 export const appUser = pgTable("app_user", {
   id: uuid("id").defaultRandom().primaryKey(),
-  phone: text("phone").notNull().unique(),
+  // Login identity = the Supabase-verified email (migration 0008 replaced phone).
+  // Nullable at the DB level so the prod migration survives legacy phone-only
+  // rows; always populated in practice (the email is present post-verify — see
+  // resolveLoginDestination).
+  email: text("email").unique(),
   name: text("name"),
   // Responsable's role/title (e.g. "Coordinadora de logística"), shown in the
   // admin review. Optional; collected during registration.
   cargo: varchar("cargo", { length: 60 }),
   isPlatformAdmin: boolean("is_platform_admin").notNull().default(false),
-  phoneVerifiedAt: timestamp("phone_verified_at", { withTimezone: true }),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

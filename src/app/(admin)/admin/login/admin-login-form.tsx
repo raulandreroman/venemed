@@ -4,40 +4,36 @@ import { useCallback, useRef, useState, type FormEvent } from "react";
 
 import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
-import { normalizeVePhone } from "@/lib/registro/validation";
+import { normalizeEmail } from "@/lib/registro/validation";
 import { createClient } from "@/lib/supabase/client";
 
 import { finishLogin } from "../../../(center)/actions/auth";
 import { OtpStep } from "../../../(center)/_components/otp-step";
 
-type Channel = "sms" | "whatsapp";
-type Step = "phone" | "otp";
+type Step = "email" | "otp";
 
 /**
- * A1 · Admin login phone step (Figma `53:1361`). A copy-variant of the center
+ * A1 · Admin login email step (Figma `53:1361`). A copy-variant of the center
  * `login-form.tsx`: same two-step machine and the SHARED <OtpStep>, but with
  * moderator copy + an "Acceso de moderador" badge, and NO registration CTA
  * (admins can't self-register). Post-verify it calls the existing `finishLogin`
  * action, whose `resolveLoginDestination()` short-circuits admins to /admin.
  */
-export function AdminLoginForm({ channel = "sms" }: { channel?: Channel }) {
-  const [step, setStep] = useState<Step>("phone");
-  const [nationalNumber, setNationalNumber] = useState("");
+export function AdminLoginForm() {
+  const [step, setStep] = useState<Step>("email");
+  const [emailInput, setEmailInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
   const captchaRef = useRef<CaptchaHandle>(null);
 
-  // Canonical E.164 (+58XXXXXXXXXX), trunk-0 stripped — MUST match how
-  // registration normalizes, or the same human number yields two Supabase auth
-  // users (see AGENTS.md gotcha #4). null until a valid 10-digit number.
-  const phoneE164 = normalizeVePhone(nationalNumber);
+  const email = normalizeEmail(emailInput);
 
-  const onSubmitPhone = useCallback(
+  const onSubmitEmail = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
-      if (!phoneE164) {
-        setError("Ingresa un número de teléfono válido.");
+      if (!email) {
+        setError("Ingresa un correo electrónico válido.");
         return;
       }
       setLoading(true);
@@ -52,8 +48,8 @@ export function AdminLoginForm({ channel = "sms" }: { channel?: Channel }) {
         return;
       }
       const { error: sendError } = await supabase.auth.signInWithOtp({
-        phone: phoneE164,
-        options: { channel, captchaToken },
+        email,
+        options: { captchaToken },
       });
       setLoading(false);
       if (sendError) {
@@ -66,17 +62,15 @@ export function AdminLoginForm({ channel = "sms" }: { channel?: Channel }) {
       }
       setStep("otp");
     },
-    [phoneE164, channel],
+    [email],
   );
 
   if (step === "otp") {
     return (
       <OtpStep
-        phoneE164={phoneE164 ?? ""}
-        nationalNumber={phoneE164?.slice(3) ?? ""}
-        channel={channel}
+        email={email ?? ""}
         onChangeNumber={() => {
-          setStep("phone");
+          setStep("email");
           setError(null);
         }}
         onVerified={finishLogin}
@@ -89,7 +83,7 @@ export function AdminLoginForm({ channel = "sms" }: { channel?: Channel }) {
     <>
       <AppBar title="" backHref="/" />
       <form
-        onSubmit={onSubmitPhone}
+        onSubmit={onSubmitEmail}
         className="flex flex-1 flex-col p-4"
         noValidate
       >
@@ -99,36 +93,34 @@ export function AdminLoginForm({ channel = "sms" }: { channel?: Channel }) {
         </span>
 
         <h1 className="mt-4 text-2xl font-bold text-neutral-900">
-          Ingresa tu teléfono
+          Ingresa tu correo
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-neutral-500">
-          Te enviaremos un código por WhatsApp para entrar a tu cuenta de
+          Te enviaremos un código por correo para entrar a tu cuenta de
           moderación.
         </p>
 
         <label
-          htmlFor="phone"
+          htmlFor="email"
           className="mt-6 block text-sm font-medium text-neutral-700"
         >
-          Teléfono (WhatsApp)
+          Correo electrónico
         </label>
         <div className="mt-1.5 flex overflow-hidden rounded-xl border border-neutral-300 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30">
-          <span className="flex items-center border-r border-neutral-300 bg-neutral-50 px-3 text-[15px] font-semibold text-neutral-900">
-            +58
-          </span>
           <input
-            id="phone"
-            type="tel"
-            inputMode="numeric"
-            autoComplete="tel-national"
-            placeholder="412 000 0000"
-            value={nationalNumber}
-            onChange={(e) => setNationalNumber(e.target.value)}
+            id="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            placeholder="moderador@correo.com"
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
             className="h-12 w-full bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300"
           />
         </div>
         <p className="mt-1.5 text-xs text-neutral-500">
-          Debe ser el número registrado como moderador.
+          Debe ser el correo registrado como moderador.
         </p>
 
         {error && (

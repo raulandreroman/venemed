@@ -1,14 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
 import { expectNoErrorOverlay } from "./_helpers";
 import { hasDbUrl, makeSql, resetSeedCenterReception } from "./_db";
+import { clearMailbox, readEmailOtp } from "./_mail";
 
 const SEED_CENTER = "Hospital J.M. de los Ríos";
 
-const OTP = process.env.TEST_OTP_CODE;
-const PHONE = process.env.TEST_CENTER_PHONE ?? ""; // login
-// Registration uses a SECOND number so its OTP send doesn't collide with the
-// login test's send (Supabase rate-limits OTP to ~1/min per number).
-const PHONE_REG = process.env.TEST_CENTER_PHONE_2 || PHONE;
+const EMAIL = process.env.TEST_CENTER_EMAIL ?? ""; // login
+// Registration uses a SECOND email so its OTP send doesn't collide with the
+// login test's send (Supabase rate-limits OTP sends per identity).
+const EMAIL_REG = process.env.TEST_CENTER_EMAIL_2 || EMAIL;
 
 // Any post-auth center screen (dashboard / en-revisión / rechazado / registro
 // when there is no membership yet). The point of these smokes is that the OTP
@@ -16,8 +16,7 @@ const PHONE_REG = process.env.TEST_CENTER_PHONE_2 || PHONE;
 const CENTER_URL = /\/centro(\/(en-revision|rechazado|registro))?$/;
 
 test.describe("center auth + registration", () => {
-  test.skip(!OTP, "set TEST_OTP_CODE to enable center e2e");
-  test.skip(!PHONE, "set TEST_CENTER_PHONE to enable center e2e");
+  test.skip(!EMAIL, "set TEST_CENTER_EMAIL to enable center e2e");
 
   // Collect uncaught client errors; assert none per test.
   const errors: Error[] = [];
@@ -29,29 +28,30 @@ test.describe("center auth + registration", () => {
     expect(errors, errors.map((e) => e.message).join("\n")).toEqual([]);
   });
 
-  async function fillOtp(page: Page) {
-    const code = OTP!;
+  async function fillOtp(page: Page, email: string) {
+    const code = await readEmailOtp(email);
     for (let i = 0; i < 6; i++) {
       await page.getByRole("textbox", { name: `Dígito ${i + 1}` }).fill(code[i]);
     }
     await page.getByRole("button", { name: "Verificar" }).click();
   }
 
-  async function loginAs(page: Page, phone: string) {
+  async function loginAs(page: Page, email: string) {
+    await clearMailbox();
     await page.goto("/centro/login");
-    await page.getByLabel(/Teléfono/).fill(phone);
+    await page.getByLabel(/Correo/).fill(email);
     await page.getByRole("button", { name: "Enviar código" }).click();
     await expect(page.getByRole("textbox", { name: "Dígito 1" })).toBeVisible();
-    await fillOtp(page);
+    await fillOtp(page, email);
   }
 
-  // The seed (provisionTestMembership) links TEST_CENTER_PHONE to an APPROVED
+  // The seed (provisionTestMembership) links TEST_CENTER_EMAIL to an APPROVED
   // center that has an active request, so this login deterministically lands on
   // the real /centro dashboard (not /centro/registro). This single test does
-  // ONE OTP send for TEST_CENTER_PHONE (registration uses PHONE_REG) and reuses
+  // ONE OTP send for TEST_CENTER_EMAIL (registration uses EMAIL_REG) and reuses
   // that one session to also exercise the slice-2 publish flow — logging in a
-  // second time with the same number would trip the local OTP rate limit
-  // ([auth.sms] max_frequency, gotcha #8) and never reach the OTP screen.
+  // second time with the same email would trip the local OTP rate limit
+  // ([auth.email] max_frequency) and never reach the OTP screen.
   //
   // It asserts: (a) the populated dashboard renders without crashing, then
   // (b) publishing a request through the REAL create form + insumo selector
@@ -81,7 +81,7 @@ test.describe("center auth + registration", () => {
       }
     }
 
-    await loginAs(page, PHONE);
+    await loginAs(page, EMAIL);
 
     await page.waitForURL(/\/centro$/, { timeout: 15_000 });
     await expect(page).toHaveURL(CENTER_URL);
@@ -286,6 +286,7 @@ test.describe("center auth + registration", () => {
   test("registration submit invokes the action without crashing", async ({
     page,
   }) => {
+    await clearMailbox();
     await page.goto("/centro/registro");
     await page.getByRole("button", { name: "Comenzar" }).click();
 
@@ -294,13 +295,14 @@ test.describe("center auth + registration", () => {
     await page.getByLabel("Estado").selectOption({ index: 1 });
     await page.getByLabel("Ciudad").fill("Caracas");
     await page.getByLabel("Dirección").fill("Av. Principal, sector e2e");
-    await page.locator('input[type="tel"]').last().fill(PHONE_REG); // contact phone
     await page.getByLabel("Nombre y apellido").fill("Coordinador E2E");
+    // Email is the login identity (OTP target); the contact phone is optional.
+    await page.getByLabel("Correo electrónico").fill(EMAIL_REG);
 
     await page.getByRole("button", { name: "Continuar" }).click();
 
     await expect(page.getByRole("textbox", { name: "Dígito 1" })).toBeVisible();
-    await fillOtp(page);
+    await fillOtp(page, EMAIL_REG);
 
     // The POINT: wait for the server action to actually COMPLETE and redirect
     // us OFF the wizard (`/centro/registro`) to a post-registration status

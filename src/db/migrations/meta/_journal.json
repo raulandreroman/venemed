@@ -57,6 +57,13 @@
       "when": 1782950000000,
       "tag": "0007_normal_thaddeus_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783000000000,
+      "tag": "0008_email_auth",
+      "breakpoints": true
     }
   ]
 }
