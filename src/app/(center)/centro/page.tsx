@@ -1,18 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { AvisoBanner, Button } from "@/components/ui";
-import {
-  getCenterActiveSurplus,
-  getCenterRequests,
-  type CenterRequestCardData,
-} from "@/db/queries";
+import { Button } from "@/components/ui";
+import { getCenterListas, type CenterListaCardData } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 
 import { CenterRequestCard } from "./_components/center-request-card";
 import { DashboardHeader } from "./_components/dashboard-header";
 
-const CREATE_HREF = "/centro/solicitudes/nueva";
+const CREATE_HREF = "/centro/lista/nueva";
 
 type SearchParams = { estado?: string };
 
@@ -43,17 +39,12 @@ export default async function CenterDashboardPage({
   const filter =
     estado === "activas" || estado === "inactivas" ? estado : "todas";
 
-  const [requests, aviso] = await Promise.all([
-    getCenterRequests(center.centerId),
-    getCenterActiveSurplus(center.centerId),
-  ]);
+  const requests = await getCenterListas(center.centerId);
   const isEmpty = requests.length === 0;
   const activas = requests.filter(
     (r) => r.status === "active" || r.status === "paused",
   );
-  const inactivas = requests.filter(
-    (r) => r.status === "closed" || r.status === "expired",
-  );
+  const inactivas = requests.filter((r) => r.status === "closed");
 
   // Under "todas" hide an empty section; under a specific tab show its empty note.
   const showActivas =
@@ -64,18 +55,6 @@ export default async function CenterDashboardPage({
   return (
     <>
       <DashboardHeader centerName={center.centerName} />
-
-      {aviso && (
-        <div className="px-4 pt-4">
-          <AvisoBanner
-            variant="center"
-            editHref="/centro/aviso"
-            items={aviso.items.map((it) => it.name)}
-            expiresAt={aviso.expiresAt}
-            reason={aviso.reason}
-          />
-        </div>
-      )}
 
       {isEmpty ? (
         <EmptyState />
@@ -144,7 +123,7 @@ function RequestSection({
   emptyText,
 }: {
   title: string;
-  requests: CenterRequestCardData[];
+  requests: CenterListaCardData[];
   emptyText: string;
 }) {
   return (

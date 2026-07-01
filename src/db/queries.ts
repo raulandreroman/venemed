@@ -9,56 +9,48 @@ import {
   gte,
   ilike,
   inArray,
-  ne,
   or,
   sql,
 } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import { db } from "./index";
-import { appUser, center, request, requestItem, supply } from "./schema";
+import { appUser, center, lista, listaItem, supply } from "./schema";
 
 // ---- shared types ----------------------------------------------------------
 
-export type RequestSort = "recent" | "urgency"; // Reciente | Urgencia
+export type ListaSort = "recent"; // Reciente
 
-export type RequestFilters = {
+export type ListaFilters = {
   search?: string; // matches center name, city, or item name
-  city?: string; // request.city
+  city?: string; // lista.city
   type?: string; // center.type enum value
-  category?: string; // a value present in request.categories[]
-  sort?: RequestSort; // default "recent"
+  category?: string; // a value present in lista.categories[]
+  sort?: ListaSort; // default "recent"
 };
 
-export type RequestItemData = {
+export type ListaItemData = {
   id: string;
   name: string; // supply.name ?? custom_name
-  category: string; // request_item.category (already Spanish)
+  category: string; // lista_item.category (already Spanish)
 };
 
-export type RequestCardData = {
+export type ListaCardData = {
   id: string;
-  kind: "need" | "surplus";
-  centerId: string; // for attaching the center's aviso-de-exceso banner
   city: string | null;
-  title: string | null; // center-written descriptor
   centerName: string;
   centerDescription: string | null;
   centerType: string | null;
   publishedAt: Date | null;
-  expiresAt: Date | null;
-  // null only for an aviso de exceso "Sin límite" (window_hours nullable as of
-  // migration 0006). Donor needs always carry a 12/24/48 window.
-  windowHours: number | null;
   categories: string[] | null;
-  items: RequestItemData[];
+  items: ListaItemData[];
 };
 
-export type RequestDetailData = RequestCardData & {
-  status: "active" | "paused" | "closed" | "expired" | "draft";
-  deliveryInstructions: string | null; // per-request drop-off note
+export type ListaDetailData = ListaCardData & {
+  status: "active" | "paused" | "closed" | "draft";
+  deliveryInstructions: string | null; // per-lista drop-off note
   closedAt: Date | null;
-  closedReason: "fulfilled" | "cancelled" | "expired" | null;
+  closedReason: "fulfilled" | "cancelled" | null;
   shareCount: number;
   center: {
     name: string;
@@ -69,7 +61,7 @@ export type RequestDetailData = RequestCardData & {
     addressReference: string | null;
     regularScheduleText: string | null;
   };
-  items: (RequestItemData & { isFulfilled: boolean })[];
+  items: (ListaItemData & { isFulfilled: boolean })[];
 };
 
 export type LandingStats = {
@@ -78,40 +70,30 @@ export type LandingStats = {
   lastUpdated: Date | null;
 };
 
-export type CenterRequestStatus =
-  | "active"
-  | "paused"
-  | "closed"
-  | "expired"
-  | "draft";
+export type CenterListaStatus = "active" | "paused" | "closed" | "draft";
 
-/** A center's own request, for the back-office dashboard card. */
-export type CenterRequestCardData = {
+/** A center's own lista, for the back-office dashboard card. */
+export type CenterListaCardData = {
   id: string;
   shortId: number; // human-friendly global display id → "#1044"
-  kind: "need" | "surplus";
-  status: CenterRequestStatus;
+  status: CenterListaStatus;
   city: string | null;
-  title: string | null;
   categories: string[] | null;
   publishedAt: Date | null;
-  expiresAt: Date | null;
-  // null for an aviso de exceso "Sin límite" (window_hours nullable as of 0006).
-  windowHours: number | null;
   shareCount: number;
-  closedReason: "fulfilled" | "cancelled" | "expired" | null;
+  closedReason: "fulfilled" | "cancelled" | null;
   createdAt: Date;
-  items: RequestItemData[];
+  items: ListaItemData[];
 };
 
 /**
- * A center-owned request enriched for the center DETAIL screen: the card data
- * plus the per-request drop-off note and the center's address/schedule (joined
+ * A center-owned lista enriched for the center DETAIL screen: the card data
+ * plus the per-lista drop-off note and the center's address/schedule (joined
  * from `center`, since requireCenter() doesn't carry them). Superset of
- * CenterRequestCardData, so the dashboard/publicada card consumers stay
+ * CenterListaCardData, so the dashboard/publicada card consumers stay
  * compatible.
  */
-export type CenterRequestDetailData = CenterRequestCardData & {
+export type CenterListaDetailData = CenterListaCardData & {
   deliveryInstructions: string | null;
   center: {
     addressLine: string | null;
@@ -120,228 +102,125 @@ export type CenterRequestDetailData = CenterRequestCardData & {
   };
 };
 
-// ---- 4.1 getActiveRequests -------------------------------------------------
+// ---- 4.1 getActiveListas ----------------------------------------------------
 
-async function queryActiveRequests(
-  filters: RequestFilters,
-): Promise<RequestCardData[]> {
+async function queryActiveListas(
+  filters: ListaFilters,
+): Promise<ListaCardData[]> {
   const search = filters.search?.trim();
 
   const rows = await db
     .select({
-      id: request.id,
-      kind: request.kind,
-      centerId: request.centerId,
-      city: request.city,
-      title: request.title,
-      categories: request.categories,
-      publishedAt: request.publishedAt,
-      expiresAt: request.expiresAt,
-      windowHours: request.windowHours,
+      id: lista.id,
+      centerId: lista.centerId,
+      city: lista.city,
+      categories: lista.categories,
+      publishedAt: lista.publishedAt,
       centerName: center.name,
       centerDescription: center.description,
       centerType: center.type,
     })
-    .from(request)
-    .innerJoin(center, eq(center.id, request.centerId))
+    .from(lista)
+    .innerJoin(center, eq(center.id, lista.centerId))
     .where(
       and(
-        // donor cards are needs only — an aviso de exceso (kind='surplus')
-        // surfaces as a per-center banner, never as its own card.
-        eq(request.kind, "need"),
-        eq(request.status, "active"),
+        eq(lista.status, "active"),
         eq(center.status, "approved"),
-        filters.city ? eq(request.city, filters.city) : undefined,
+        filters.city ? eq(lista.city, filters.city) : undefined,
         filters.type
           ? eq(center.type, filters.type as typeof center.type.enumValues[number])
           : undefined,
         filters.category
-          ? arrayContains(request.categories, [filters.category])
+          ? arrayContains(lista.categories, [filters.category])
           : undefined,
         search
           ? or(
               ilike(center.name, `%${search}%`),
-              ilike(request.city, `%${search}%`),
+              ilike(lista.city, `%${search}%`),
               sql`EXISTS (
-                SELECT 1 FROM ${requestItem} ri
-                LEFT JOIN ${supply} s ON s.id = ri.supply_id
-                WHERE ri.request_id = ${request.id}
+                SELECT 1 FROM ${listaItem} li
+                LEFT JOIN ${supply} s ON s.id = li.supply_id
+                WHERE li.lista_id = ${lista.id}
                   AND (s.name ILIKE ${"%" + search + "%"}
-                       OR ri.custom_name ILIKE ${"%" + search + "%"})
+                       OR li.custom_name ILIKE ${"%" + search + "%"})
               )`,
             )
           : undefined,
       ),
     )
-    .orderBy(
-      filters.sort === "urgency"
-        ? asc(request.expiresAt) // Urgencia: soonest expiry first
-        : desc(request.publishedAt), // Reciente: newest first (default)
-    );
+    .orderBy(desc(lista.publishedAt)); // Reciente: newest first (only sort)
 
   const ids = rows.map((r) => r.id);
   const items = ids.length
     ? await db
         .select({
-          id: requestItem.id,
-          requestId: requestItem.requestId,
-          name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
-          category: requestItem.category,
+          id: listaItem.id,
+          listaId: listaItem.listaId,
+          name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
+          category: listaItem.category,
         })
-        .from(requestItem)
-        .leftJoin(supply, eq(supply.id, requestItem.supplyId))
-        .where(inArray(requestItem.requestId, ids))
-        .orderBy(asc(requestItem.createdAt))
+        .from(listaItem)
+        .leftJoin(supply, eq(supply.id, listaItem.supplyId))
+        .where(inArray(listaItem.listaId, ids))
+        .orderBy(asc(listaItem.createdAt))
     : [];
 
-  const itemsByRequest = new Map<string, RequestItemData[]>();
+  const itemsByLista = new Map<string, ListaItemData[]>();
   for (const it of items) {
-    const list = itemsByRequest.get(it.requestId) ?? [];
+    const list = itemsByLista.get(it.listaId) ?? [];
     list.push({ id: it.id, name: it.name, category: it.category });
-    itemsByRequest.set(it.requestId, list);
+    itemsByLista.set(it.listaId, list);
   }
 
   return rows.map((r) => ({
     id: r.id,
-    kind: r.kind,
-    centerId: r.centerId,
     city: r.city,
-    title: r.title,
     centerName: r.centerName,
     centerDescription: r.centerDescription,
     centerType: r.centerType,
     publishedAt: r.publishedAt,
-    expiresAt: r.expiresAt,
-    windowHours: r.windowHours,
     categories: r.categories,
-    items: itemsByRequest.get(r.id) ?? [],
+    items: itemsByLista.get(r.id) ?? [],
   }));
 }
 
 /**
- * Live donor feed: active requests from approved centers.
- * Cached via unstable_cache keyed on the normalized filters; tag "active-requests".
+ * Live donor feed: active listas from approved centers.
+ * Cached via unstable_cache keyed on the normalized filters; tag "active-listas".
  */
-export function getActiveRequests(
-  filters: RequestFilters = {},
-): Promise<RequestCardData[]> {
-  const normalized: RequestFilters = {
+export function getActiveListas(
+  filters: ListaFilters = {},
+): Promise<ListaCardData[]> {
+  const normalized: ListaFilters = {
     search: filters.search?.trim().toLowerCase() || undefined,
     city: filters.city || undefined,
     type: filters.type || undefined,
     category: filters.category || undefined,
-    sort: filters.sort === "urgency" ? "urgency" : "recent",
+    sort: "recent",
   };
   const key = JSON.stringify(normalized);
   return unstable_cache(
-    () => queryActiveRequests(normalized),
-    ["active-requests", key],
-    { revalidate: 60, tags: ["active-requests"] },
+    () => queryActiveListas(normalized),
+    ["active-listas", key],
+    { revalidate: 60, tags: ["active-listas"] },
   )();
 }
 
-// ---- 4.1b getActiveSurplusByCenter -----------------------------------------
-//
-// An aviso de exceso is a request(kind='surplus') + its request_item rows. It
-// renders ONLY as a per-center banner (no donor card, no /solicitudes/<id>
-// page — see getRequestById's kind='need' guard below). This returns each
-// approved center's single ACTIVE surplus (one-active-per-center is enforced by
-// the partial unique index), so the donor list/detail can attach the banner
-// above that center's need cards. Shares the donor surge cache (tag
-// "active-requests") so publishing/removing an aviso busts it in lockstep.
+// ---- 4.2 getListaById --------------------------------------------------------
 
-export type ActiveSurplus = {
-  items: string[]; // insumo names the center is NOT accepting
-  expiresAt: Date | null; // null = "Sin límite" (no auto-clear)
-  reason: string | null; // request.title
-};
-
-async function queryActiveSurplusList(): Promise<
-  (ActiveSurplus & { centerId: string })[]
-> {
-  const rows = await db
-    .select({
-      id: request.id,
-      centerId: request.centerId,
-      title: request.title,
-      expiresAt: request.expiresAt,
-    })
-    .from(request)
-    .innerJoin(center, eq(center.id, request.centerId))
-    .where(
-      and(
-        eq(request.kind, "surplus"),
-        eq(request.status, "active"),
-        eq(center.status, "approved"),
-      ),
-    );
-
-  const ids = rows.map((r) => r.id);
-  const items = ids.length
-    ? await db
-        .select({
-          requestId: requestItem.requestId,
-          name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
-        })
-        .from(requestItem)
-        .leftJoin(supply, eq(supply.id, requestItem.supplyId))
-        .where(inArray(requestItem.requestId, ids))
-        .orderBy(asc(requestItem.createdAt))
-    : [];
-
-  const namesByRequest = new Map<string, string[]>();
-  for (const it of items) {
-    const list = namesByRequest.get(it.requestId) ?? [];
-    list.push(it.name);
-    namesByRequest.set(it.requestId, list);
-  }
-
-  return rows.map((r) => ({
-    centerId: r.centerId,
-    items: namesByRequest.get(r.id) ?? [],
-    expiresAt: r.expiresAt,
-    reason: r.title,
-  }));
-}
-
-/**
- * Active avisos de exceso keyed by centerId. Cached array (Maps don't survive
- * unstable_cache's serialization) revived into a Map at the call site; tag
- * "active-requests".
- */
-export async function getActiveSurplusByCenter(): Promise<
-  Map<string, ActiveSurplus>
-> {
-  const list = await unstable_cache(queryActiveSurplusList, ["active-surplus"], {
-    revalidate: 60,
-    tags: ["active-requests"],
-  })();
-  return new Map(
-    list.map(({ centerId, ...rest }) => [centerId, rest]),
-  );
-}
-
-// ---- 4.2 getRequestById ----------------------------------------------------
-
-async function queryRequestById(
-  id: string,
-): Promise<RequestDetailData | null> {
+async function queryListaById(id: string): Promise<ListaDetailData | null> {
   const [r] = await db
     .select({
-      id: request.id,
-      kind: request.kind,
-      centerId: request.centerId,
-      status: request.status,
-      city: request.city,
-      title: request.title,
-      deliveryInstructions: request.deliveryInstructions,
-      categories: request.categories,
-      publishedAt: request.publishedAt,
-      expiresAt: request.expiresAt,
-      windowHours: request.windowHours,
-      closedAt: request.closedAt,
-      closedReason: request.closedReason,
-      shareCount: request.shareCount,
+      id: lista.id,
+      centerId: lista.centerId,
+      status: lista.status,
+      city: lista.city,
+      deliveryInstructions: lista.deliveryInstructions,
+      categories: lista.categories,
+      publishedAt: lista.publishedAt,
+      closedAt: lista.closedAt,
+      closedReason: lista.closedReason,
+      shareCount: lista.shareCount,
       centerName: center.name,
       centerDescription: center.description,
       centerCity: center.city,
@@ -350,16 +229,13 @@ async function queryRequestById(
       addressReference: center.addressReference,
       regularScheduleText: center.regularScheduleText,
     })
-    .from(request)
-    .innerJoin(center, eq(center.id, request.centerId))
+    .from(lista)
+    .innerJoin(center, eq(center.id, lista.centerId))
     .where(
       and(
-        eq(request.id, id),
-        // banner-only: an aviso de exceso (kind='surplus') is never an
-        // individually navigable donor page → null here → page notFound()s.
-        eq(request.kind, "need"),
+        eq(lista.id, id),
         eq(center.status, "approved"),
-        inArray(request.status, ["active", "closed", "expired"]),
+        inArray(lista.status, ["active", "closed"]),
       ),
     )
     .limit(1);
@@ -368,30 +244,25 @@ async function queryRequestById(
 
   const items = await db
     .select({
-      id: requestItem.id,
-      name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
-      category: requestItem.category,
-      isFulfilled: requestItem.isFulfilled,
+      id: listaItem.id,
+      name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
+      category: listaItem.category,
+      isFulfilled: listaItem.isFulfilled,
     })
-    .from(requestItem)
-    .leftJoin(supply, eq(supply.id, requestItem.supplyId))
-    .where(eq(requestItem.requestId, id))
-    .orderBy(asc(requestItem.createdAt));
+    .from(listaItem)
+    .leftJoin(supply, eq(supply.id, listaItem.supplyId))
+    .where(eq(listaItem.listaId, id))
+    .orderBy(asc(listaItem.createdAt));
 
   return {
     id: r.id,
-    kind: r.kind,
-    centerId: r.centerId,
-    status: r.status,
     city: r.city,
-    title: r.title,
     deliveryInstructions: r.deliveryInstructions,
+    status: r.status,
     centerName: r.centerName,
     centerDescription: r.centerDescription,
     centerType: r.centerType,
     publishedAt: r.publishedAt,
-    expiresAt: r.expiresAt,
-    windowHours: r.windowHours,
     categories: r.categories,
     closedAt: r.closedAt,
     closedReason: r.closedReason,
@@ -410,13 +281,13 @@ async function queryRequestById(
 }
 
 /**
- * Single request for the detail page. Returns null for draft/paused/not-found
- * so the page can call notFound(). Cached; tags "active-requests" and "request:<id>".
+ * Single lista for the detail page. Returns null for draft/paused/not-found
+ * so the page can call notFound(). Cached; tags "active-listas" and "lista:<id>".
  */
-export function getRequestById(id: string): Promise<RequestDetailData | null> {
-  return unstable_cache(() => queryRequestById(id), ["request", id], {
+export function getListaById(id: string): Promise<ListaDetailData | null> {
+  return unstable_cache(() => queryListaById(id), ["lista", id], {
     revalidate: 60,
-    tags: ["active-requests", `request:${id}`],
+    tags: ["active-listas", `lista:${id}`],
   })();
 }
 
@@ -425,8 +296,8 @@ export function getRequestById(id: string): Promise<RequestDetailData | null> {
 async function queryLandingStats(): Promise<LandingStats> {
   const [activeRow] = await db
     .select({ count: sql<number>`count(*)::int` })
-    .from(request)
-    .where(eq(request.status, "active"));
+    .from(lista)
+    .where(eq(lista.status, "active"));
 
   const [centersRow] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -434,9 +305,9 @@ async function queryLandingStats(): Promise<LandingStats> {
     .where(eq(center.status, "approved"));
 
   const [lastRow] = await db
-    .select({ last: sql<string | null>`max(${request.publishedAt})` })
-    .from(request)
-    .where(eq(request.status, "active"));
+    .select({ last: sql<string | null>`max(${lista.publishedAt})` })
+    .from(lista)
+    .where(eq(lista.status, "active"));
 
   return {
     activeRequests: activeRow?.count ?? 0,
@@ -459,209 +330,121 @@ export function getLandingStats(): Promise<LandingStats> {
 // server-side via requireCenter — never a client id) and authorized by that
 // single centerId predicate (Drizzle bypasses RLS). They are deliberately NOT
 // wrapped in unstable_cache and carry NONE of the donor surge tags
-// (active-requests / landing-stats / request:<id>) so the dashboard reflects
+// (active-listas / landing-stats / lista:<id>) so the dashboard reflects
 // the center's own writes immediately.
 
 /**
- * A center's own non-draft requests (active/paused/closed/expired), newest /
- * most-urgent first: active first, then soonest expiry, then most recent.
+ * A center's own non-draft listas (active/paused/closed), newest first: active
+ * first, then most recent.
  */
-export async function getCenterRequests(
+export async function getCenterListas(
   centerId: string,
-): Promise<CenterRequestCardData[]> {
+): Promise<CenterListaCardData[]> {
   const rows = await db
     .select({
-      id: request.id,
-      shortId: request.shortId,
-      kind: request.kind,
-      status: request.status,
-      city: request.city,
-      title: request.title,
-      categories: request.categories,
-      publishedAt: request.publishedAt,
-      expiresAt: request.expiresAt,
-      windowHours: request.windowHours,
-      shareCount: request.shareCount,
-      closedReason: request.closedReason,
-      createdAt: request.createdAt,
+      id: lista.id,
+      shortId: lista.shortId,
+      status: lista.status,
+      city: lista.city,
+      categories: lista.categories,
+      publishedAt: lista.publishedAt,
+      shareCount: lista.shareCount,
+      closedReason: lista.closedReason,
+      createdAt: lista.createdAt,
     })
-    .from(request)
-    .where(
-      and(
-        eq(request.centerId, centerId),
-        // exclude avisos de exceso (kind='surplus') — they render as the
-        // dashboard banner (getCenterActiveSurplus), never as a request card.
-        ne(request.kind, "surplus"),
-        sql`${request.status} <> 'draft'`,
-      ),
-    )
+    .from(lista)
+    .where(and(eq(lista.centerId, centerId), sql`${lista.status} <> 'draft'`))
     .orderBy(
       // active first
-      asc(sql`case when ${request.status} = 'active' then 0 else 1 end`),
-      asc(request.expiresAt), // soonest expiry (NULLs sort last under asc)
-      desc(request.createdAt),
+      asc(sql`case when ${lista.status} = 'active' then 0 else 1 end`),
+      desc(lista.createdAt),
     );
 
   const ids = rows.map((r) => r.id);
   const items = ids.length
     ? await db
         .select({
-          id: requestItem.id,
-          requestId: requestItem.requestId,
-          name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
-          category: requestItem.category,
+          id: listaItem.id,
+          listaId: listaItem.listaId,
+          name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
+          category: listaItem.category,
         })
-        .from(requestItem)
-        .leftJoin(supply, eq(supply.id, requestItem.supplyId))
-        .where(inArray(requestItem.requestId, ids))
-        .orderBy(asc(requestItem.createdAt))
+        .from(listaItem)
+        .leftJoin(supply, eq(supply.id, listaItem.supplyId))
+        .where(inArray(listaItem.listaId, ids))
+        .orderBy(asc(listaItem.createdAt))
     : [];
 
-  const itemsByRequest = new Map<string, RequestItemData[]>();
+  const itemsByLista = new Map<string, ListaItemData[]>();
   for (const it of items) {
-    const list = itemsByRequest.get(it.requestId) ?? [];
+    const list = itemsByLista.get(it.listaId) ?? [];
     list.push({ id: it.id, name: it.name, category: it.category });
-    itemsByRequest.set(it.requestId, list);
+    itemsByLista.set(it.listaId, list);
   }
 
   return rows.map((r) => ({
     id: r.id,
     shortId: r.shortId,
-    kind: r.kind,
     status: r.status,
     city: r.city,
-    title: r.title,
     categories: r.categories,
     publishedAt: r.publishedAt,
-    expiresAt: r.expiresAt,
-    windowHours: r.windowHours,
     shareCount: r.shareCount,
     closedReason: r.closedReason,
     createdAt: r.createdAt,
-    items: itemsByRequest.get(r.id) ?? [],
+    items: itemsByLista.get(r.id) ?? [],
   }));
 }
 
 /**
- * A single center-owned request (any non-draft status), scoped by center_id so
+ * A single center-owned lista (any non-draft status), scoped by center_id so
  * one center can never read another's. Center-private + uncached (same contract
- * as getCenterRequests) so the just-published confirm screen reflects the write
+ * as getCenterListas) so the just-published confirm screen reflects the write
  * immediately. Returns null when not found / not owned.
  */
-export async function getCenterRequestById(
+export async function getCenterListaById(
   centerId: string,
-  requestId: string,
-): Promise<CenterRequestDetailData | null> {
+  listaId: string,
+): Promise<CenterListaDetailData | null> {
   const [r] = await db
     .select({
-      id: request.id,
-      shortId: request.shortId,
-      kind: request.kind,
-      status: request.status,
-      city: request.city,
-      title: request.title,
-      categories: request.categories,
-      publishedAt: request.publishedAt,
-      expiresAt: request.expiresAt,
-      windowHours: request.windowHours,
-      shareCount: request.shareCount,
-      closedReason: request.closedReason,
-      createdAt: request.createdAt,
-      deliveryInstructions: request.deliveryInstructions,
+      id: lista.id,
+      shortId: lista.shortId,
+      status: lista.status,
+      city: lista.city,
+      categories: lista.categories,
+      publishedAt: lista.publishedAt,
+      shareCount: lista.shareCount,
+      closedReason: lista.closedReason,
+      createdAt: lista.createdAt,
+      deliveryInstructions: lista.deliveryInstructions,
       addressLine: center.addressLine,
       addressReference: center.addressReference,
       regularScheduleText: center.regularScheduleText,
     })
-    .from(request)
-    .innerJoin(center, eq(center.id, request.centerId))
-    .where(
-      and(
-        eq(request.id, requestId),
-        eq(request.centerId, centerId),
-        // an aviso de exceso never opens the generic request detail (it would
-        // render a Countdown against a possibly-null window) — it's the banner.
-        ne(request.kind, "surplus"),
-      ),
-    )
+    .from(lista)
+    .innerJoin(center, eq(center.id, lista.centerId))
+    .where(and(eq(lista.id, listaId), eq(lista.centerId, centerId)))
     .limit(1);
 
   if (!r) return null;
 
   const items = await db
     .select({
-      id: requestItem.id,
-      name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
-      category: requestItem.category,
+      id: listaItem.id,
+      name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
+      category: listaItem.category,
     })
-    .from(requestItem)
-    .leftJoin(supply, eq(supply.id, requestItem.supplyId))
-    .where(eq(requestItem.requestId, requestId))
-    .orderBy(asc(requestItem.createdAt));
+    .from(listaItem)
+    .leftJoin(supply, eq(supply.id, listaItem.supplyId))
+    .where(eq(listaItem.listaId, listaId))
+    .orderBy(asc(listaItem.createdAt));
 
   const { addressLine, addressReference, regularScheduleText, ...rest } = r;
   return {
     ...rest,
     items,
     center: { addressLine, addressReference, regularScheduleText },
-  };
-}
-
-/**
- * The logged-in center's single ACTIVE aviso de exceso (request kind='surplus',
- * status='active') — for the dashboard + each center request-detail banner, and
- * to pre-fill the edit form. Center-private + uncached (same §4.4 contract:
- * scoped by centerId, no donor surge tags) so the center sees its own
- * publish/edit/remove immediately. `items` carries supplyId so the form can
- * re-select catalog picks; `name` is the display label. Returns null when the
- * center has no active aviso.
- */
-export type CenterActiveSurplus = {
-  id: string;
-  reason: string | null; // request.title
-  expiresAt: Date | null; // null = "Sin límite"
-  windowHours: number | null; // null = "Sin límite"
-  items: { id: string; name: string; supplyId: string | null }[];
-};
-
-export async function getCenterActiveSurplus(
-  centerId: string,
-): Promise<CenterActiveSurplus | null> {
-  const [r] = await db
-    .select({
-      id: request.id,
-      title: request.title,
-      expiresAt: request.expiresAt,
-      windowHours: request.windowHours,
-    })
-    .from(request)
-    .where(
-      and(
-        eq(request.centerId, centerId),
-        eq(request.kind, "surplus"),
-        eq(request.status, "active"),
-      ),
-    )
-    .limit(1);
-
-  if (!r) return null;
-
-  const items = await db
-    .select({
-      id: requestItem.id,
-      supplyId: requestItem.supplyId,
-      name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
-    })
-    .from(requestItem)
-    .leftJoin(supply, eq(supply.id, requestItem.supplyId))
-    .where(eq(requestItem.requestId, r.id))
-    .orderBy(asc(requestItem.createdAt));
-
-  return {
-    id: r.id,
-    reason: r.title,
-    expiresAt: r.expiresAt,
-    windowHours: r.windowHours,
-    items,
   };
 }
 
@@ -764,11 +547,11 @@ export async function getCenterProfile(
 
   const [stats] = await db
     .select({
-      activas: sql<number>`count(*) filter (where ${request.status} = 'active')::int`,
-      cumplidas: sql<number>`count(*) filter (where ${request.status} = 'closed' and ${request.closedReason} = 'fulfilled')::int`,
+      activas: sql<number>`count(*) filter (where ${lista.status} = 'active')::int`,
+      cumplidas: sql<number>`count(*) filter (where ${lista.status} = 'closed' and ${lista.closedReason} = 'fulfilled')::int`,
     })
-    .from(request)
-    .where(eq(request.centerId, centerId));
+    .from(lista)
+    .where(eq(lista.centerId, centerId));
 
   return {
     ...row,
@@ -778,98 +561,85 @@ export async function getCenterProfile(
 }
 
 /**
- * The center's currently-active requests (id + title + expiry), soonest-expiring
- * first — for the "Desactivar recepción" sheet, which lists what will close.
- * Center-private + uncached.
+ * The center's currently-active lista (id only — title/expiry gone in the
+ * lista model), for the "Desactivar recepción" sheet, which lists what will
+ * close. Center-private + uncached.
  */
-export async function getCenterActiveRequests(
+export async function getCenterActiveListas(
   centerId: string,
-): Promise<{ id: string; title: string | null; expiresAt: Date | null }[]> {
+): Promise<{ id: string }[]> {
   return db
-    .select({
-      id: request.id,
-      title: request.title,
-      expiresAt: request.expiresAt,
-    })
-    .from(request)
-    .where(and(eq(request.centerId, centerId), eq(request.status, "active")))
-    .orderBy(asc(request.expiresAt));
+    .select({ id: lista.id })
+    .from(lista)
+    .where(and(eq(lista.centerId, centerId), eq(lista.status, "active")));
 }
 
 /**
- * The center's requests that were CLOSED by a reception pause — `closed` with
+ * The center's listas that were CLOSED by a reception pause — `closed` with
  * `closedReason = 'cancelled'` since the pause timestamp — newest-closed first.
- * Powers the "Solicitudes cerradas al pausar" list on the Pausado profile.
+ * Powers the "Listas cerradas al pausar" list on the Pausado profile.
  * Scoping to `closedReason = 'cancelled'` AND `closedAt >= since` keeps finalized
- * (fulfilled) or expired requests out of the list. Center-private + uncached.
+ * (fulfilled) listas out of the list. Center-private + uncached.
  */
-export async function getCenterRequestsClosedSince(
+export async function getCenterListasClosedSince(
   centerId: string,
   since: Date,
-): Promise<CenterRequestCardData[]> {
+): Promise<CenterListaCardData[]> {
   const rows = await db
     .select({
-      id: request.id,
-      shortId: request.shortId,
-      kind: request.kind,
-      status: request.status,
-      city: request.city,
-      title: request.title,
-      categories: request.categories,
-      publishedAt: request.publishedAt,
-      expiresAt: request.expiresAt,
-      windowHours: request.windowHours,
-      shareCount: request.shareCount,
-      closedReason: request.closedReason,
-      createdAt: request.createdAt,
+      id: lista.id,
+      shortId: lista.shortId,
+      status: lista.status,
+      city: lista.city,
+      categories: lista.categories,
+      publishedAt: lista.publishedAt,
+      shareCount: lista.shareCount,
+      closedReason: lista.closedReason,
+      createdAt: lista.createdAt,
     })
-    .from(request)
+    .from(lista)
     .where(
       and(
-        eq(request.centerId, centerId),
-        eq(request.status, "closed"),
-        eq(request.closedReason, "cancelled"),
-        gte(request.closedAt, since),
+        eq(lista.centerId, centerId),
+        eq(lista.status, "closed"),
+        eq(lista.closedReason, "cancelled"),
+        gte(lista.closedAt, since),
       ),
     )
-    .orderBy(desc(request.closedAt));
+    .orderBy(desc(lista.closedAt));
 
   const ids = rows.map((r) => r.id);
   const items = ids.length
     ? await db
         .select({
-          id: requestItem.id,
-          requestId: requestItem.requestId,
-          name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
-          category: requestItem.category,
+          id: listaItem.id,
+          listaId: listaItem.listaId,
+          name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
+          category: listaItem.category,
         })
-        .from(requestItem)
-        .leftJoin(supply, eq(supply.id, requestItem.supplyId))
-        .where(inArray(requestItem.requestId, ids))
-        .orderBy(asc(requestItem.createdAt))
+        .from(listaItem)
+        .leftJoin(supply, eq(supply.id, listaItem.supplyId))
+        .where(inArray(listaItem.listaId, ids))
+        .orderBy(asc(listaItem.createdAt))
     : [];
 
-  const itemsByRequest = new Map<string, RequestItemData[]>();
+  const itemsByLista = new Map<string, ListaItemData[]>();
   for (const it of items) {
-    const list = itemsByRequest.get(it.requestId) ?? [];
+    const list = itemsByLista.get(it.listaId) ?? [];
     list.push({ id: it.id, name: it.name, category: it.category });
-    itemsByRequest.set(it.requestId, list);
+    itemsByLista.set(it.listaId, list);
   }
 
   return rows.map((r) => ({
     id: r.id,
     shortId: r.shortId,
-    kind: r.kind,
     status: r.status,
     city: r.city,
-    title: r.title,
     categories: r.categories,
     publishedAt: r.publishedAt,
-    expiresAt: r.expiresAt,
-    windowHours: r.windowHours,
     shareCount: r.shareCount,
     closedReason: r.closedReason,
     createdAt: r.createdAt,
-    items: itemsByRequest.get(r.id) ?? [],
+    items: itemsByLista.get(r.id) ?? [],
   }));
 }

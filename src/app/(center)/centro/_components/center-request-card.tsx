@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-import type { CenterRequestCardData } from "@/db/queries";
-import { Card, ItemChip, UrgencyTag } from "@/components/ui";
+import type { CenterListaCardData } from "@/db/queries";
+import { Card, ItemChip } from "@/components/ui";
 import { ShareCardButton } from "@/components/ui/share-card-button";
 import { formatRequestedClock } from "@/lib/format";
 
@@ -11,36 +11,34 @@ import { ReactivateButton } from "./reactivate-button";
 const MAX_VISIBLE_ITEMS = 3;
 
 /**
- * The center's own request, as shown in "Tus solicitudes". Distinct from the
- * donor RequestCard: leads with request.title, meta is "#{id}", and the footer
- * share targets the PUBLIC donor link the center sends to donors.
+ * The center's own lista, as shown in "Tus solicitudes". Distinct from the
+ * donor RequestCard: meta is "#{id}", and the footer share targets the PUBLIC
+ * donor link the center sends to donors.
  */
 export function CenterRequestCard({
   request,
 }: {
-  request: CenterRequestCardData;
+  request: CenterListaCardData;
 }) {
   const items = request.items;
   const visible = items.slice(0, MAX_VISIBLE_ITEMS);
   const overflow = items.length - visible.length;
-  // Human-friendly global display id (request.short_id, added in migration 0004).
+  // Human-friendly global display id (lista.short_id, added in migration 0004).
   const shortId = request.shortId;
 
-  const isTerminal = request.status === "closed" || request.status === "expired";
-  const shareMessage = request.title
-    ? `Ayuda al centro con: ${request.title}`
-    : "Ayuda al centro en VeneMed:";
+  const isTerminal = request.status === "closed";
+  const shareMessage = "Ayuda al centro en VeneMed:";
 
   return (
     <Card data-testid="center-request-card">
       {/* body → center detail (the share button below stays a public link) */}
       <Link
-        href={`/centro/solicitudes/${request.id}`}
+        href={`/centro/lista/${request.id}`}
         className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
       >
         {/* title */}
         <h3 className="text-lg font-bold leading-tight text-neutral-900">
-          {request.title ?? "Solicitud"}
+          Lista
         </h3>
 
         {/* meta: #id */}
@@ -60,14 +58,13 @@ export function CenterRequestCard({
           </div>
         )}
 
-        {/* requested-at + window */}
+        {/* requested-at */}
         <p className="mt-3 text-xs text-neutral-500">
-          {formatRequestedClock(request.publishedAt)} · Ventana de{" "}
-          {request.windowHours} h
+          {formatRequestedClock(request.publishedAt)}
         </p>
       </Link>
 
-      {/* footer: inactive → Reactivar; active → share (public link) + countdown */}
+      {/* footer: inactive → Reactivar; active → share (public link) */}
       <div className="mt-3 border-t border-neutral-100 pt-3">
         {isTerminal ? (
           <ReactivateButton requestId={request.id} />
@@ -76,11 +73,8 @@ export function CenterRequestCard({
             <ShareCardButton
               requestId={request.id}
               message={shareMessage}
-              path={`/solicitudes/${request.id}`}
+              path={`/listas/${request.id}`}
             />
-            <span className="ml-auto">
-              <UrgencyTag expiresAt={request.expiresAt} />
-            </span>
           </div>
         )}
       </div>

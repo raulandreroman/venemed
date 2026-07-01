@@ -93,14 +93,14 @@ export async function makeAdmin(sql: Sql, email: string): Promise<string> {
 /**
  * Make the seed center re-runnable for the slice-4 reception kill-switch test.
  * The test drives the toggle OFF (pause), which stamps `reception_paused_at` and
- * CLOSES the center's active requests — so a second run would find the center
+ * CLOSES the center's active lista — so a second run would find the center
  * already paused (the switch starts OFF) and never reach the confirm dialog.
  *
  * This idempotently restores the Activa precondition for a named seed center:
- * clear `reception_paused_at`, and reactivate its "Insumos pediátricos" request
- * (fresh window) so the close-all assertion stays meaningful on re-runs. Bounded
- * to the one named center + its one named request — never a blanket reset. No-op
- * if the center isn't present (e.g. DB not seeded → the spec skips anyway).
+ * clear `reception_paused_at`, and reactivate its lista (one evergreen lista per
+ * center — lista-model-v2) so the close-all assertion stays meaningful on
+ * re-runs. Bounded to the one named center — never a blanket reset. No-op if
+ * the center isn't present (e.g. DB not seeded → the spec skips anyway).
  */
 export async function resetSeedCenterReception(
   sql: Sql,
@@ -118,14 +118,13 @@ export async function resetSeedCenterReception(
     where id = ${id}
   `;
   await sql`
-    update "request"
+    update "lista"
     set status = 'active',
         closed_reason = null,
         closed_at = null,
         published_at = coalesce(published_at, now()),
-        expires_at = now() + (window_hours * interval '1 hour'),
         updated_at = now()
-    where center_id = ${id} and title = 'Insumos pediátricos'
+    where center_id = ${id} and status <> 'active'
   `;
 }
 

@@ -5,32 +5,30 @@ import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { center, request, requestItem, supply } from "@/db/schema";
+import { center, lista, listaItem, supply } from "@/db/schema";
 import { requireCenter } from "@/lib/auth/require-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { categoryLabel } from "@/lib/format";
-import { validatePublishRequest } from "@/lib/solicitudes/validation";
-import type { PublishRequestInput } from "@/lib/solicitudes/validation";
+import { validatePublishLista } from "@/lib/listas/validation";
+import type { PublishListaInput } from "@/lib/listas/validation";
 
 // NOTE: a "use server" module may export ONLY async functions (gotcha #1).
-// `PublishRequestInput` is imported via `import type` above — never re-exported.
+// `PublishListaInput` is imported via `import type` above — never re-exported.
 
 /**
- * Publish a need solicitud for the logged-in center. Authorization derives from
+ * Publish the logged-in center's lista. Authorization derives from
  * `requireCenter()` (session → membership → centerId); a client-supplied center
  * id is never trusted (Drizzle bypasses RLS). Only `approved` centers may
  * publish. The full payload is re-validated server-side (defense-in-depth).
  *
- * One transaction inserts the `request` (status `active`, window stamped) plus
- * its `request_item` rows, keyed by `idempotencyKey` so a double-submit dedupes
- * (23505 → re-resolve the existing request and proceed to the confirm screen).
- * Then revalidates the donor surge tags (2-arg form, Next 16) and redirects to
- * the published-confirm screen. Ends in `redirect(...)`; never returns on happy
+ * One transaction inserts the `lista` (status `active`) plus its `lista_item`
+ * rows, keyed by `idempotencyKey` so a double-submit dedupes (23505 →
+ * re-resolve the existing lista and proceed to the confirm screen). Then
+ * revalidates the donor surge tags (2-arg form, Next 16) and redirects to the
+ * published-confirm screen. Ends in `redirect(...)`; never returns on happy
  * path (redirect throws).
  */
-export async function publishRequest(
-  input: PublishRequestInput,
-): Promise<void> {
+export async function publishLista(input: PublishListaInput): Promise<void> {
   // (1) Resolve session/authz. Only approved centers publish.
   const current = await requireCenter();
   if (current.status !== "approved") {
@@ -39,9 +37,9 @@ export async function publishRequest(
   const { centerId } = current;
 
   // (2) Re-validate (defense-in-depth — a "use server" action is a public POST).
-  const errors = validatePublishRequest(input);
+  const errors = validatePublishLista(input);
   if (Object.keys(errors).length > 0) {
-    throw new Error("Solicitud inválida.");
+    throw new Error("Lista inválida.");
   }
 
   // (3) Denormalize city from the center (requireCenter doesn't carry it).
@@ -78,35 +76,30 @@ export async function publishRequest(
   const categories = [...categorySet]; // English enum values (donor filters arrayContains)
 
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + input.windowHours * 3600 * 1000);
 
-  // (4) Transaction: insert request + items, keyed by idempotencyKey.
-  let requestId: string;
+  // (4) Transaction: insert lista + items, keyed by idempotencyKey.
+  let listaId: string;
   try {
-    requestId = await db.transaction(async (tx) => {
+    listaId = await db.transaction(async (tx) => {
       const [inserted] = await tx
-        .insert(request)
+        .insert(lista)
         .values({
           centerId,
-          kind: "need",
           status: "active",
-          title: input.title.trim(),
           deliveryInstructions: input.deliveryInstructions?.trim() || null,
-          windowHours: input.windowHours,
           publishedAt: now,
-          expiresAt,
           city: c?.city ?? null,
           categories,
           idempotencyKey: input.idempotencyKey,
         })
-        .returning({ id: request.id });
+        .returning({ id: lista.id });
 
-      await tx.insert(requestItem).values(
+      await tx.insert(listaItem).values(
         input.items.map((it) => ({
-          requestId: inserted.id,
+          listaId: inserted.id,
           supplyId: it.supplyId ?? null,
           customName: it.supplyId ? null : it.customName?.trim() || null,
-          // request_item.category is the Spanish label; catalog items use their
+          // lista_item.category is the Spanish label; catalog items use their
           // supply's category, customs fall back to 'general'.
           category: categoryLabel(
             (it.supplyId && categoryBySupply.get(it.supplyId)) || "general",
@@ -118,15 +111,15 @@ export async function publishRequest(
     });
   } catch (err) {
     // Idempotency-key unique violation: a prior submit already created this
-    // request. Re-resolve it (scoped to this center) and proceed to confirm.
+    // lista. Re-resolve it (scoped to this center) and proceed to confirm.
     if (isUniqueViolation(err)) {
       const [existing] = await db
-        .select({ id: request.id })
-        .from(request)
-        .where(eq(request.idempotencyKey, input.idempotencyKey))
+        .select({ id: lista.id })
+        .from(lista)
+        .where(eq(lista.idempotencyKey, input.idempotencyKey))
         .limit(1);
       if (!existing) throw err;
-      requestId = existing.id;
+      listaId = existing.id;
     } else {
       throw err;
     }
@@ -134,12 +127,12 @@ export async function publishRequest(
 
   // (5) Invalidate the cached donor surge reads (Next 16 two-arg form). The
   // center dashboard queries are uncached, so they reflect the write already.
-  revalidateTag("active-requests", "max");
+  revalidateTag("active-listas", "max");
   revalidateTag("landing-stats", "max");
-  revalidateTag(`request:${requestId}`, "max");
+  revalidateTag(`lista:${listaId}`, "max");
 
   // (6) Redirect AFTER commit + revalidate (redirect throws).
-  redirect(`/centro/solicitudes/${requestId}/publicada`);
+  redirect(`/centro/lista/${listaId}/publicada`);
 }
 
 /** Postgres unique_violation (SQLSTATE 23505), as surfaced by postgres-js. */

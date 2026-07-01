@@ -4,7 +4,7 @@ import { and, count, desc, eq } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import { db } from "./index";
-import { appUser, center, membership, moderationEvent, request } from "./schema";
+import { appUser, center, membership, moderationEvent, lista } from "./schema";
 import type { CenterStatus } from "@/lib/auth/current-center";
 
 // center_type enum value; mapped to a Spanish label in the UI layer.
@@ -184,8 +184,8 @@ export async function getCenterForReview(
 
   const [{ value: requestsTotal }] = await db
     .select({ value: count() })
-    .from(request)
-    .where(eq(request.centerId, id));
+    .from(lista)
+    .where(eq(lista.centerId, id));
 
   const history = await listModerationHistory(id);
 

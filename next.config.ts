@@ -3,6 +3,14 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Donor share links to the old /solicitudes routes circulate indefinitely
+  // (lista-model-v2 §5, decision D6) — keep this redirect permanently.
+  async redirects() {
+    return [
+      { source: "/solicitudes", destination: "/listas", permanent: true },
+      { source: "/solicitudes/:path*", destination: "/listas/:path*", permanent: true },
+    ];
+  },
 };
 
 export default withSentryConfig(nextConfig, {

@@ -5,16 +5,15 @@ import { AppBar, Tag } from "@/components/ui";
 import { CenterRequestCard } from "@/app/(center)/centro/_components/center-request-card";
 import { SignOutButton } from "@/app/(center)/_components/sign-out-button";
 import {
-  getCenterActiveRequests,
+  getCenterActiveListas,
+  getCenterListasClosedSince,
   getCenterProfile,
-  getCenterRequestsClosedSince,
 } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import {
   centerTypeLabel,
   formatRelativeTime,
-  formatTimeLeft,
   formatVePhone,
 } from "@/lib/format";
 import type { CenterType } from "@/lib/registro/validation";
@@ -47,20 +46,19 @@ export default async function CenterProfilePage() {
   const showType = CENTER_TYPE_ENABLED && profile.type != null;
   const typeLabel = showType ? centerTypeLabel(profile.type!) : null;
 
-  // Pausado screen lists the requests closed by the pause; the Activo screen's
-  // "Desactivar recepción" sheet lists the active requests that WILL close.
+  // Pausado screen lists the listas closed by the pause; the Activo screen's
+  // "Desactivar recepción" sheet lists the active lista that WILL close.
   const closedOnPause = paused
-    ? await getCenterRequestsClosedSince(
+    ? await getCenterListasClosedSince(
         current.centerId,
         profile.receptionPausedAt!,
       )
     : [];
   const activeRequests = paused
     ? []
-    : (await getCenterActiveRequests(current.centerId)).map((r) => ({
+    : (await getCenterActiveListas(current.centerId)).map((r) => ({
         id: r.id,
-        title: r.title ?? "Solicitud",
-        vence: formatTimeLeft(r.expiresAt).toLowerCase(),
+        label: "Lista activa",
       }));
 
   const subtitle = [typeLabel, profile.city].filter(Boolean).join(" · ");

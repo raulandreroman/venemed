@@ -1,19 +1,18 @@
-import type { RequestCardData } from "@/db/queries";
+import type { ListaCardData } from "@/db/queries";
 import { formatRequestedClock } from "@/lib/format";
 import { Button } from "./button";
 import { Card } from "./card";
 import { ItemChip } from "./chip";
 import { ShareCardButton } from "./share-card-button";
-import { Tag, UrgencyTag } from "./tag";
+import { Tag } from "./tag";
 
 const MAX_VISIBLE_ITEMS = 4;
 
 /**
- * Donor list/landing card — needs only. An aviso de exceso (kind='surplus') is
- * never a card: it renders as a per-center <AvisoBanner> above the center's
- * cards (getActiveRequests filters to kind='need').
+ * Donor list/landing card. The lista is the center's evergreen board — no
+ * per-card title, no countdown (see lista-model-v2 §3d/§4).
  */
-export function RequestCard({ request }: { request: RequestCardData }) {
+export function RequestCard({ request }: { request: ListaCardData }) {
   const items = request.items;
   const visible = items.slice(0, MAX_VISIBLE_ITEMS);
   const overflow = items.length - visible.length;
@@ -27,18 +26,13 @@ export function RequestCard({ request }: { request: RequestCardData }) {
       {/* header pills */}
       <div className="flex items-center justify-between gap-2">
         {request.city ? <Tag variant="neutral">{request.city}</Tag> : <span />}
-        <UrgencyTag expiresAt={request.expiresAt} />
+        <span />
       </div>
 
       {/* center */}
       <h3 className="mt-3 text-lg font-bold leading-tight text-neutral-900">
         {request.centerName}
       </h3>
-      {request.title && (
-        <p className="mt-1 text-[15px] font-semibold text-neutral-900">
-          {request.title}
-        </p>
-      )}
       {request.centerDescription && (
         <p className="mt-0.5 text-sm text-neutral-500">
           {request.centerDescription}
@@ -71,12 +65,12 @@ export function RequestCard({ request }: { request: RequestCardData }) {
         <ShareCardButton
           requestId={request.id}
           message={shareMessage}
-          path={`/solicitudes/${request.id}`}
+          path={`/listas/${request.id}`}
         />
         <Button
           variant="primary"
           size="sm"
-          href={`/solicitudes/${request.id}`}
+          href={`/listas/${request.id}`}
           className="flex-1"
         >
           Ver detalle

@@ -33,7 +33,7 @@ test.describe("donor surge path", () => {
   test("solicitudes list renders", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("link", { name: "Ver solicitudes activas" }).click();
-    await expect(page).toHaveURL(/\/solicitudes$/);
+    await expect(page).toHaveURL(/\/listas$/);
     await expect(
       page.getByRole("heading", { name: "Solicitudes activas" }),
     ).toBeVisible();
@@ -43,7 +43,7 @@ test.describe("donor surge path", () => {
   test("Ver detalle opens the intercepted sheet matching the card", async ({
     page,
   }) => {
-    await page.goto("/solicitudes");
+    await page.goto("/listas");
     const cards = page.locator('[data-testid="request-card"]');
     const count = await cards.count();
     test.skip(count === 0, "no active requests available to open");

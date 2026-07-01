@@ -1,4 +1,4 @@
-/** Elapsed/window ratio bar. `value` is 0..1 (use expiryProgress() to compute). */
+/** Ratio bar. `value` is 0..1. */
 export function ProgressBar({
   value,
   className = "",

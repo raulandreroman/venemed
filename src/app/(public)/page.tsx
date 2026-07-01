@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Button, RequestCard } from "@/components/ui";
-import { getActiveRequests, getLandingStats } from "@/db/queries";
+import { getActiveListas, getLandingStats } from "@/db/queries";
 import { formatRelativeTime } from "@/lib/format";
 
 // Surge-facing read path: ISR, regenerated at most once per minute.
@@ -29,7 +29,7 @@ const STEPS = [
 export default async function LandingPage() {
   const [stats, requests] = await Promise.all([
     getLandingStats(),
-    getActiveRequests(),
+    getActiveListas(),
   ]);
   const featured = requests.slice(0, 3);
   const lastUpdated = stats.lastUpdated
@@ -61,7 +61,7 @@ export default async function LandingPage() {
           Conectamos centros de salud con donantes para que ninguna ayuda se
           pierda.
         </p>
-        <Button href="/solicitudes" variant="primary" fullWidth>
+        <Button href="/listas" variant="primary" fullWidth>
           Ver solicitudes activas
         </Button>
       </section>
@@ -101,7 +101,7 @@ export default async function LandingPage() {
           <RequestCard key={req.id} request={req} />
         ))}
         <Link
-          href="/solicitudes"
+          href="/listas"
           className="flex items-center justify-center py-4 text-sm font-semibold text-accent"
         >
           Ver todas las solicitudes  →
@@ -167,7 +167,7 @@ export default async function LandingPage() {
         <nav className="flex flex-wrap gap-[18px] pt-2 text-sm font-medium text-neutral-700">
           <Link href="/">Sobre</Link>
           <Link href="/centro">Centros</Link>
-          <Link href="/solicitudes">Cómo ayudar</Link>
+          <Link href="/listas">Cómo ayudar</Link>
           <Link href="/privacidad">Privacidad</Link>
         </nav>
         <div className="flex gap-[18px] text-xs font-medium text-neutral-500">
