@@ -46,3 +46,10 @@ Granular steps and all `pnpm` scripts are documented in [CONTRIBUTING.md](CONTRI
 - **[AGENTS.md](AGENTS.md)** — agent/dev guide (architecture, deep gotchas, hard-won lessons)
 - **[docs/specs/](docs/specs/)** — canonical specs (data model, donor/center/admin slices, cron jobs, e2e)
 - **Prod** — https://venemed.vercel.app
+
+## License
+
+Released under the [MIT License](LICENSE) — free to use, fork, and build on.
+Contributions are welcome; by opening a pull request you agree to license your
+contribution under the same terms. See [CONTRIBUTING.md](CONTRIBUTING.md) to get
+started.

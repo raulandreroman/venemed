@@ -267,3 +267,10 @@ Usa **conventional commits**; termina los mensajes de commit con `Claude-Session
 - **[`AGENTS.md`](./AGENTS.md)** — la guía canónica para agentes de IA, con el conjunto completo de decisiones de arquitectura y los gotchas aprendidos a golpes (léela antes de escribir código de centro/actions).
 - **[`docs/specs/`](./docs/specs/)** — specs canónicas: `data-model.md`, `cron-jobs.md`, `donor-slice.md`, `donor-fidelity.md`, `center-auth.md`, `center-registration.md`, `center-edit.md`, `center-workspace.md`, `admin-moderation.md`, `aviso-exceso.md`, `backend-fields-cron.md`, `e2e-smoke.md`, `local-dev-db.md`.
 - **[`docs/ci-cd.md`](./docs/ci-cd.md)** — detalles de CI/CD (en español). Diagrama del modelo de datos en `docs/diagrams/data-model.drawio.xml`.
+
+## Licencia
+
+VeneMed es open source bajo la [Licencia MIT](./LICENSE). Al abrir un pull
+request, aceptas licenciar tu contribución bajo los mismos términos. / VeneMed is
+open source under the [MIT License](./LICENSE); by opening a pull request you
+agree to license your contribution under the same terms.
