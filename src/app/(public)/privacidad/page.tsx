@@ -152,6 +152,11 @@ export default function PrivacidadPage() {
             <Bullet>
               No registramos información personal en nuestros registros técnicos.
             </Bullet>
+            <Bullet>
+              Usamos monitoreo de errores para mantener el servicio en línea, sin
+              datos personales: no guarda teléfonos, direcciones IP ni graba tu
+              pantalla.
+            </Bullet>
           </ul>
         </Section>
 
