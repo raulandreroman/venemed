@@ -182,7 +182,14 @@ export function RegistroWizard({
         submitLabel="Continuar"
         submitPendingLabel="Enviando…"
         headerSlot={<Stepper current={1} label="Datos del centro" />}
-        footerNote="Paso 1 de 3 · Tus datos están protegidos"
+        footerNote={
+          <>
+            Paso 1 de 3 ·{" "}
+            <Link href="/privacidad" className="font-medium text-accent">
+              Tus datos están protegidos
+            </Link>
+          </>
+        }
         footerError={sendError}
         footerSlot={
           mode === "anon" ? (
