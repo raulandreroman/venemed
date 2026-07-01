@@ -8,7 +8,7 @@ import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import { appUser, center, membership, request, requestItem, supply } from "./schema";
+import { appUser, center, membership, lista, listaItem, supply } from "./schema";
 
 config({ path: ".env.local" });
 config();
@@ -18,7 +18,7 @@ if (!url) throw new Error("POSTGRES_URL_NON_POOLING / POSTGRES_URL not set");
 
 const client = postgres(url, { prepare: false });
 const db = drizzle(client, {
-  schema: { appUser, center, membership, request, requestItem, supply },
+  schema: { appUser, center, membership, lista, listaItem, supply },
 });
 
 /**
@@ -100,8 +100,8 @@ async function main() {
   const now = new Date();
 
   // ---- reset domain tables (FK-safe order) ----
-  await db.delete(requestItem);
-  await db.delete(request);
+  await db.delete(listaItem);
+  await db.delete(lista);
   await db.delete(center);
   await db.delete(supply);
 
@@ -172,102 +172,81 @@ async function main() {
     .returning({ id: center.id, name: center.name, city: center.city });
   const centerId = (name: string) => centers.find((c) => c.name === name)!.id;
 
-  // ---- requests (active) ----
+  // ---- listas (one evergreen lista per approved center — lista-model-v2) ----
   const jmRiosPublished = hoursFromNow(now, -4); // publicado hace 4 h
-  const [reqA] = await db
-    .insert(request)
+  const [listaA] = await db
+    .insert(lista)
     .values({
       centerId: centerId("Hospital J.M. de los Ríos"),
-      kind: "need",
       status: "active",
-      title: "Insumos pediátricos",
       deliveryInstructions:
         "Entregar en Recepción de donaciones, entrada principal. Preguntar por la coordinadora de turno.",
-      windowHours: 12,
       publishedAt: jmRiosPublished,
-      expiresAt: hoursFromNow(jmRiosPublished, 12),
       city: "Caracas",
       categories: ["pediatrics"],
     })
-    .returning({ id: request.id });
+    .returning({ id: lista.id });
 
   const refugioPublished = hoursFromNow(now, -1);
-  const [reqB] = await db
-    .insert(request)
+  const [listaB] = await db
+    .insert(lista)
     .values({
       centerId: centerId("Refugio Casa Esperanza"),
-      kind: "need",
       status: "active",
-      title: "Higiene y limpieza",
       deliveryInstructions:
         "Portón azul, timbre 2. Recibimos en horario de la mañana preferiblemente.",
-      windowHours: 24,
+      excessReason: "El depósito de ropa está lleno.",
       publishedAt: refugioPublished,
-      expiresAt: hoursFromNow(refugioPublished, 24),
       city: "Caracas",
       categories: ["general", "pediatrics"],
     })
-    .returning({ id: request.id });
+    .returning({ id: lista.id });
 
-  // a surplus notice ("no enviar más de X")
-  const surplusPublished = hoursFromNow(now, -2);
-  const [reqC] = await db
-    .insert(request)
-    .values({
-      centerId: centerId("Refugio Casa Esperanza"),
-      kind: "surplus",
-      status: "active",
-      title: "Excedente de ropa",
-      deliveryInstructions:
-        "No traer más ropa usada por ahora; el depósito está lleno.",
-      windowHours: 48,
-      publishedAt: surplusPublished,
-      expiresAt: hoursFromNow(surplusPublished, 48),
-      city: "Caracas",
-      categories: ["general"],
-    })
-    .returning({ id: request.id });
-
-  // ---- request items ----
-  await db.insert(requestItem).values([
+  // ---- lista items (need / urgent-need / excess bucket) ----
+  await db.insert(listaItem).values([
+    // J.M. de los Ríos: 2 need + 1 urgent need
     {
-      requestId: reqA.id,
+      listaId: listaA.id,
       supplyId: supplyId("Acetaminofén 500 mg"),
       category: "Pediatría",
     },
     {
-      requestId: reqA.id,
+      listaId: listaA.id,
       supplyId: supplyId("Suero fisiológico 500 ml"),
       category: "Pediatría",
     },
     {
-      requestId: reqA.id,
+      listaId: listaA.id,
       supplyId: supplyId("Jeringas 5 ml estériles"),
       category: "Pediatría",
+      isUrgent: true,
     },
+    // Refugio Casa Esperanza: needs + an excess ("no aceptamos") item
     {
-      requestId: reqB.id,
+      listaId: listaB.id,
       supplyId: supplyId("Gasas estériles"),
       category: "General",
     },
     {
-      requestId: reqB.id,
+      listaId: listaB.id,
       supplyId: supplyId("Acetaminofén 500 mg"),
       category: "Pediatría",
+      isUrgent: true,
     },
     {
-      requestId: reqC.id,
+      listaId: listaB.id,
       customName: "Ropa usada",
       category: "General",
+      bucket: "excess",
     },
   ]);
 
   // Link the test phone to an approved center (J.M. de los Ríos has an active
-  // request with items) so login reaches the populated /centro dashboard.
+  // lista with items) so login reaches the populated /centro dashboard.
   await provisionTestMembership(centerId("Hospital J.M. de los Ríos"));
 
   console.log(
-    `seeded: ${supplies.length} supplies, ${centers.length} centers, 3 requests (2 need + 1 surplus), 6 items`,
+    `seeded: ${supplies.length} supplies, ${centers.length} centers, 2 listas, 6 items`,
   );
   await client.end();
 }

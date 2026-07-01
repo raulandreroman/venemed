@@ -5,35 +5,33 @@ import { revalidateTag } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { center, request } from "@/db/schema";
+import { center, lista } from "@/db/schema";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { requireCenter } from "@/lib/auth/require-center";
-import { isWindowHours } from "@/lib/solicitudes/validation";
 
 // NOTE: a "use server" module may export ONLY async functions (gotcha #1).
-// `isWindowHours` is imported (a value, not re-exported) — fine.
 
 /** Revalidate the donor surge reads touched by a center-side mutation (Next 16
  * two-arg "max" form, gotcha #3). The center dashboard/detail queries are
  * uncached, so a plain redirect already shows fresh data. */
-function revalidateRequest(requestId: string): void {
-  revalidateTag("active-requests", "max");
+function revalidateLista(listaId: string): void {
+  revalidateTag("active-listas", "max");
   revalidateTag("landing-stats", "max");
-  revalidateTag(`request:${requestId}`, "max");
+  revalidateTag(`lista:${listaId}`, "max");
 }
 
 /**
- * Finalize (close) a solicitud the logged-in center owns: status → `closed`,
+ * Finalize (close) a lista the logged-in center owns: status → `closed`,
  * `closedReason = 'fulfilled'`, `closedAt = now()`. It then leaves the donor
  * active list + the dashboard "Solicitudes activas".
  *
  * Authorization derives from `requireCenter()` (session → membership → centerId);
  * a client-supplied id is never trusted — the row is loaded scoped by centerId,
  * and the UPDATE keeps the centerId predicate as defense-in-depth (Drizzle
- * bypasses RLS). Already-terminal rows (closed/expired) are a no-op. Ends in
+ * bypasses RLS). An already-terminal row (closed) is a no-op. Ends in
  * `redirect(...)` (throws), so it must run after commit + revalidate.
  */
-export async function finalizeRequest(requestId: string): Promise<void> {
+export async function finalizeLista(listaId: string): Promise<void> {
   const current = await requireCenter();
   if (current.status !== "approved") {
     redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
@@ -41,93 +39,36 @@ export async function finalizeRequest(requestId: string): Promise<void> {
   const { centerId } = current;
 
   const [row] = await db
-    .select({ id: request.id, status: request.status })
-    .from(request)
-    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)))
+    .select({ id: lista.id, status: lista.status })
+    .from(lista)
+    .where(and(eq(lista.id, listaId), eq(lista.centerId, centerId)))
     .limit(1);
   if (!row) notFound();
 
-  // Terminal-state guard: cannot finalize an already closed/expired request.
-  if (row.status === "closed" || row.status === "expired") {
+  // Terminal-state guard: cannot finalize an already closed lista.
+  if (row.status === "closed") {
     redirect("/centro");
   }
 
   await db
-    .update(request)
+    .update(lista)
     .set({ status: "closed", closedReason: "fulfilled", closedAt: sql`now()` })
-    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)));
+    .where(and(eq(lista.id, listaId), eq(lista.centerId, centerId)));
 
-  revalidateRequest(requestId);
+  revalidateLista(listaId);
 
-  // Redirect to the dashboard so the now-closed request visibly leaves "activas".
+  // Redirect to the dashboard so the now-closed lista visibly leaves "activas".
   redirect("/centro");
 }
 
 /**
- * Extend the window of a solicitud the logged-in center owns (Figma "Sheet ·
- * Extender ventana"): ADD the chosen +12/+24/+48 h to the current window —
- * `expiresAt += chosen`, `windowHours += chosen` (`publishedAt`/`status`
- * untouched). Same ownership + terminal-state guards as finalize — extending a
- * closed/expired request is meaningless. `hours` is re-validated server-side
- * (the action is a public POST).
+ * Reactivate (reopen) a closed lista the logged-in center owns (Figma 8:1009
+ * "Reactivar solicitud"): status → `active`, clears `closedAt`/`closedReason`,
+ * `publishedAt = now`. Ownership-scoped + only valid on a terminal row; refused
+ * while the center's reception is paused (a paused center has no active
+ * lista). Revalidates the donor surge reads, then back to /centro.
  */
-export async function extendWindow(
-  requestId: string,
-  hours: number,
-): Promise<void> {
-  const current = await requireCenter();
-  if (current.status !== "approved") {
-    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
-  }
-  const { centerId } = current;
-
-  if (!isWindowHours(hours)) {
-    throw new Error("Ventana de tiempo inválida.");
-  }
-
-  const [row] = await db
-    .select({
-      id: request.id,
-      status: request.status,
-      expiresAt: request.expiresAt,
-      windowHours: request.windowHours,
-    })
-    .from(request)
-    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)))
-    .limit(1);
-  if (!row) notFound();
-
-  if (row.status === "closed" || row.status === "expired") {
-    redirect(`/centro/solicitudes/${requestId}`);
-  }
-
-  // ADD time to the current window (Figma "Sheet · Extender ventana": "Suma
-  // tiempo extra") — not a reset. Bumping both expiresAt and windowHours by the
-  // same amount keeps the detail progress bar's start (expiresAt − windowHours)
-  // anchored at the original publish, so the bar simply gains remaining time.
-  const base = row.expiresAt ?? new Date();
-  const expiresAt = new Date(base.getTime() + hours * 3600 * 1000);
-  const windowHours = (row.windowHours ?? 0) + hours;
-
-  await db
-    .update(request)
-    .set({ windowHours, expiresAt })
-    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)));
-
-  revalidateRequest(requestId);
-
-  redirect(`/centro/solicitudes/${requestId}`);
-}
-
-/**
- * Reactivate (reopen) a closed/expired solicitud the logged-in center owns
- * (Figma 8:1009 "Reactivar solicitud"): status → `active`, clears
- * `closedAt`/`closedReason`, and starts a fresh window (`publishedAt = now`,
- * `expiresAt = now + windowHours`). Ownership-scoped + only valid on terminal
- * rows; refused while the center's reception is paused (a paused center has no
- * active requests). Revalidates the donor surge reads, then back to /centro.
- */
-export async function reactivateRequest(requestId: string): Promise<void> {
+export async function reactivateLista(listaId: string): Promise<void> {
   const current = await requireCenter();
   if (current.status !== "approved") {
     redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
@@ -135,22 +76,18 @@ export async function reactivateRequest(requestId: string): Promise<void> {
   const { centerId } = current;
 
   const [row] = await db
-    .select({
-      id: request.id,
-      status: request.status,
-      windowHours: request.windowHours,
-    })
-    .from(request)
-    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)))
+    .select({ id: lista.id, status: lista.status })
+    .from(lista)
+    .where(and(eq(lista.id, listaId), eq(lista.centerId, centerId)))
     .limit(1);
   if (!row) notFound();
 
-  // Only terminal requests can be reactivated; active/paused are a no-op.
-  if (row.status !== "closed" && row.status !== "expired") {
-    redirect(`/centro/solicitudes/${requestId}`);
+  // Only a terminal lista can be reactivated; active/paused is a no-op.
+  if (row.status !== "closed") {
+    redirect(`/centro/lista/${listaId}`);
   }
 
-  // A paused center can't have active requests — block until reception resumes.
+  // A paused center can't have an active lista — block until reception resumes.
   const [c] = await db
     .select({ receptionPausedAt: center.receptionPausedAt })
     .from(center)
@@ -161,21 +98,18 @@ export async function reactivateRequest(requestId: string): Promise<void> {
   }
 
   const now = new Date();
-  const windowHours = row.windowHours ?? 24;
-  const expiresAt = new Date(now.getTime() + windowHours * 3600 * 1000);
 
   await db
-    .update(request)
+    .update(lista)
     .set({
       status: "active",
       closedAt: null,
       closedReason: null,
       publishedAt: now,
-      expiresAt,
     })
-    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)));
+    .where(and(eq(lista.id, listaId), eq(lista.centerId, centerId)));
 
-  revalidateRequest(requestId);
+  revalidateLista(listaId);
 
   redirect("/centro");
 }

@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
  */
 export function AppBar({
   title,
-  backHref = "/solicitudes",
+  backHref = "/listas",
   onBack,
   trailing,
   align = "center",

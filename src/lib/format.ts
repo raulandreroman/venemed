@@ -25,62 +25,6 @@ export function formatVePhone(e164: string | null | undefined): string {
   return `+58 ${nat.slice(0, 3)} ${nat.slice(3, 6)} ${nat.slice(6)}`;
 }
 
-/** Urgency bucket for the colored dot / accent on cards. */
-export type UrgencyLevel = "urgent" | "soon" | "normal" | "expired";
-
-/**
- * minutes-left bucket:
- *  - expired: already past expiresAt
- *  - urgent:  < 12 h   (red)
- *  - soon:    12–24 h  (amber)
- *  - normal:  > 24 h   (neutral)
- */
-export function urgencyLevel(
-  expiresAt: Date | string | null,
-  now: Date = new Date(),
-): UrgencyLevel {
-  if (!expiresAt) return "normal";
-  const exp = toDate(expiresAt);
-  const ms = exp.getTime() - now.getTime();
-  if (ms <= 0) return "expired";
-  if (ms < 12 * HOUR) return "urgent";
-  if (ms < 24 * HOUR) return "soon";
-  return "normal";
-}
-
-/** "Vence en 8 h" / "Vence en 45 min" / "Vencida". Short form for pills/cards. */
-export function formatTimeLeft(
-  expiresAt: Date | string | null,
-  now: Date = new Date(),
-): string {
-  if (!expiresAt) return "Sin vencimiento";
-  const ms = toDate(expiresAt).getTime() - now.getTime();
-  if (ms <= 0) return "Vencida";
-  if (ms < HOUR) return `Vence en ${Math.max(1, Math.round(ms / MINUTE))} min`;
-  if (ms < DAY) return `Vence en ${Math.round(ms / HOUR)} h`;
-  return `Vence en ${Math.round(ms / DAY)} d`;
-}
-
-/** Long form for the detail countdown block: "Vence en 8 horas" / "Vence en 45 minutos". */
-export function formatTimeLeftLong(
-  expiresAt: Date | string | null,
-  now: Date = new Date(),
-): string {
-  if (!expiresAt) return "Sin vencimiento";
-  const ms = toDate(expiresAt).getTime() - now.getTime();
-  if (ms <= 0) return "Vencida";
-  if (ms < HOUR) {
-    const n = Math.max(1, Math.round(ms / MINUTE));
-    return `Vence en ${n} ${n === 1 ? "minuto" : "minutos"}`;
-  }
-  if (ms < DAY) {
-    const n = Math.round(ms / HOUR);
-    return `Vence en ${n} ${n === 1 ? "hora" : "horas"}`;
-  }
-  const n = Math.round(ms / DAY);
-  return `Vence en ${n} ${n === 1 ? "día" : "días"}`;
-}
-
 /** "hace 3 min" / "hace 4 h" / "ayer" / "hace 3 d". */
 export function formatRelativeTime(
   date: Date | string | null,
@@ -129,32 +73,6 @@ export function formatRequestedClock(
   if (!date) return "";
   const d = toDate(date);
   return `Solicitado ${dayLabel(d, now)}, ${formatClockPeriods(d)}`;
-}
-
-/** progress 0..1 = elapsed / window, for the ProgressBar. Clamped. */
-export function expiryProgress(
-  publishedAt: Date | string | null,
-  expiresAt: Date | string | null,
-  now: Date = new Date(),
-): number {
-  if (!publishedAt || !expiresAt) return 0;
-  const start = toDate(publishedAt).getTime();
-  const end = toDate(expiresAt).getTime();
-  if (end <= start) return 1;
-  const ratio = (now.getTime() - start) / (end - start);
-  return Math.min(1, Math.max(0, ratio));
-}
-
-/** "Hoy hasta las 4:30 pm" from the expiry clock time. */
-export function formatDeliveryCutoff(
-  expiresAt: Date | string | null,
-  now: Date = new Date(),
-): string {
-  if (!expiresAt) return "";
-  const exp = toDate(expiresAt);
-  const sameDay = exp.toDateString() === now.toDateString();
-  const prefix = sameDay ? "Hoy hasta las" : `Hasta el ${formatShortDate(exp)},`;
-  return `${prefix} ${formatClock(exp)}`;
 }
 
 /** "25 jun 2026" — closed banner / dates. */

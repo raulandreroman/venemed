@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { setReception } from "@/app/(center)/actions/recepcion";
 import { Button } from "@/components/ui";
 
-type ActiveRequest = { id: string; title: string; vence: string };
+type ActiveRequest = { id: string; label: string };
 
 /** A successful setReception still throws NEXT_REDIRECT; re-throw so Next
  * navigates instead of showing a false error (mirrors finalize-button). */
@@ -30,7 +30,7 @@ export function ReceptionToggle({
   paused: boolean;
   /** e.g. "desde hace 12 min" — precomputed server-side (relative time). */
   pausedSince: string;
-  /** active requests that will close on pause (title + "vence en X h"). */
+  /** active listas that will close on pause. */
   activeRequests: ActiveRequest[];
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -190,9 +190,7 @@ export function ReceptionToggle({
                       <span aria-hidden className="text-warning">
                         •
                       </span>
-                      <span>
-                        {r.title} · {r.vence}
-                      </span>
+                      <span>{r.label}</span>
                     </li>
                   ))}
                 </ul>

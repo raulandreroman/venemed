@@ -26,7 +26,7 @@ export function ShareSection({
   title?: string;
   /** Pre-built share text (without the URL). */
   message: string;
-  /** Path of the request, e.g. "/solicitudes/abc". */
+  /** Path of the lista, e.g. "/listas/abc". */
   path: string;
 }) {
   const [copied, setCopied] = useState(false);

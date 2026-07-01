@@ -5,7 +5,7 @@ import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { center, request } from "@/db/schema";
+import { center, lista } from "@/db/schema";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { requireCenter } from "@/lib/auth/require-center";
 
@@ -44,7 +44,7 @@ export async function setReception(pause: boolean): Promise<void> {
         .where(eq(center.id, centerId));
 
       return tx
-        .update(request)
+        .update(lista)
         .set({
           status: "closed",
           closedReason: "cancelled",
@@ -52,26 +52,26 @@ export async function setReception(pause: boolean): Promise<void> {
         })
         .where(
           and(
-            eq(request.centerId, centerId),
-            inArray(request.status, ["active", "paused"]),
+            eq(lista.centerId, centerId),
+            inArray(lista.status, ["active", "paused"]),
           ),
         )
-        .returning({ id: request.id });
+        .returning({ id: lista.id });
     });
 
     // Invalidate the donor surge reads (Next 16 two-arg "max" form, gotcha #3).
-    revalidateTag("active-requests", "max");
+    revalidateTag("active-listas", "max");
     revalidateTag("landing-stats", "max");
-    for (const r of closed) revalidateTag(`request:${r.id}`, "max");
+    for (const r of closed) revalidateTag(`lista:${r.id}`, "max");
   } else {
     await db
       .update(center)
       .set({ receptionPausedAt: null })
       .where(eq(center.id, centerId));
 
-    // Resume changes nothing donor-visible (the closed requests stay closed),
+    // Resume changes nothing donor-visible (the closed listas stay closed),
     // but revalidating the surge tags is cheap + keeps the list authoritative.
-    revalidateTag("active-requests", "max");
+    revalidateTag("active-listas", "max");
     revalidateTag("landing-stats", "max");
   }
 

@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 
-import { formatTimeLeft, urgencyLevel, type UrgencyLevel } from "@/lib/format";
-
 type TagVariant =
   | "neutral" // city pill / generic
   | "urgent" // red dot
@@ -50,32 +48,5 @@ export function Tag({
       )}
       {children}
     </span>
-  );
-}
-
-const levelToVariant: Record<UrgencyLevel, TagVariant> = {
-  urgent: "urgent",
-  soon: "soon",
-  normal: "normal",
-  expired: "expired",
-};
-
-/** "Vence en N h" pill with a colored dot driven by minutes-left. */
-export function UrgencyTag({
-  expiresAt,
-  className = "",
-}: {
-  expiresAt: Date | string | null;
-  className?: string;
-}) {
-  const level = urgencyLevel(expiresAt);
-  return (
-    <Tag
-      variant={levelToVariant[level]}
-      dot={level !== "expired"}
-      className={className}
-    >
-      {formatTimeLeft(expiresAt)}
-    </Tag>
   );
 }

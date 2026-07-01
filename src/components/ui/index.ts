@@ -1,12 +1,10 @@
 export { Button } from "./button";
 export { Card } from "./card";
 export { Logo } from "./logo";
-export { Tag, UrgencyTag } from "./tag";
+export { Tag } from "./tag";
 export { Chip, ItemChip } from "./chip";
 export { RequestCard } from "./request-card";
-export { AvisoBanner } from "./aviso-banner";
 export { AppBar } from "./app-bar";
-export { Countdown } from "./countdown";
 export { ProgressBar } from "./progress-bar";
 export { SegmentedControl } from "./segmented-control";
 export { ConfirmDialog } from "./confirm-dialog";

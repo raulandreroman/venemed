@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 
-import { reactivateRequest } from "@/app/(center)/actions/gestionar";
+import { reactivateLista } from "@/app/(center)/actions/gestionar";
 import { Button } from "@/components/ui";
 
 /** A successful reactivate still throws NEXT_REDIRECT; re-throw so Next
@@ -23,7 +23,7 @@ export function ReactivateButton({ requestId }: { requestId: string }) {
     setPending(true);
     setError(null);
     try {
-      await reactivateRequest(requestId); // ends in redirect()
+      await reactivateLista(requestId); // ends in redirect()
     } catch (e) {
       if (isNextRedirectError(e)) {
         setPending(false);
