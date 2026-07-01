@@ -147,6 +147,53 @@ test.describe("center auth + registration", () => {
     await expect(page.getByText(title).first()).toBeVisible();
     await expectNoErrorOverlay(page);
 
+    // --- Aviso de exceso (gotcha #2: drive the REAL publishAviso + removeAviso;
+    // build+GET never exercises them). The post-publish prompt on the publicada
+    // screen is the entry point (decision §6.2). The login center has no seeded
+    // surplus, and publishAviso closes any prior active aviso, so re-runs are
+    // safe. ---
+    await page.goto(`/centro/solicitudes/${requestId}/publicada`);
+    await expect(
+      page.getByRole("heading", { name: /¿Hay algo que ya no necesitas\?/ }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "Crear aviso de exceso" }).click();
+    await page.waitForURL(/\/centro\/aviso$/, { timeout: 15_000 });
+
+    // Pick an insumo the center is NOT accepting + "Sin límite" (the null-window
+    // path: window_hours NULL + expires_at NULL — removeAviso is the only clear).
+    await page.getByRole("button", { name: "Agregar insumos" }).click();
+    await page.getByRole("button", { name: "Guantes quirúrgicos" }).click();
+    await page.getByRole("button", { name: /Agregar \d+ insumo/ }).click();
+    await page.getByRole("radio", { name: "Sin límite" }).click();
+    await page.getByRole("button", { name: "Publicar aviso" }).click();
+
+    // publishAviso commits + redirects to the dashboard, which shows the banner
+    // (uncached → deterministic, no ISR wait).
+    await page.waitForURL(/\/centro$/, { timeout: 15_000 });
+    await expect(page.getByText("Aviso de exceso activo")).toBeVisible();
+    await expectNoErrorOverlay(page);
+
+    // The aviso surfaces on the donor list as a per-center banner ("No aceptan:")
+    // above the center's need cards — never as its own card. ISR-bounded poll.
+    await expect
+      .poll(
+        async () => {
+          await page.goto("/solicitudes", { waitUntil: "networkidle" });
+          return page.getByText(/No aceptan:/).count();
+        },
+        { timeout: 45_000, intervals: [1000, 2000, 3000, 5000] },
+      )
+      .toBeGreaterThan(0);
+
+    // Remove via the review screen → real removeAviso → banner gone (dashboard).
+    await page.goto("/centro/aviso");
+    await expect(page.getByText(/Aviso activo/)).toBeVisible();
+    await page.getByRole("button", { name: "Quitar aviso" }).click();
+    await page.getByRole("button", { name: "Quitar", exact: true }).click();
+    await page.waitForURL(/\/centro$/, { timeout: 15_000 });
+    await expect(page.getByText("Aviso de exceso activo")).toHaveCount(0);
+    await expectNoErrorOverlay(page);
+
     // --- Center detail + manage (gotcha #2: drive the REAL extend + finalize
     // actions; build+GET never exercises them). ---
     await page.goto(`/centro/solicitudes/${requestId}`);

@@ -9,6 +9,7 @@ import {
   gte,
   ilike,
   inArray,
+  ne,
   or,
   sql,
 } from "drizzle-orm";
@@ -38,6 +39,7 @@ export type RequestItemData = {
 export type RequestCardData = {
   id: string;
   kind: "need" | "surplus";
+  centerId: string; // for attaching the center's aviso-de-exceso banner
   city: string | null;
   title: string | null; // center-written descriptor
   centerName: string;
@@ -45,7 +47,9 @@ export type RequestCardData = {
   centerType: string | null;
   publishedAt: Date | null;
   expiresAt: Date | null;
-  windowHours: number;
+  // null only for an aviso de exceso "Sin límite" (window_hours nullable as of
+  // migration 0006). Donor needs always carry a 12/24/48 window.
+  windowHours: number | null;
   categories: string[] | null;
   items: RequestItemData[];
 };
@@ -92,7 +96,8 @@ export type CenterRequestCardData = {
   categories: string[] | null;
   publishedAt: Date | null;
   expiresAt: Date | null;
-  windowHours: number;
+  // null for an aviso de exceso "Sin límite" (window_hours nullable as of 0006).
+  windowHours: number | null;
   shareCount: number;
   closedReason: "fulfilled" | "cancelled" | "expired" | null;
   createdAt: Date;
@@ -126,6 +131,7 @@ async function queryActiveRequests(
     .select({
       id: request.id,
       kind: request.kind,
+      centerId: request.centerId,
       city: request.city,
       title: request.title,
       categories: request.categories,
@@ -140,6 +146,9 @@ async function queryActiveRequests(
     .innerJoin(center, eq(center.id, request.centerId))
     .where(
       and(
+        // donor cards are needs only — an aviso de exceso (kind='surplus')
+        // surfaces as a per-center banner, never as its own card.
+        eq(request.kind, "need"),
         eq(request.status, "active"),
         eq(center.status, "approved"),
         filters.city ? eq(request.city, filters.city) : undefined,
@@ -195,6 +204,7 @@ async function queryActiveRequests(
   return rows.map((r) => ({
     id: r.id,
     kind: r.kind,
+    centerId: r.centerId,
     city: r.city,
     title: r.title,
     centerName: r.centerName,
@@ -230,6 +240,87 @@ export function getActiveRequests(
   )();
 }
 
+// ---- 4.1b getActiveSurplusByCenter -----------------------------------------
+//
+// An aviso de exceso is a request(kind='surplus') + its request_item rows. It
+// renders ONLY as a per-center banner (no donor card, no /solicitudes/<id>
+// page — see getRequestById's kind='need' guard below). This returns each
+// approved center's single ACTIVE surplus (one-active-per-center is enforced by
+// the partial unique index), so the donor list/detail can attach the banner
+// above that center's need cards. Shares the donor surge cache (tag
+// "active-requests") so publishing/removing an aviso busts it in lockstep.
+
+export type ActiveSurplus = {
+  items: string[]; // insumo names the center is NOT accepting
+  expiresAt: Date | null; // null = "Sin límite" (no auto-clear)
+  reason: string | null; // request.title
+};
+
+async function queryActiveSurplusList(): Promise<
+  (ActiveSurplus & { centerId: string })[]
+> {
+  const rows = await db
+    .select({
+      id: request.id,
+      centerId: request.centerId,
+      title: request.title,
+      expiresAt: request.expiresAt,
+    })
+    .from(request)
+    .innerJoin(center, eq(center.id, request.centerId))
+    .where(
+      and(
+        eq(request.kind, "surplus"),
+        eq(request.status, "active"),
+        eq(center.status, "approved"),
+      ),
+    );
+
+  const ids = rows.map((r) => r.id);
+  const items = ids.length
+    ? await db
+        .select({
+          requestId: requestItem.requestId,
+          name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
+        })
+        .from(requestItem)
+        .leftJoin(supply, eq(supply.id, requestItem.supplyId))
+        .where(inArray(requestItem.requestId, ids))
+        .orderBy(asc(requestItem.createdAt))
+    : [];
+
+  const namesByRequest = new Map<string, string[]>();
+  for (const it of items) {
+    const list = namesByRequest.get(it.requestId) ?? [];
+    list.push(it.name);
+    namesByRequest.set(it.requestId, list);
+  }
+
+  return rows.map((r) => ({
+    centerId: r.centerId,
+    items: namesByRequest.get(r.id) ?? [],
+    expiresAt: r.expiresAt,
+    reason: r.title,
+  }));
+}
+
+/**
+ * Active avisos de exceso keyed by centerId. Cached array (Maps don't survive
+ * unstable_cache's serialization) revived into a Map at the call site; tag
+ * "active-requests".
+ */
+export async function getActiveSurplusByCenter(): Promise<
+  Map<string, ActiveSurplus>
+> {
+  const list = await unstable_cache(queryActiveSurplusList, ["active-surplus"], {
+    revalidate: 60,
+    tags: ["active-requests"],
+  })();
+  return new Map(
+    list.map(({ centerId, ...rest }) => [centerId, rest]),
+  );
+}
+
 // ---- 4.2 getRequestById ----------------------------------------------------
 
 async function queryRequestById(
@@ -239,6 +330,7 @@ async function queryRequestById(
     .select({
       id: request.id,
       kind: request.kind,
+      centerId: request.centerId,
       status: request.status,
       city: request.city,
       title: request.title,
@@ -263,6 +355,9 @@ async function queryRequestById(
     .where(
       and(
         eq(request.id, id),
+        // banner-only: an aviso de exceso (kind='surplus') is never an
+        // individually navigable donor page → null here → page notFound()s.
+        eq(request.kind, "need"),
         eq(center.status, "approved"),
         inArray(request.status, ["active", "closed", "expired"]),
       ),
@@ -286,6 +381,7 @@ async function queryRequestById(
   return {
     id: r.id,
     kind: r.kind,
+    centerId: r.centerId,
     status: r.status,
     city: r.city,
     title: r.title,
@@ -393,6 +489,9 @@ export async function getCenterRequests(
     .where(
       and(
         eq(request.centerId, centerId),
+        // exclude avisos de exceso (kind='surplus') — they render as the
+        // dashboard banner (getCenterActiveSurplus), never as a request card.
+        ne(request.kind, "surplus"),
         sql`${request.status} <> 'draft'`,
       ),
     )
@@ -475,7 +574,15 @@ export async function getCenterRequestById(
     })
     .from(request)
     .innerJoin(center, eq(center.id, request.centerId))
-    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)))
+    .where(
+      and(
+        eq(request.id, requestId),
+        eq(request.centerId, centerId),
+        // an aviso de exceso never opens the generic request detail (it would
+        // render a Countdown against a possibly-null window) — it's the banner.
+        ne(request.kind, "surplus"),
+      ),
+    )
     .limit(1);
 
   if (!r) return null;
@@ -496,6 +603,65 @@ export async function getCenterRequestById(
     ...rest,
     items,
     center: { addressLine, addressReference, regularScheduleText },
+  };
+}
+
+/**
+ * The logged-in center's single ACTIVE aviso de exceso (request kind='surplus',
+ * status='active') — for the dashboard + each center request-detail banner, and
+ * to pre-fill the edit form. Center-private + uncached (same §4.4 contract:
+ * scoped by centerId, no donor surge tags) so the center sees its own
+ * publish/edit/remove immediately. `items` carries supplyId so the form can
+ * re-select catalog picks; `name` is the display label. Returns null when the
+ * center has no active aviso.
+ */
+export type CenterActiveSurplus = {
+  id: string;
+  reason: string | null; // request.title
+  expiresAt: Date | null; // null = "Sin límite"
+  windowHours: number | null; // null = "Sin límite"
+  items: { id: string; name: string; supplyId: string | null }[];
+};
+
+export async function getCenterActiveSurplus(
+  centerId: string,
+): Promise<CenterActiveSurplus | null> {
+  const [r] = await db
+    .select({
+      id: request.id,
+      title: request.title,
+      expiresAt: request.expiresAt,
+      windowHours: request.windowHours,
+    })
+    .from(request)
+    .where(
+      and(
+        eq(request.centerId, centerId),
+        eq(request.kind, "surplus"),
+        eq(request.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  if (!r) return null;
+
+  const items = await db
+    .select({
+      id: requestItem.id,
+      supplyId: requestItem.supplyId,
+      name: sql<string>`coalesce(${supply.name}, ${requestItem.customName})`,
+    })
+    .from(requestItem)
+    .leftJoin(supply, eq(supply.id, requestItem.supplyId))
+    .where(eq(requestItem.requestId, r.id))
+    .orderBy(asc(requestItem.createdAt));
+
+  return {
+    id: r.id,
+    reason: r.title,
+    expiresAt: r.expiresAt,
+    windowHours: r.windowHours,
+    items,
   };
 }
 

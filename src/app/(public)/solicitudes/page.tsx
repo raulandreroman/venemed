@@ -1,14 +1,16 @@
+import { Fragment } from "react";
 import type { Metadata } from "next";
 
 import {
   getActiveRequests,
+  getActiveSurplusByCenter,
   type RequestFilters,
   type RequestSort,
 } from "@/db/queries";
 import { centerTypeLabel } from "@/lib/format";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import type { CenterType } from "@/lib/registro/validation";
-import { AppBar, RequestCard } from "@/components/ui";
+import { AppBar, AvisoBanner, RequestCard } from "@/components/ui";
 
 import { FilterSelect } from "./_components/filter-select";
 import { SearchBox } from "./_components/search-box";
@@ -54,10 +56,16 @@ export default async function SolicitudesPage({
 
   // Two cached calls: facets from the full active feed (so chips never
   // disappear while filtering) + the filtered list shown to the donor.
-  const [allActive, requests] = await Promise.all([
+  const [allActive, requests, surplusByCenter] = await Promise.all([
     getActiveRequests({}),
     getActiveRequests(filters),
+    getActiveSurplusByCenter(),
   ]);
+
+  // Each center's active aviso de exceso renders ONCE, as a banner above that
+  // center's first card in the (flat, sorted) feed — so the donor sees what NOT
+  // to bring without reordering the urgency/recency sort.
+  const bannerShown = new Set<string>();
 
   const cities = uniqueSorted(allActive.map((r) => r.city));
   const types = CENTER_TYPE_ENABLED
@@ -110,9 +118,25 @@ export default async function SolicitudesPage({
       {/* Lista */}
       <section className="flex flex-1 flex-col gap-3 px-6 py-4">
         {requests.length > 0 ? (
-          requests.map((request) => (
-            <RequestCard key={request.id} request={request} />
-          ))
+          requests.map((request) => {
+            const aviso = bannerShown.has(request.centerId)
+              ? undefined
+              : surplusByCenter.get(request.centerId);
+            bannerShown.add(request.centerId);
+            return (
+              <Fragment key={request.id}>
+                {aviso && (
+                  <AvisoBanner
+                    variant="donor"
+                    items={aviso.items}
+                    expiresAt={aviso.expiresAt}
+                    reason={aviso.reason}
+                  />
+                )}
+                <RequestCard request={request} />
+              </Fragment>
+            );
+          })
         ) : (
           <EmptyState hasFilters={hasFilters} />
         )}

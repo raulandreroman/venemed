@@ -17,6 +17,7 @@ import {
   numeric,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ---- enums -----------------------------------------------------------------
 export const centerType = pgEnum("center_type", [
@@ -151,38 +152,55 @@ export const supply = pgTable("supply", {
 });
 
 // ---- request (solicitud) ---------------------------------------------------
-export const request = pgTable("request", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  centerId: uuid("center_id")
-    .notNull()
-    .references(() => center.id, { onDelete: "cascade" }),
-  // human-friendly global monotonic display id ("#1044"), matching the Figma
-  // descending numbers. ADD COLUMN … GENERATED ALWAYS AS IDENTITY backfills
-  // existing seeded rows automatically (center-workspace §2c).
-  shortId: bigint("short_id", { mode: "number" }).generatedAlwaysAsIdentity(),
-  kind: requestKind("kind").notNull().default("need"),
-  status: requestStatus("status").notNull().default("draft"),
-  // center-written descriptor for the donor card/detail (data-model §4.4; Figma 30:15714).
-  // NULLABLE in DB so 0001 applies additively over live rows; required at the app
-  // layer for any new request (enforced when center authoring ships).
-  title: varchar("title", { length: 40 }),
-  // per-request delivery instructions shown under "Dónde entregar" — augments the
-  // center's static address with drop-off specifics for THIS request.
-  deliveryInstructions: varchar("delivery_instructions", { length: 120 }),
-  windowHours: smallint("window_hours").notNull(),
-  publishedAt: timestamp("published_at", { withTimezone: true }),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
-  closedAt: timestamp("closed_at", { withTimezone: true }),
-  closedReason: closedReason("closed_reason"),
-  // denormalized at publish for the cached donor list (see data-model.md §8)
-  city: text("city"),
-  categories: text("categories").array(),
-  shareCount: integer("share_count").notNull().default(0),
-  // offline-sync support (see data-model.md §7)
-  idempotencyKey: text("idempotency_key").unique(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+export const request = pgTable(
+  "request",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    centerId: uuid("center_id")
+      .notNull()
+      .references(() => center.id, { onDelete: "cascade" }),
+    // human-friendly global monotonic display id ("#1044"), matching the Figma
+    // descending numbers. ADD COLUMN … GENERATED ALWAYS AS IDENTITY backfills
+    // existing seeded rows automatically (center-workspace §2c).
+    shortId: bigint("short_id", { mode: "number" }).generatedAlwaysAsIdentity(),
+    kind: requestKind("kind").notNull().default("need"),
+    status: requestStatus("status").notNull().default("draft"),
+    // center-written descriptor for the donor card/detail (data-model §4.4; Figma 30:15714).
+    // NULLABLE in DB so 0001 applies additively over live rows; required at the app
+    // layer for any new request (enforced when center authoring ships). For an
+    // aviso de exceso (kind='surplus') the title carries the optional reason.
+    title: varchar("title", { length: 40 }),
+    // per-request delivery instructions shown under "Dónde entregar" — augments the
+    // center's static address with drop-off specifics for THIS request.
+    deliveryInstructions: varchar("delivery_instructions", { length: 120 }),
+    // NULLABLE: an aviso de exceso may be "Sin límite" → window_hours NULL +
+    // expires_at NULL (the expiry cron only flips rows with expires_at <= now(),
+    // so a null expiry never auto-clears). Needs always carry a 12/24/48 window.
+    windowHours: smallint("window_hours"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    closedReason: closedReason("closed_reason"),
+    // denormalized at publish for the cached donor list (see data-model.md §8)
+    city: text("city"),
+    categories: text("categories").array(),
+    shareCount: integer("share_count").notNull().default(0),
+    // offline-sync support (see data-model.md §7)
+    idempotencyKey: text("idempotency_key").unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  // One active aviso de exceso per center (surplus-as-banner): a center can hold
+  // at most one active surplus at a time, while still having any number of active
+  // needs. Partial UNIQUE on center_id WHERE kind='surplus' AND status='active'.
+  // Predicate uses RAW column names as a sql literal so drizzle-kit emits it
+  // verbatim into the WHERE clause.
+  (t) => [
+    uniqueIndex("request_one_active_surplus_per_center")
+      .on(t.centerId)
+      .where(sql`kind = 'surplus' AND status = 'active'`),
+  ],
+);
 
 // ---- request_item ----------------------------------------------------------
 export const requestItem = pgTable("request_item", {

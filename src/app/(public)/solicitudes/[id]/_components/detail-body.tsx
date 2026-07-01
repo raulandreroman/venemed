@@ -1,6 +1,6 @@
 import { ShareSection } from "@/components/share-section";
-import { Button, Countdown, Tag, UrgencyTag } from "@/components/ui";
-import type { RequestDetailData } from "@/db/queries";
+import { AvisoBanner, Button, Countdown, Tag, UrgencyTag } from "@/components/ui";
+import { getActiveSurplusByCenter, type RequestDetailData } from "@/db/queries";
 import { formatDeliveryCutoff, formatShortDate } from "@/lib/format";
 import { ShareCtaButton } from "./share-cta-button";
 
@@ -45,20 +45,19 @@ export function DetailFooter({ req }: { req: RequestDetailData }) {
 
 // ---- active (Figma 20:2) ---------------------------------------------------
 
-function ActiveDetailBody({ req }: { req: RequestDetailData }) {
-  const isSurplus = req.kind === "surplus";
+async function ActiveDetailBody({ req }: { req: RequestDetailData }) {
   const { center } = req;
+  // The center's active aviso de exceso (if any) — surfaced as a banner above
+  // the need detail so donors see what NOT to bring. Banner-only: an aviso is
+  // never its own page (getRequestById guards kind='need').
+  const aviso = (await getActiveSurplusByCenter()).get(req.centerId);
 
   return (
     <>
       {/* tags */}
       <div className="flex flex-wrap items-center gap-2">
         {req.city && <Tag variant="neutral">{req.city}</Tag>}
-        {isSurplus ? (
-          <Tag variant="surplus">No enviar</Tag>
-        ) : (
-          <UrgencyTag expiresAt={req.expiresAt} />
-        )}
+        <UrgencyTag expiresAt={req.expiresAt} />
       </div>
 
       {/* center */}
@@ -74,12 +73,23 @@ function ActiveDetailBody({ req }: { req: RequestDetailData }) {
         <p className="mt-1 text-sm text-neutral-500">{req.centerDescription}</p>
       )}
 
-      {/* countdown (active need + surplus reuse the lifecycle) */}
+      {aviso && (
+        <div className="mt-4">
+          <AvisoBanner
+            variant="donor"
+            items={aviso.items}
+            expiresAt={aviso.expiresAt}
+            reason={aviso.reason}
+          />
+        </div>
+      )}
+
+      {/* countdown */}
       <div className="mt-4">
         <Countdown
           publishedAt={req.publishedAt}
           expiresAt={req.expiresAt}
-          windowHours={req.windowHours}
+          windowHours={req.windowHours ?? 0}
           initialNow={new Date()}
         />
       </div>
@@ -87,16 +97,11 @@ function ActiveDetailBody({ req }: { req: RequestDetailData }) {
       {/* items */}
       <section className="mt-6">
         <h2 className="text-lg font-semibold text-neutral-900">
-          {isSurplus ? "No enviar" : "Qué necesita el centro"}
+          Qué necesita el centro
         </h2>
         <ul className="mt-3 flex flex-col gap-2">
           {req.items.map((item) => (
-            <ItemRow
-              key={item.id}
-              name={item.name}
-              category={item.category}
-              surplus={isSurplus}
-            />
+            <ItemRow key={item.id} name={item.name} category={item.category} />
           ))}
         </ul>
       </section>
@@ -278,24 +283,10 @@ function ClosedDetailBody({ req }: { req: RequestDetailData }) {
 
 // ---- shared bits -----------------------------------------------------------
 
-function ItemRow({
-  name,
-  category,
-  surplus = false,
-}: {
-  name: string;
-  category: string;
-  surplus?: boolean;
-}) {
+function ItemRow({ name, category }: { name: string; category: string }) {
   return (
     <li className="rounded-xl bg-neutral-100 px-4 py-3">
-      <p
-        className={`text-[15px] font-semibold ${
-          surplus ? "text-neutral-500 line-through" : "text-neutral-900"
-        }`}
-      >
-        {name}
-      </p>
+      <p className="text-[15px] font-semibold text-neutral-900">{name}</p>
       <p className="mt-0.5 text-sm text-neutral-500">{category}</p>
     </li>
   );
@@ -377,6 +368,7 @@ function mapQuery(addressLine: string | null, city: string): string {
 }
 
 function shareMessage(req: RequestDetailData): string {
-  const verb = req.kind === "surplus" ? "Ayuda a difundir" : "Ayuda a";
-  return `${verb} ${req.centerName}${req.city ? ` (${req.city})` : ""} en VeneMed:`;
+  // Detail is needs-only (getRequestById guards kind='need'); an aviso de
+  // exceso never reaches here.
+  return `Ayuda a ${req.centerName}${req.city ? ` (${req.city})` : ""} en VeneMed:`;
 }
