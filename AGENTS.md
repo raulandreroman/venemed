@@ -23,7 +23,7 @@ A **time-windowed medical-aid platform for Venezuela**. Health centers (hospital
 - **Supabase** — Postgres (data) + Auth (identity/sessions) + Storage. Provisioned via the **Vercel Marketplace** (lives in a Vercel-managed Supabase org, billed through Vercel).
 - **Drizzle ORM** (`postgres-js`) for all data access.
 - **Auth**: Supabase Auth **email OTP** (6-digit code, `type: "email"`). Migrated off phone/Twilio OTP (migration 0008) — cheaper, more private under the hostile-state threat model (an operator can use a pseudonymous email instead of a carrier-traceable SIM), and no Meta/WhatsApp onboarding blocker. `center.whatsapp_phone` is kept as an **optional, unverified contact field** for delivery coordination.
-- **Hosting**: Vercel (Fluid Compute). Prod: `https://venemed.vercel.app`.
+- **Hosting**: Vercel (Fluid Compute). Prod: `https://venemedapp.org` (custom domain on Namecheap; `venemed.vercel.app` still resolves). Auth email (OTP) sends via **Resend** SMTP from `codigo@venemedapp.org` — configured in the prod Supabase dashboard (Auth → Emails → SMTP + the `{{ .Token }}` template), not in code.
 
 ## Commands
 
