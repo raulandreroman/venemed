@@ -33,22 +33,37 @@ export type ListaItemData = {
   id: string;
   name: string; // supply.name ?? custom_name
   category: string; // lista_item.category (already Spanish)
+  bucket: "need" | "excess";
+  isUrgent: boolean;
 };
 
-export type ListaCardData = {
+/** Fields shared by the donor card and detail shapes (lista-model-v2 §6). */
+type ListaBase = {
   id: string;
   city: string | null;
   centerName: string;
   centerDescription: string | null;
   centerType: string | null;
   publishedAt: Date | null;
+  updatedAt: Date; // freshness line + fresh-first/stale-sink sort key
   categories: string[] | null;
-  items: ListaItemData[];
 };
 
-export type ListaDetailData = ListaCardData & {
+/**
+ * Donor card shape: items pre-derived into the three sections (Urgente /
+ * Necesitamos / No aceptamos) so RequestCard stays dumb.
+ */
+export type ListaCardData = ListaBase & {
+  urgentItems: ListaItemData[]; // bucket=need & isUrgent
+  needItems: ListaItemData[]; // bucket=need & !isUrgent
+  excessItems: ListaItemData[]; // bucket=excess
+  hasUrgent: boolean; // urgentItems.length > 0
+};
+
+export type ListaDetailData = ListaBase & {
   status: "active" | "paused" | "closed" | "draft";
   deliveryInstructions: string | null; // per-lista drop-off note
+  excessReason: string | null; // "No aceptamos" caption
   closedAt: Date | null;
   closedReason: "fulfilled" | "cancelled" | null;
   shareCount: number;
@@ -116,6 +131,7 @@ async function queryActiveListas(
       city: lista.city,
       categories: lista.categories,
       publishedAt: lista.publishedAt,
+      updatedAt: lista.updatedAt,
       centerName: center.name,
       centerDescription: center.description,
       centerType: center.type,
@@ -148,7 +164,13 @@ async function queryActiveListas(
           : undefined,
       ),
     )
-    .orderBy(desc(lista.publishedAt)); // Reciente: newest first (only sort)
+    // Reciente: fresh-first, but sink listas untouched > 7 days to the bottom
+    // (§4.2 D5). SQL-side so `now()` is evaluated at query time, not frozen by
+    // unstable_cache's cached closure.
+    .orderBy(
+      sql`(${lista.updatedAt} < now() - interval '7 days')`,
+      desc(lista.updatedAt),
+    );
 
   const ids = rows.map((r) => r.id);
   const items = ids.length
@@ -158,6 +180,8 @@ async function queryActiveListas(
           listaId: listaItem.listaId,
           name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
           category: listaItem.category,
+          bucket: listaItem.bucket,
+          isUrgent: listaItem.isUrgent,
         })
         .from(listaItem)
         .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -168,20 +192,36 @@ async function queryActiveListas(
   const itemsByLista = new Map<string, ListaItemData[]>();
   for (const it of items) {
     const list = itemsByLista.get(it.listaId) ?? [];
-    list.push({ id: it.id, name: it.name, category: it.category });
+    list.push({
+      id: it.id,
+      name: it.name,
+      category: it.category,
+      bucket: it.bucket,
+      isUrgent: it.isUrgent,
+    });
     itemsByLista.set(it.listaId, list);
   }
 
-  return rows.map((r) => ({
-    id: r.id,
-    city: r.city,
-    centerName: r.centerName,
-    centerDescription: r.centerDescription,
-    centerType: r.centerType,
-    publishedAt: r.publishedAt,
-    categories: r.categories,
-    items: itemsByLista.get(r.id) ?? [],
-  }));
+  return rows.map((r) => {
+    const all = itemsByLista.get(r.id) ?? [];
+    const urgentItems = all.filter((it) => it.bucket === "need" && it.isUrgent);
+    const needItems = all.filter((it) => it.bucket === "need" && !it.isUrgent);
+    const excessItems = all.filter((it) => it.bucket === "excess");
+    return {
+      id: r.id,
+      city: r.city,
+      centerName: r.centerName,
+      centerDescription: r.centerDescription,
+      centerType: r.centerType,
+      publishedAt: r.publishedAt,
+      updatedAt: r.updatedAt,
+      categories: r.categories,
+      urgentItems,
+      needItems,
+      excessItems,
+      hasUrgent: urgentItems.length > 0,
+    };
+  });
 }
 
 /**
@@ -216,8 +256,10 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       status: lista.status,
       city: lista.city,
       deliveryInstructions: lista.deliveryInstructions,
+      excessReason: lista.excessReason,
       categories: lista.categories,
       publishedAt: lista.publishedAt,
+      updatedAt: lista.updatedAt,
       closedAt: lista.closedAt,
       closedReason: lista.closedReason,
       shareCount: lista.shareCount,
@@ -247,6 +289,8 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       id: listaItem.id,
       name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
       category: listaItem.category,
+      bucket: listaItem.bucket,
+      isUrgent: listaItem.isUrgent,
       isFulfilled: listaItem.isFulfilled,
     })
     .from(listaItem)
@@ -258,11 +302,13 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
     id: r.id,
     city: r.city,
     deliveryInstructions: r.deliveryInstructions,
+    excessReason: r.excessReason,
     status: r.status,
     centerName: r.centerName,
     centerDescription: r.centerDescription,
     centerType: r.centerType,
     publishedAt: r.publishedAt,
+    updatedAt: r.updatedAt,
     categories: r.categories,
     closedAt: r.closedAt,
     closedReason: r.closedReason,
@@ -509,6 +555,8 @@ export async function getCenterListaById(
       id: listaItem.id,
       name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
       category: listaItem.category,
+      bucket: listaItem.bucket,
+      isUrgent: listaItem.isUrgent,
     })
     .from(listaItem)
     .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -691,6 +739,8 @@ export async function getCenterListasClosedSince(
           listaId: listaItem.listaId,
           name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
           category: listaItem.category,
+          bucket: listaItem.bucket,
+          isUrgent: listaItem.isUrgent,
         })
         .from(listaItem)
         .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -701,7 +751,13 @@ export async function getCenterListasClosedSince(
   const itemsByLista = new Map<string, ListaItemData[]>();
   for (const it of items) {
     const list = itemsByLista.get(it.listaId) ?? [];
-    list.push({ id: it.id, name: it.name, category: it.category });
+    list.push({
+      id: it.id,
+      name: it.name,
+      category: it.category,
+      bucket: it.bucket,
+      isUrgent: it.isUrgent,
+    });
     itemsByLista.set(it.listaId, list);
   }
 

@@ -52,20 +52,26 @@ export function Chip({ param, value, label, className = "" }: ChipProps) {
   );
 }
 
-/** Non-interactive chip for card item rows ("Acetaminofén 500 mg"). */
+/**
+ * Non-interactive chip for card item rows ("Acetaminofén 500 mg"). `tone`
+ * carries the red-urgent state (bucket=need & isUrgent); `muted` (line-through
+ * for closed/fulfilled) wins if both are set.
+ */
 export function ItemChip({
   children,
   muted = false,
+  tone = "neutral",
 }: {
   children: React.ReactNode;
   muted?: boolean;
+  tone?: "neutral" | "urgent";
 }) {
+  const toneClass =
+    tone === "urgent" ? "bg-error-tint text-error font-medium" : "bg-neutral-100 text-neutral-700";
   return (
     <span
       className={`inline-flex items-center rounded-full px-3 py-1 text-xs ${
-        muted
-          ? "bg-neutral-100 text-neutral-500 line-through"
-          : "bg-neutral-100 text-neutral-700"
+        muted ? "bg-neutral-100 text-neutral-500 line-through" : toneClass
       }`}
     >
       {children}

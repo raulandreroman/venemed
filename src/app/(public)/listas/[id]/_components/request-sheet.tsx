@@ -84,7 +84,7 @@ export function RequestSheet({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Detalle de solicitud"
+      aria-label="Detalle de la lista"
       className="fixed inset-0 z-40"
     >
       {/* scrim — neutral, ~40% (not accent) */}

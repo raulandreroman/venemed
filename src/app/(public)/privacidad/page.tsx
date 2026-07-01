@@ -61,7 +61,7 @@ export default function PrivacidadPage() {
             </Bullet>
             <Bullet>No guardamos tu dirección IP.</Bullet>
             <Bullet>
-              Ver y compartir solicitudes no deja ningún rastro tuyo en nuestros
+              Ver y compartir listas no deja ningún rastro tuyo en nuestros
               sistemas.
             </Bullet>
           </ul>

@@ -1,10 +1,10 @@
 import { ShareSection } from "@/components/share-section";
 import { Button, Tag } from "@/components/ui";
 import type { ListaDetailData } from "@/db/queries";
-import { formatShortDate } from "@/lib/format";
+import { formatListaUpdated, formatShortDate } from "@/lib/format";
 import { ShareCtaButton } from "./share-cta-button";
 
-export const DETAIL_TITLE = "Detalle de solicitud";
+export const DETAIL_TITLE = "Detalle de la lista";
 
 /**
  * Shared detail content for a lista, rendered byte-identical by both the
@@ -22,15 +22,15 @@ export function RequestDetailBody({ req }: { req: ListaDetailData }) {
 }
 
 /**
- * Footer primary CTA. Active listas → "Compartir solicitud" (the core donor
- * action); closed listas → "Ver solicitudes activas" (Figma 20:73).
+ * Footer primary CTA. Active listas → "Compartir lista" (the core donor
+ * action); closed listas → "Ver listas activas" (Figma 20:73).
  */
 export function DetailFooter({ req }: { req: ListaDetailData }) {
   const isClosed = req.status === "closed";
   if (isClosed) {
     return (
       <Button variant="primary" fullWidth href="/listas">
-        Ver solicitudes activas
+        Ver listas activas
       </Button>
     );
   }
@@ -48,6 +48,12 @@ export function DetailFooter({ req }: { req: ListaDetailData }) {
 function ActiveDetailBody({ req }: { req: ListaDetailData }) {
   const { center } = req;
 
+  const urgent = req.items.filter((it) => it.bucket === "need" && it.isUrgent);
+  const necesitamos = req.items.filter(
+    (it) => it.bucket === "need" && !it.isUrgent,
+  );
+  const noAceptamos = req.items.filter((it) => it.bucket === "excess");
+
   return (
     <>
       {/* tags */}
@@ -63,18 +69,62 @@ function ActiveDetailBody({ req }: { req: ListaDetailData }) {
       {req.centerDescription && (
         <p className="mt-1 text-sm text-neutral-500">{req.centerDescription}</p>
       )}
+      <p className="mt-1 text-xs text-neutral-500">
+        {formatListaUpdated(req.updatedAt)}
+      </p>
 
-      {/* items */}
-      <section className="mt-6">
-        <h2 className="text-lg font-semibold text-neutral-900">
-          Qué necesita el centro
-        </h2>
-        <ul className="mt-3 flex flex-col gap-2">
-          {req.items.map((item) => (
-            <ItemRow key={item.id} name={item.name} category={item.category} />
-          ))}
-        </ul>
-      </section>
+      {/* items — Urgente / Necesitamos / No aceptamos */}
+      {urgent.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-lg font-semibold text-neutral-900">Urgente</h2>
+          <ul className="mt-3 flex flex-col gap-2">
+            {urgent.map((item) => (
+              <ItemRow
+                key={item.id}
+                name={item.name}
+                category={item.category}
+                rowClassName="bg-error-tint"
+                textClassName="text-error"
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {necesitamos.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-lg font-semibold text-neutral-900">
+            Necesitamos
+          </h2>
+          <ul className="mt-3 flex flex-col gap-2">
+            {necesitamos.map((item) => (
+              <ItemRow key={item.id} name={item.name} category={item.category} />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {noAceptamos.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-lg font-semibold text-warning">No aceptamos</h2>
+          {req.excessReason && (
+            <p className="mt-0.5 text-sm text-neutral-500">
+              {req.excessReason}
+            </p>
+          )}
+          <ul className="mt-3 flex flex-col gap-2">
+            {noAceptamos.map((item) => (
+              <ItemRow
+                key={item.id}
+                name={item.name}
+                category={item.category}
+                rowClassName="bg-warning-tint"
+                textClassName="text-warning"
+              />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <Divider />
 
@@ -231,10 +281,20 @@ function ClosedDetailBody({ req }: { req: ListaDetailData }) {
 
 // ---- shared bits -----------------------------------------------------------
 
-function ItemRow({ name, category }: { name: string; category: string }) {
+function ItemRow({
+  name,
+  category,
+  rowClassName = "bg-neutral-100",
+  textClassName = "text-neutral-900",
+}: {
+  name: string;
+  category: string;
+  rowClassName?: string;
+  textClassName?: string;
+}) {
   return (
-    <li className="rounded-xl bg-neutral-100 px-4 py-3">
-      <p className="text-[15px] font-semibold text-neutral-900">{name}</p>
+    <li className={`rounded-xl px-4 py-3 ${rowClassName}`}>
+      <p className={`text-[15px] font-semibold ${textClassName}`}>{name}</p>
       <p className="mt-0.5 text-sm text-neutral-500">{category}</p>
     </li>
   );

@@ -4,6 +4,7 @@ type TagVariant =
   | "neutral" // city pill / generic
   | "urgent" // red dot
   | "soon" // amber dot
+  | "excess" // amber "No aceptamos" summary (state, not time)
   | "normal" // neutral dot (low urgency)
   | "fulfilled" // green "Cumplida"
   | "expired"; // muted "Vencida"
@@ -12,6 +13,7 @@ const styles: Record<TagVariant, string> = {
   neutral: "bg-neutral-100 text-neutral-700",
   urgent: "bg-error-tint text-error",
   soon: "bg-warning-tint text-warning",
+  excess: "bg-warning-tint text-warning",
   normal: "bg-neutral-100 text-neutral-700",
   fulfilled: "bg-success-tint text-success",
   expired: "bg-neutral-100 text-neutral-500",

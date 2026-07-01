@@ -13,9 +13,9 @@ import { SortToggle } from "./_components/sort-toggle";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Solicitudes activas · VeneMed",
+  title: "Listas activas · VeneMed",
   description:
-    "Solicitudes activas de centros de salud verificados. Encuentra qué necesitan y compártelo.",
+    "Listas activas de centros de salud verificados. Encuentra qué necesitan y compártelo.",
 };
 
 type SearchParams = {
@@ -69,7 +69,7 @@ export default async function SolicitudesPage({
 
   return (
     <>
-      <AppBar title="Solicitudes activas" backHref="/" />
+      <AppBar title="Listas activas" backHref="/" />
 
       {/* Filtros */}
       <section className="flex flex-col gap-3 border-b border-neutral-100 bg-surface p-6">
@@ -122,14 +122,12 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-neutral-300 px-6 py-12 text-center">
       <p className="text-base font-semibold text-neutral-900">
-        {hasFilters
-          ? "No hay solicitudes que coincidan"
-          : "No hay solicitudes activas"}
+        {hasFilters ? "No hay listas que coincidan" : "No hay listas activas"}
       </p>
       <p className="max-w-[260px] text-sm text-neutral-500">
         {hasFilters
           ? "Prueba con otros filtros o limpia la búsqueda."
-          : "Vuelve pronto: los centros publican nuevas solicitudes con frecuencia."}
+          : "Vuelve pronto: los centros publican nuevas listas con frecuencia."}
       </p>
     </div>
   );

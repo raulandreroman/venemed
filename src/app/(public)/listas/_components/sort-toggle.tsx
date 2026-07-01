@@ -36,7 +36,7 @@ export function SortToggle() {
       <span className="text-[13px] text-neutral-500">Ordenar por</span>
       <div
         role="tablist"
-        aria-label="Ordenar solicitudes"
+        aria-label="Ordenar listas"
         data-pending={isPending || undefined}
         className="inline-flex items-center gap-1 rounded-full bg-neutral-100 p-1"
       >
