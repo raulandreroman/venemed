@@ -124,17 +124,51 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* Privacy reassurance */}
+      <section className="bg-surface px-6 pb-8 pt-2">
+        <div className="flex flex-col gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-5">
+          <div className="flex items-center gap-2">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700">
+              <ShieldIcon />
+            </span>
+            <p className="text-lg font-semibold text-neutral-900">
+              Tus datos, protegidos
+            </p>
+          </div>
+          <ul className="flex flex-col gap-2 text-sm leading-relaxed text-neutral-600">
+            <li className="flex gap-2.5">
+              <Dot />
+              <span>Los donantes son anónimos: sin cuenta y sin rastreo.</span>
+            </li>
+            <li className="flex gap-2.5">
+              <Dot />
+              <span>La identidad de las personas de los centros nunca es pública.</span>
+            </li>
+            <li className="flex gap-2.5">
+              <Dot />
+              <span>No vendemos datos ni mostramos publicidad.</span>
+            </li>
+          </ul>
+          <Link
+            href="/privacidad"
+            className="w-fit text-sm font-semibold text-accent"
+          >
+            Leer la política de privacidad  →
+          </Link>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="flex flex-col gap-3.5 bg-neutral-50 px-6 py-8">
         <p className="text-lg font-bold text-neutral-900">VeneMed</p>
         <p className="text-sm text-neutral-500">
           Ayuda que llega a tiempo, sin desperdicio.
         </p>
-        <nav className="flex gap-[18px] pt-2 text-sm font-medium text-neutral-700">
+        <nav className="flex flex-wrap gap-[18px] pt-2 text-sm font-medium text-neutral-700">
           <Link href="/">Sobre</Link>
           <Link href="/centro">Centros</Link>
           <Link href="/solicitudes">Cómo ayudar</Link>
-          <Link href="/">Contacto</Link>
+          <Link href="/privacidad">Privacidad</Link>
         </nav>
         <div className="flex gap-[18px] text-xs font-medium text-neutral-500">
           <span>Instagram</span>
@@ -153,6 +187,33 @@ function Stat({ value, label }: { value: string; label: string }) {
       <p className="text-lg font-semibold text-neutral-900">{value}</p>
       <p className="text-xs text-neutral-500">{label}</p>
     </div>
+  );
+}
+
+function Dot() {
+  return (
+    <span
+      aria-hidden
+      className="mt-2 size-1.5 shrink-0 rounded-full bg-neutral-300"
+    />
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+    </svg>
   );
 }
 
