@@ -1,7 +1,7 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq, ne, notExists } from "drizzle-orm";
 import { db } from "@/db";
-import { appUser } from "@/db/schema";
+import { appUser, membership } from "@/db/schema";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentCenter } from "./current-center";
 
@@ -33,23 +33,47 @@ export async function resolveLoginDestination(): Promise<string> {
   const email = user.email?.trim().toLowerCase() || undefined;
   const now = new Date();
 
-  await db
-    .insert(appUser)
-    .values({
-      id: user.id,
-      email,
-      emailVerifiedAt: now,
-      lastLoginAt: now,
-    })
-    .onConflictDoUpdate({
-      target: appUser.id,
-      set: {
+  await db.transaction(async (tx) => {
+    // Reconcile a divergent/stale row: `email` is UNIQUE, so if it's currently
+    // held by a DIFFERENT app_user id (a legacy row whose auth user was
+    // deleted+recreated with a new uid) the id-targeted upsert below would hit
+    // `app_user_email_unique` and 500. Drop that row FIRST — but only when it
+    // has NO membership, so a real center is never affected.
+    if (email) {
+      await tx
+        .delete(appUser)
+        .where(
+          and(
+            eq(appUser.email, email),
+            ne(appUser.id, user.id),
+            notExists(
+              tx
+                .select({ id: membership.id })
+                .from(membership)
+                .where(eq(membership.userId, appUser.id)),
+            ),
+          ),
+        );
+    }
+
+    await tx
+      .insert(appUser)
+      .values({
+        id: user.id,
         email,
         emailVerifiedAt: now,
         lastLoginAt: now,
-        updatedAt: now,
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: appUser.id,
+        set: {
+          email,
+          emailVerifiedAt: now,
+          lastLoginAt: now,
+          updatedAt: now,
+        },
+      });
+  });
 
   // (2) Admins short-circuit BEFORE membership routing. The upsert above never
   //     touches is_platform_admin (onConflictDoUpdate.set omits it), so the
