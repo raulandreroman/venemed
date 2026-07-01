@@ -11,6 +11,7 @@ import { requireCenter } from "@/lib/auth/require-center";
 
 import { CenterRequestCard } from "./_components/center-request-card";
 import { DashboardHeader } from "./_components/dashboard-header";
+import { ModoOperadorBanner } from "./_components/modo-operador-banner";
 
 const CREATE_HREF = "/centro/solicitudes/nueva";
 
@@ -64,6 +65,12 @@ export default async function CenterDashboardPage({
   return (
     <>
       <DashboardHeader centerName={center.centerName} />
+
+      {center.role === "center_member" && (
+        <div className="px-4 pt-4">
+          <ModoOperadorBanner />
+        </div>
+      )}
 
       {aviso && (
         <div className="px-4 pt-4">

@@ -64,6 +64,13 @@
       "when": 1783000000000,
       "tag": "0008_email_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783050000000,
+      "tag": "0009_faithful_menace",
+      "breakpoints": true
     }
   ]
 }

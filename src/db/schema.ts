@@ -7,6 +7,7 @@ import {
   pgTable,
   pgEnum,
   uniqueIndex,
+  index,
   uuid,
   text,
   varchar,
@@ -148,6 +149,43 @@ export const membership = pgTable(
   // where two concurrent verified submissions both pass the app-level pre-check
   // and create duplicate centers + memberships for the same user.
   (t) => [uniqueIndex("membership_user_id_key").on(t.userId)],
+);
+
+// ---- invitation (team invites — single-use, tokenized, shareable link) -----
+export const invitationStatus = pgEnum("invitation_status", [
+  "pending",
+  "accepted",
+  "revoked",
+  "expired",
+]);
+
+export const invitation = pgTable(
+  "invitation",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    centerId: uuid("center_id")
+      .notNull()
+      .references(() => center.id, { onDelete: "cascade" }),
+    // SHA-256 hex of the raw 32-byte token. The raw token lives ONLY in the URL
+    // — it is never persisted or logged (see src/lib/team/token.ts).
+    tokenHash: text("token_hash").notNull(),
+    role: memberRole("role").notNull().default("center_member"),
+    label: varchar("label", { length: 60 }), // optional "Nombre" the Responsable gives the invite
+    invitedBy: uuid("invited_by")
+      .notNull()
+      .references(() => appUser.id),
+    status: invitationStatus("status").notNull().default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedBy: uuid("accepted_by").references(() => appUser.id),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    // SECURITY: unique hash lookup — the raw token never touches a WHERE clause.
+    uniqueIndex("invitation_token_hash_key").on(t.tokenHash),
+    index("invitation_center_status_idx").on(t.centerId, t.status),
+  ],
 );
 
 // ---- supply (catalog) ------------------------------------------------------
