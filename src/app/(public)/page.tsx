@@ -11,7 +11,7 @@ export const revalidate = 60;
 const STEPS = [
   {
     n: 1,
-    title: "El centro publica una solicitud",
+    title: "El centro publica su lista",
     body: "El hospital o clínica detalla qué necesita.",
   },
   {
@@ -21,8 +21,8 @@ const STEPS = [
   },
   {
     n: 3,
-    title: "La ventana se cierra a tiempo",
-    body: "De esta forma evitamos que se pierdan donaciones.",
+    title: "La lista se mantiene al día",
+    body: "Los centros confirman lo que sigue vigente; lo desactualizado baja de prioridad.",
   },
 ];
 
@@ -62,13 +62,13 @@ export default async function LandingPage() {
           pierda.
         </p>
         <Button href="/listas" variant="primary" fullWidth>
-          Ver solicitudes activas
+          Ver listas activas
         </Button>
       </section>
 
       {/* Live stats */}
       <section className="flex items-center justify-between border-y border-neutral-300 bg-surface px-6 py-4">
-        <Stat value={String(stats.activeRequests)} label="solicitudes" />
+        <Stat value={String(stats.activeRequests)} label="listas" />
         <div className="h-8 w-px bg-neutral-300" />
         <Stat value={String(stats.approvedCenters)} label="centros" />
         <div className="h-8 w-px bg-neutral-300" />
@@ -104,7 +104,7 @@ export default async function LandingPage() {
           href="/listas"
           className="flex items-center justify-center py-4 text-sm font-semibold text-accent"
         >
-          Ver todas las solicitudes  →
+          Ver todas las listas  →
         </Link>
       </section>
 
@@ -115,8 +115,7 @@ export default async function LandingPage() {
             ¿Trabajas en un hospital, refugio o casa de cuidado?
           </p>
           <p className="text-sm leading-5 text-neutral-700">
-            Recibe solo lo que tu centro puede procesar. Activa solicitudes con
-            ventanas de tiempo y evita el colapso.
+            Publica una lista de lo que puedes recibir y evita el colapso.
           </p>
           <Button href="/centro" variant="primary" fullWidth>
             Solicitar acceso al portal

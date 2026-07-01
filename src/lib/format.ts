@@ -156,6 +156,14 @@ export function isListaStale(
   return now.getTime() - toDate(date).getTime() >= days * DAY;
 }
 
+/** "Actualizada hace 5 días" — donor card + detail freshness line (§6). */
+export function formatListaUpdated(
+  date: Date | string | null,
+  now: Date = new Date(),
+): string {
+  return date ? `Actualizada ${formatUpdatedAgo(date, now)}` : "";
+}
+
 /** closed_reason enum -> Spanish tag label. */
 export function closedReasonLabel(value: string | null): string {
   const map: Record<string, string> = {

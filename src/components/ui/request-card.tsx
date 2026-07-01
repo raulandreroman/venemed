@@ -1,5 +1,5 @@
 import type { ListaCardData } from "@/db/queries";
-import { formatRequestedClock } from "@/lib/format";
+import { formatListaUpdated } from "@/lib/format";
 import { Button } from "./button";
 import { Card } from "./card";
 import { ItemChip } from "./chip";
@@ -13,20 +13,30 @@ const MAX_VISIBLE_ITEMS = 4;
  * per-card title, no countdown (see lista-model-v2 §3d/§4).
  */
 export function RequestCard({ request }: { request: ListaCardData }) {
-  const items = request.items;
-  const visible = items.slice(0, MAX_VISIBLE_ITEMS);
-  const overflow = items.length - visible.length;
+  // Urgent items surface first; excess items are a separate summary pill
+  // below, never counted toward the "+N más" overflow.
+  const chips = [...request.urgentItems, ...request.needItems];
+  const visible = chips.slice(0, MAX_VISIBLE_ITEMS);
+  const overflow = chips.length - visible.length;
 
   const shareMessage = `Ayuda a ${request.centerName}${
     request.city ? ` (${request.city})` : ""
   } en VeneMed:`;
 
   return (
-    <Card data-testid="request-card" data-center-name={request.centerName}>
+    <Card
+      data-testid="request-card"
+      data-center-name={request.centerName}
+      data-has-urgent={request.hasUrgent || undefined}
+    >
       {/* header pills */}
       <div className="flex items-center justify-between gap-2">
         {request.city ? <Tag variant="neutral">{request.city}</Tag> : <span />}
-        <span />
+        {request.hasUrgent && (
+          <Tag variant="urgent" dot>
+            Urgente
+          </Tag>
+        )}
       </div>
 
       {/* center */}
@@ -40,11 +50,16 @@ export function RequestCard({ request }: { request: ListaCardData }) {
       )}
 
       {/* items */}
-      {visible.length > 0 && (
+      {chips.length > 0 && (
         <div className="mt-3">
           <div className="flex flex-wrap gap-1.5">
             {visible.map((item) => (
-              <ItemChip key={item.id}>{item.name}</ItemChip>
+              <ItemChip
+                key={item.id}
+                tone={item.isUrgent ? "urgent" : "neutral"}
+              >
+                {item.name}
+              </ItemChip>
             ))}
             {overflow > 0 && (
               <span className="inline-flex items-center rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-medium text-accent">
@@ -55,9 +70,19 @@ export function RequestCard({ request }: { request: ListaCardData }) {
         </div>
       )}
 
-      {/* requested-at meta */}
+      {/* no aceptamos summary */}
+      {request.excessItems.length > 0 && (
+        <Tag
+          variant="excess"
+          className="mt-2 max-w-full whitespace-normal text-left"
+        >
+          No aceptamos: {request.excessItems.map((it) => it.name).join(", ")}
+        </Tag>
+      )}
+
+      {/* freshness meta */}
       <p className="mt-3 text-xs text-neutral-500">
-        {formatRequestedClock(request.publishedAt)}
+        {formatListaUpdated(request.updatedAt)}
       </p>
 
       {/* footer */}
@@ -73,7 +98,7 @@ export function RequestCard({ request }: { request: ListaCardData }) {
           href={`/listas/${request.id}`}
           className="flex-1"
         >
-          Ver detalle
+          Ver más
         </Button>
       </div>
     </Card>

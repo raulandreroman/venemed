@@ -47,7 +47,7 @@ export function SearchBox() {
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="Buscar por centro, ciudad o ayuda…"
-        aria-label="Buscar solicitudes"
+        aria-label="Buscar listas"
         className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
       />
     </div>

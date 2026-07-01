@@ -6,7 +6,7 @@ import { recordShare } from "@/app/actions/share";
 import { Button } from "@/components/ui";
 
 /**
- * Footer primary CTA for an active request: "Compartir solicitud".
+ * Footer primary CTA for an active request: "Compartir lista".
  * Sharing is the core donor action (replaces the old "Volver"; back is handled
  * by the AppBar arrow / sheet dismiss).
  *
@@ -46,7 +46,7 @@ export function ShareCtaButton({
 
   return (
     <Button variant="primary" fullWidth onClick={onClick}>
-      Compartir solicitud
+      Compartir lista
     </Button>
   );
 }

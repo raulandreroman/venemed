@@ -25,22 +25,22 @@ test.describe("donor surge path", () => {
       page.getByRole("heading", { name: /El puente directo/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Ver solicitudes activas" }),
+      page.getByRole("link", { name: "Ver listas activas" }),
     ).toBeVisible();
     await expectNoErrorOverlay(page);
   });
 
-  test("solicitudes list renders", async ({ page }) => {
+  test("listas list renders", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "Ver solicitudes activas" }).click();
+    await page.getByRole("link", { name: "Ver listas activas" }).click();
     await expect(page).toHaveURL(/\/listas$/);
     await expect(
-      page.getByRole("heading", { name: "Solicitudes activas" }),
+      page.getByRole("heading", { name: "Listas activas" }),
     ).toBeVisible();
     await expectNoErrorOverlay(page);
   });
 
-  test("Ver detalle opens the intercepted sheet matching the card", async ({
+  test("Ver más opens the intercepted sheet matching the card", async ({
     page,
   }) => {
     await page.goto("/listas");
@@ -48,16 +48,38 @@ test.describe("donor surge path", () => {
     const count = await cards.count();
     test.skip(count === 0, "no active requests available to open");
 
+    // Every rendered card exposes a non-empty data-center-name (one card per
+    // center, enforced by the schema — not something a data-independent spec
+    // can prove by count).
+    const centerNames = await cards.evaluateAll((els) =>
+      els.map((el) => el.getAttribute("data-center-name")),
+    );
+    for (const name of centerNames) {
+      expect(name, "card should expose data-center-name").toBeTruthy();
+    }
+    if (centerNames.length > 1) {
+      expect(new Set(centerNames).size).toBe(centerNames.length);
+    }
+
     const card = cards.first();
     const centerName = await card.getAttribute("data-center-name");
-    expect(centerName, "card should expose data-center-name").toBeTruthy();
 
-    await card.getByRole("link", { name: "Ver detalle" }).click();
+    await card.getByRole("link", { name: "Ver más" }).click();
 
-    const sheet = page.getByRole("dialog", { name: "Detalle de solicitud" });
+    const sheet = page.getByRole("dialog", { name: "Detalle de la lista" });
     await expect(sheet).toBeVisible();
     // The opened sheet shows the SAME center as the clicked card.
     await expect(sheet.getByText(centerName!).first()).toBeVisible();
+    // At least one of the three sections (Urgente / Necesitamos / No
+    // aceptamos) renders — which ones depends on seed data.
+    const sectionCount = await sheet
+      .getByText(/Urgente|Necesitamos|No aceptamos/)
+      .count();
+    expect(sectionCount).toBeGreaterThan(0);
+    // No leftover countdown/expiry copy from the retired time-window model.
+    await expect(
+      sheet.getByText(/vence|ventana|cuenta regresiva/i),
+    ).toHaveCount(0);
     await expectNoErrorOverlay(page);
   });
 });
