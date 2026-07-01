@@ -1,33 +1,26 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui";
-import { getCenterListas, type CenterListaCardData } from "@/db/queries";
+import { getCenterDashboardLista } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
+import { formatUpdatedAgo, isListaStale } from "@/lib/format";
 
-import { CenterRequestCard } from "./_components/center-request-card";
+import { ConnectionBanner } from "./_components/connection-banner";
+import { DashboardError } from "./_components/dashboard-error";
 import { DashboardHeader } from "./_components/dashboard-header";
+import { FreshnessCard } from "./_components/freshness-card";
+import { ListaSections } from "./_components/lista-sections";
+import { ShareListaButton } from "./_components/share-lista-button";
 
-const CREATE_HREF = "/centro/lista/nueva";
-
-type SearchParams = { estado?: string };
-
-const FILTERS = [
-  { value: "todas", label: "Todas" },
-  { value: "activas", label: "Activas" },
-  { value: "inactivas", label: "Inactivas" },
-] as const;
+const EDITOR_HREF = "/centro/lista/editar";
 
 /**
- * Center dashboard (Figma 8:1009). Read-only: the center's own requests scoped
- * server-side by center_id, split into Activas (active/paused) and Inactivas
- * (closed/expired), with a Todas/Activas/Inactivas filter bar (URL `?estado=`).
+ * Center dashboard v2 (Figma 210:11795 · needs-only 210:13213 · vacío
+ * 210:13030 · error 210:13091). lista-model-v2: one evergreen lista per
+ * center, no windows/countdown — the read is a single `getCenterDashboardLista`
+ * call (uncached, center-scoped), not a filtered list.
  */
-export default async function CenterDashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
+export default async function CenterDashboardPage() {
   const center = await requireCenter();
   if (center.status === "pending_review") redirect("/centro/en-revision");
   if (center.status === "rejected" || center.status === "suspended") {
@@ -35,110 +28,69 @@ export default async function CenterDashboardPage({
   }
   // status === "approved" → render dashboard
 
-  const { estado } = await searchParams;
-  const filter =
-    estado === "activas" || estado === "inactivas" ? estado : "todas";
+  let lista;
+  try {
+    lista = await getCenterDashboardLista(center.centerId);
+  } catch {
+    return (
+      <>
+        <DashboardHeader centerName={center.centerName} />
+        <ConnectionBanner />
+        <DashboardError />
+      </>
+    );
+  }
 
-  const requests = await getCenterListas(center.centerId);
-  const isEmpty = requests.length === 0;
-  const activas = requests.filter(
-    (r) => r.status === "active" || r.status === "paused",
-  );
-  const inactivas = requests.filter((r) => r.status === "closed");
+  if (!lista) {
+    return (
+      <>
+        <DashboardHeader centerName={center.centerName} />
+        <ConnectionBanner />
+        <EmptyState />
+      </>
+    );
+  }
 
-  // Under "todas" hide an empty section; under a specific tab show its empty note.
-  const showActivas =
-    filter === "activas" || (filter === "todas" && activas.length > 0);
-  const showInactivas =
-    filter === "inactivas" || (filter === "todas" && inactivas.length > 0);
+  const insumos = lista.items.filter((it) => it.bucket === "need").length;
+  const urgentes = lista.items.filter(
+    (it) => it.bucket === "need" && it.isUrgent,
+  ).length;
+  const noAceptados = lista.items.filter((it) => it.bucket === "excess").length;
+  const updatedAgo = formatUpdatedAgo(lista.updatedAt);
+  const stale = isListaStale(lista.updatedAt);
 
   return (
     <>
       <DashboardHeader centerName={center.centerName} />
+      <ConnectionBanner />
 
-      {isEmpty ? (
-        <EmptyState />
-      ) : (
-        <>
-          <main className="flex flex-1 flex-col gap-5 px-4 pb-24 pt-4">
-            <FilterChips active={filter} />
+      <main className="flex flex-1 flex-col gap-5 px-4 pb-24 pt-4">
+        <div>
+          <p className="text-sm text-neutral-500">
+            {insumos} {insumos === 1 ? "insumo" : "insumos"} · {urgentes}{" "}
+            {urgentes === 1 ? "urgente" : "urgentes"} · {noAceptados}{" "}
+            {noAceptados === 1 ? "no aceptado" : "no aceptados"}
+          </p>
+          <p className="text-sm text-neutral-400">Actualizada {updatedAgo}</p>
+        </div>
 
-            {showActivas && (
-              <RequestSection
-                title="Solicitudes activas"
-                requests={activas}
-                emptyText="No tienes solicitudes activas."
-              />
-            )}
-            {showInactivas && (
-              <RequestSection
-                title="Solicitudes inactivas"
-                requests={inactivas}
-                emptyText="No tienes solicitudes inactivas."
-              />
-            )}
-          </main>
+        {stale && <FreshnessCard updatedAgo={updatedAgo} />}
 
-          {/* sticky create CTA */}
-          <footer className="sticky bottom-0 z-20 border-t border-neutral-100 bg-background px-4 py-3">
-            <Button href={CREATE_HREF} fullWidth>
-              <PlusIcon />
-              Crear solicitud
-            </Button>
-          </footer>
-        </>
-      )}
+        <ListaSections items={lista.items} />
+      </main>
+
+      <footer className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-neutral-100 bg-background px-4 py-3">
+        <Button href={EDITOR_HREF} fullWidth>
+          Editar lista
+        </Button>
+        <ShareListaButton listaId={lista.id} />
+      </footer>
     </>
   );
 }
 
-function FilterChips({ active }: { active: string }) {
-  return (
-    <div className="flex gap-2">
-      {FILTERS.map((f) => {
-        const isActive = active === f.value;
-        const href = f.value === "todas" ? "/centro" : `/centro?estado=${f.value}`;
-        return (
-          <Link
-            key={f.value}
-            href={href}
-            aria-current={isActive ? "page" : undefined}
-            className={`inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              isActive
-                ? "bg-accent text-accent-on"
-                : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
-            }`}
-          >
-            {f.label}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
-function RequestSection({
-  title,
-  requests,
-  emptyText,
-}: {
-  title: string;
-  requests: CenterListaCardData[];
-  emptyText: string;
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-xl font-bold text-neutral-900">{title}</h2>
-      {requests.length > 0 ? (
-        requests.map((r) => <CenterRequestCard key={r.id} request={r} />)
-      ) : (
-        <p className="py-4 text-sm text-neutral-500">{emptyText}</p>
-      )}
-    </section>
-  );
-}
-
-/** Empty state — Figma 4b (32:4873). The centered CTA replaces the sticky footer. */
+/** Empty state (Figma "Vacío" 210:13030). The centered CTA replaces the sticky
+ * footer — no lista published yet. */
 function EmptyState() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 px-6 pb-12 text-center">
@@ -146,15 +98,15 @@ function EmptyState() {
         <BoxIcon />
       </span>
       <h2 className="text-xl font-bold text-neutral-900">
-        Aún no tienes solicitudes
+        Aún no tienes una lista
       </h2>
       <p className="max-w-[300px] text-sm text-neutral-500">
-        Crea tu primera solicitud para que los donantes sepan exactamente qué
+        Crea tu primera lista para que los donantes sepan exactamente qué
         necesita el centro ahora mismo.
       </p>
-      <Button href={CREATE_HREF}>
+      <Button href={EDITOR_HREF}>
         <PlusIcon />
-        Crear solicitud
+        Crear mi primera lista
       </Button>
     </main>
   );

@@ -8,22 +8,28 @@
  */
 
 export const INSTRUCTIONS_MAX = 120;
+export const EXCESS_REASON_MAX = 40;
 
-/** One selected donation item: a catalog supply OR a free-text custom name. */
+/** One selected donation item: a catalog supply OR a free-text custom name,
+ * bucketed as a need (donor should bring) or an excess (donor should NOT
+ * bring). `isUrgent` is meaningful only for `bucket === "need"`. */
 export type PublishListaItemInput = {
   supplyId?: string;
   customName?: string;
+  bucket: "need" | "excess";
+  isUrgent?: boolean;
 };
 
 export type PublishListaInput = {
   deliveryInstructions?: string;
+  excessReason?: string;
   items: PublishListaItemInput[];
   /** client-generated, stable per attempt → dedupes a double-submit. */
   idempotencyKey: string;
 };
 
 export type PublishFieldErrors = Partial<
-  Record<"deliveryInstructions" | "items", string>
+  Record<"deliveryInstructions" | "excessReason" | "items", string>
 >;
 
 export function validatePublishLista(
@@ -35,15 +41,21 @@ export function validatePublishLista(
   if (instructions.length > INSTRUCTIONS_MAX)
     errors.deliveryInstructions = `Máximo ${INSTRUCTIONS_MAX} caracteres.`;
 
+  const excessReason = input.excessReason?.trim() ?? "";
+  if (excessReason.length > EXCESS_REASON_MAX)
+    errors.excessReason = `Máximo ${EXCESS_REASON_MAX} caracteres.`;
+
   const items = input.items ?? [];
-  if (items.length === 0) {
+  const hasNeed = items.some((it) => it.bucket === "need");
+  if (!hasNeed) {
     errors.items = "Agrega al menos un insumo.";
   } else {
     const allValid = items.every((it) => {
       const hasSupply = !!it.supplyId;
       const hasCustom = !!it.customName?.trim();
-      // exactly one of the two
-      return hasSupply !== hasCustom;
+      const validBucket = it.bucket === "need" || it.bucket === "excess";
+      // exactly one of supplyId/customName
+      return hasSupply !== hasCustom && validBucket;
     });
     if (!allValid) errors.items = "Hay un insumo inválido.";
   }

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
 import { notFound, redirect } from "next/navigation";
 
@@ -106,10 +106,49 @@ export async function reactivateLista(listaId: string): Promise<void> {
       closedAt: null,
       closedReason: null,
       publishedAt: now,
+      // Reset the freshness clock too — otherwise a just-reactivated lista
+      // keeps its old updatedAt and the ≥3d "sigue vigente?" card can appear
+      // immediately (schema has no $onUpdate for this column).
+      updatedAt: sql`now()`,
     })
     .where(and(eq(lista.id, listaId), eq(lista.centerId, centerId)));
 
   revalidateLista(listaId);
 
   redirect("/centro");
+}
+
+/**
+ * Reconfirm the logged-in center's evergreen lista is still current (the
+ * dashboard's "¿Sigue vigente?" freshness card — appears once `updatedAt` is
+ * ≥3 days old). A content-free touch: bumps `updatedAt` to now without
+ * changing status or items. Resolves the center's single active|paused lista
+ * server-side (never a client-supplied id); a no-op if none exists.
+ *
+ * Returns void (no redirect) — the caller does `router.refresh()`, and the
+ * dashboard read is uncached so it re-renders with the bumped `updatedAt`
+ * (the freshness card then evaluates false and disappears).
+ */
+export async function confirmVigente(): Promise<void> {
+  const current = await requireCenter();
+  if (current.status !== "approved") {
+    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
+  }
+  const { centerId } = current;
+
+  const [row] = await db
+    .select({ id: lista.id })
+    .from(lista)
+    .where(
+      and(eq(lista.centerId, centerId), inArray(lista.status, ["active", "paused"])),
+    )
+    .limit(1);
+  if (!row) return;
+
+  await db
+    .update(lista)
+    .set({ updatedAt: sql`now()` })
+    .where(and(eq(lista.id, row.id), eq(lista.centerId, centerId)));
+
+  revalidateLista(row.id);
 }
