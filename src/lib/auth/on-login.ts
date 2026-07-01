@@ -1,7 +1,8 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq, ne, notExists } from "drizzle-orm";
 import { db } from "@/db";
-import { appUser } from "@/db/schema";
+import { appUser, membership } from "@/db/schema";
+import { normalizeVePhone } from "@/lib/registro/validation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentCenter } from "./current-center";
 
@@ -27,28 +28,58 @@ export async function resolveLoginDestination(): Promise<string> {
   } = await supabase.auth.getUser();
   if (!user) return "/centro/login"; // defensive; should not happen post-verify
 
-  // (1) Upsert app_user with id = auth uid. Phone comes from the verified
-  // session. Supabase stores phone WITHOUT the leading '+'; we persist WITH it
-  // for consistency with center.whatsapp_phone.
-  const phone = user.phone ? `+${user.phone}` : null;
+  // (1) Upsert app_user with id = auth uid. The verified session phone is
+  // normalized to the SAME canonical +58XXXXXXXXXX form the rest of the app uses
+  // (registration, center.whatsapp_phone) — Supabase may store it with a trunk 0
+  // (e.g. "5804241234567") if an OTP was ever sent un-normalized, so we must
+  // canonicalize here too or app_user.phone diverges. See AGENTS.md gotcha #4.
+  const phone =
+    normalizeVePhone(user.phone) ?? (user.phone ? `+${user.phone}` : null);
   const now = new Date();
-  await db
-    .insert(appUser)
-    .values({
-      id: user.id,
-      phone: phone ?? user.id, // phone is NOT NULL + unique; verified phone always present here
-      phoneVerifiedAt: now,
-      lastLoginAt: now,
-    })
-    .onConflictDoUpdate({
-      target: appUser.id,
-      set: {
-        phone: phone ?? undefined,
+
+  await db.transaction(async (tx) => {
+    // Reconcile a divergent/stale row: the canonical phone has a UNIQUE
+    // constraint, so if it's currently held by a DIFFERENT app_user id (a legacy
+    // row from before login canonicalized the trunk 0) the id-targeted upsert
+    // below would hit `app_user_phone_unique` and 500. Drop that row FIRST — but
+    // only when it has NO membership, so a real center is never affected. (After
+    // the login-form normalization fix, this can only be pre-existing legacy
+    // data; new logins never create a divergence.)
+    if (phone) {
+      await tx
+        .delete(appUser)
+        .where(
+          and(
+            eq(appUser.phone, phone),
+            ne(appUser.id, user.id),
+            notExists(
+              tx
+                .select({ id: membership.id })
+                .from(membership)
+                .where(eq(membership.userId, appUser.id)),
+            ),
+          ),
+        );
+    }
+
+    await tx
+      .insert(appUser)
+      .values({
+        id: user.id,
+        phone: phone ?? user.id, // phone is NOT NULL + unique; verified phone always present here
         phoneVerifiedAt: now,
         lastLoginAt: now,
-        updatedAt: now,
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: appUser.id,
+        set: {
+          phone: phone ?? undefined,
+          phoneVerifiedAt: now,
+          lastLoginAt: now,
+          updatedAt: now,
+        },
+      });
+  });
 
   // (2) Admins short-circuit BEFORE membership routing. The upsert above never
   //     touches is_platform_admin (onConflictDoUpdate.set omits it), so the

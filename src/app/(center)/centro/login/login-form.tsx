@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useRef, useState, type FormEvent } from "react";
 import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
+import { normalizeVePhone } from "@/lib/registro/validation";
 import { createClient } from "@/lib/supabase/client";
 import { OtpStep } from "../../_components/otp-step";
 import { finishLogin } from "../../actions/auth";
@@ -26,13 +27,15 @@ export function LoginForm({ channel = "sms" }: { channel?: Channel }) {
   const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
   const captchaRef = useRef<CaptchaHandle>(null);
 
-  const national = nationalNumber.replace(/\D/g, "");
-  const phoneE164 = `+58${national}`;
+  // Canonical E.164 (+58XXXXXXXXXX), trunk-0 stripped — MUST match how
+  // registration normalizes, or the same human number yields two Supabase auth
+  // users (see AGENTS.md gotcha #4). null until a valid 10-digit number.
+  const phoneE164 = normalizeVePhone(nationalNumber);
 
   const onSubmitPhone = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
-      if (national.length < 7) {
+      if (!phoneE164) {
         setError("Ingresa un número de teléfono válido.");
         return;
       }
@@ -62,14 +65,14 @@ export function LoginForm({ channel = "sms" }: { channel?: Channel }) {
       }
       setStep("otp");
     },
-    [national, phoneE164, channel],
+    [phoneE164, channel],
   );
 
   if (step === "otp") {
     return (
       <OtpStep
-        phoneE164={phoneE164}
-        nationalNumber={national}
+        phoneE164={phoneE164 ?? ""}
+        nationalNumber={phoneE164?.slice(3) ?? ""}
         channel={channel}
         onChangeNumber={() => {
           setStep("phone");
