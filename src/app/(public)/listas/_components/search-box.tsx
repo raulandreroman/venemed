@@ -48,7 +48,9 @@ export function SearchBox() {
         onChange={(e) => setValue(e.target.value)}
         placeholder="Buscar por centro, ciudad o ayuda…"
         aria-label="Buscar listas"
-        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
+        // text-base (16px) — iOS Safari zooms the viewport on focus for any
+        // input under 16px; keep it ≥16px to prevent the zoom (issue #66).
+        className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-neutral-500"
       />
     </div>
   );
