@@ -1,10 +1,9 @@
 import { eq } from "drizzle-orm";
-import { redirect } from "next/navigation";
 import { AppBar } from "@/components/ui";
 import { db } from "@/db";
 import { appUser, center } from "@/db/schema";
-import { getCurrentCenter } from "@/lib/auth/current-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
+import { requireResponsable } from "@/lib/auth/require-responsable";
 import { vePhoneToNational, type CenterType } from "@/lib/registro/validation";
 import type { CenterDatosValues } from "../_components/center-datos-form";
 import { EditCenterForm } from "./edit-center-form";
@@ -16,11 +15,10 @@ import { EditCenterForm } from "./edit-center-form";
  * submits to `updateCenterForCurrentUser`. No OTP here.
  */
 export default async function EditarPage() {
-  const session = await getCurrentCenter();
-  if (session.kind === "anon") redirect("/centro/login");
-  if (session.kind === "no-membership") redirect("/centro/registro");
-
-  const { centerId, userId, status } = session.center;
+  // Responsable-only: matches the mutation's authorization boundary. Composes
+  // requireCenter() (anon → /centro/login, no-membership → /centro/registro),
+  // and bounces an Operador to /centro.
+  const { centerId, userId, status } = await requireResponsable();
 
   const [row] = await db
     .select({
