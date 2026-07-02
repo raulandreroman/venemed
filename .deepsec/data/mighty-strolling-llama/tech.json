@@ -1,0 +1,15 @@
+{
+  "tags": [
+    "drizzle",
+    "github-actions",
+    "nextjs",
+    "node",
+    "react"
+  ],
+  "sentinels": [
+    "next.config.ts",
+    "package.json"
+  ],
+  "detectedAt": "2026-07-01T23:23:56.240Z",
+  "rootPath": "/Users/raul/Developer/work/agency/venemed/.claude/worktrees/mighty-strolling-llama"
+}
