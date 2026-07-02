@@ -6,16 +6,12 @@ import type { ReactNode } from "react";
  */
 export default function PublicLayout({
   children,
-  modal,
 }: {
   children: ReactNode;
-  /** Parallel slot for the intercepted detail bottom sheet. */
-  modal: ReactNode;
 }) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[390px] flex-col bg-background">
       {children}
-      {modal}
     </div>
   );
 }
