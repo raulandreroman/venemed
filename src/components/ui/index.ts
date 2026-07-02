@@ -9,3 +9,4 @@ export { ProgressBar } from "./progress-bar";
 export { SegmentedControl } from "./segmented-control";
 export { ConfirmDialog } from "./confirm-dialog";
 export { RoleTag } from "./role-tag";
+export { StatusBadge } from "./status-badge";

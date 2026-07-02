@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { AppBar, Tag } from "@/components/ui";
+import { AppBar, StatusBadge } from "@/components/ui";
 import { getCenterForReview } from "@/db/admin-queries";
-import type { CenterStatus } from "@/lib/auth/current-center";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import { formatRelativeTime, formatVePhone } from "@/lib/format";
@@ -15,15 +14,6 @@ import {
   centerTypeLabel,
 } from "../../../_components/labels";
 import { ReviewActions } from "./review-actions";
-
-type TagVariant = "neutral" | "fulfilled" | "urgent" | "soon";
-
-const STATUS_VARIANT: Record<CenterStatus, TagVariant> = {
-  pending_review: "neutral",
-  approved: "fulfilled", // success tint — state color
-  rejected: "urgent", // error tint — state color
-  suspended: "soon", // warning tint — state color
-};
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -47,9 +37,9 @@ export default async function CenterReviewPage({ params }: PageProps) {
       <main className="flex flex-1 flex-col pb-24">
         {/* status pill */}
         <div className="px-4 pt-4">
-          <Tag variant={STATUS_VARIANT[c.status]} dot>
+          <StatusBadge status={c.status}>
             {STATUS_LABEL[c.status]} · {formatRelativeTime(decidedAt)}
-          </Tag>
+          </StatusBadge>
         </div>
 
         {/* identity */}
