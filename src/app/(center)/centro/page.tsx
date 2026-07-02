@@ -10,6 +10,7 @@ import { DashboardError } from "./_components/dashboard-error";
 import { DashboardHeader } from "./_components/dashboard-header";
 import { FreshnessCard } from "./_components/freshness-card";
 import { ListaSections } from "./_components/lista-sections";
+import { ModoOperadorBanner } from "./_components/modo-operador-banner";
 import { ShareListaButton } from "./_components/share-lista-button";
 
 const EDITOR_HREF = "/centro/lista/editar";
@@ -36,6 +37,11 @@ export default async function CenterDashboardPage() {
       <>
         <DashboardHeader centerName={center.centerName} />
         <ConnectionBanner />
+        {center.role === "center_member" && (
+          <div className="px-4 pt-4">
+            <ModoOperadorBanner />
+          </div>
+        )}
         <DashboardError />
       </>
     );
@@ -46,6 +52,11 @@ export default async function CenterDashboardPage() {
       <>
         <DashboardHeader centerName={center.centerName} />
         <ConnectionBanner />
+        {center.role === "center_member" && (
+          <div className="px-4 pt-4">
+            <ModoOperadorBanner />
+          </div>
+        )}
         <EmptyState />
       </>
     );
@@ -63,6 +74,11 @@ export default async function CenterDashboardPage() {
     <>
       <DashboardHeader centerName={center.centerName} />
       <ConnectionBanner />
+      {center.role === "center_member" && (
+        <div className="px-4 pt-4">
+          <ModoOperadorBanner />
+        </div>
+      )}
 
       <main className="flex flex-1 flex-col gap-5 px-4 pb-24 pt-4">
         <div>

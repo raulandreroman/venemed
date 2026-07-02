@@ -1,5 +1,6 @@
 import "server-only";
 import { and, eq, ne, notExists } from "drizzle-orm";
+import type { User } from "@supabase/supabase-js";
 import { db } from "@/db";
 import { appUser, membership } from "@/db/schema";
 import { createClient } from "@/lib/supabase/server";
@@ -16,20 +17,16 @@ export const ROUTE_BY_STATUS = {
 } as const;
 
 /**
- * Called once right after a successful verifyOtp (from the finishLogin server
- * action). (1) upserts app_user with id = auth uid, (2) resolves
- * membership/center, (3) returns the path the client should navigate to.
+ * Reconcile + upsert the `app_user` row for a freshly-verified Supabase auth
+ * user (id = auth uid). Extracted from `resolveLoginDestination` so a
+ * brand-new invitee (who has never gone through `finishLogin`) also gets an
+ * `app_user` row before `acceptInvitation` binds a membership. Idempotent —
+ * safe to call on every verified session.
  */
-export async function resolveLoginDestination(): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return "/centro/login"; // defensive; should not happen post-verify
-
-  // (1) Upsert app_user with id = auth uid. Identity is the Supabase-verified
-  // email (lowercased for a stable unique key). It's always present post-verify;
-  // the `?? undefined` guards are purely defensive.
+export async function upsertAppUserFromSession(user: User): Promise<void> {
+  // Identity is the Supabase-verified email (lowercased for a stable unique
+  // key). It's always present post-verify; the `?? undefined` guard is purely
+  // defensive.
   const email = user.email?.trim().toLowerCase() || undefined;
   const now = new Date();
 
@@ -74,6 +71,22 @@ export async function resolveLoginDestination(): Promise<string> {
         },
       });
   });
+}
+
+/**
+ * Called once right after a successful verifyOtp (from the finishLogin server
+ * action). (1) upserts app_user with id = auth uid, (2) resolves
+ * membership/center, (3) returns the path the client should navigate to.
+ */
+export async function resolveLoginDestination(): Promise<string> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return "/centro/login"; // defensive; should not happen post-verify
+
+  // (1) Upsert app_user with id = auth uid.
+  await upsertAppUserFromSession(user);
 
   // (2) Admins short-circuit BEFORE membership routing. The upsert above never
   //     touches is_platform_admin (onConflictDoUpdate.set omits it), so the
