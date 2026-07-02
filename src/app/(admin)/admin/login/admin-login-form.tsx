@@ -106,7 +106,7 @@ export function AdminLoginForm() {
         >
           Correo electrónico
         </label>
-        <div className="mt-1.5 flex overflow-hidden rounded-xl border border-neutral-300 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30">
+        <div className="mt-2 flex overflow-hidden rounded-md border-[1.5px] border-neutral-300 focus-within:border-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30">
           <input
             id="email"
             type="email"
@@ -116,7 +116,7 @@ export function AdminLoginForm() {
             placeholder="moderador@correo.com"
             value={emailInput}
             onChange={(e) => setEmailInput(e.target.value)}
-            className="h-12 w-full bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300"
+            className="h-[52px] w-full bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400"
           />
         </div>
         <p className="mt-1.5 text-xs text-neutral-500">

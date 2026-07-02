@@ -292,7 +292,7 @@ export function ListaEditor({
               rows={3}
               placeholder="Ej: Entregar en recepción, planta baja. Preguntar por el área de logística."
               aria-label="Nota para los donantes"
-              className="mt-3 w-full resize-none rounded-xl border border-neutral-300 bg-surface px-3 py-2.5 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300 focus:border-accent focus:ring-2 focus:ring-accent/30"
+              className="mt-3 w-full resize-none rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 py-2.5 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
             />
             <p className="mt-1.5 text-right text-xs text-neutral-400">
               {nota.length} / {INSTRUCTIONS_MAX}
@@ -423,7 +423,7 @@ export function ListaEditor({
                 onChange={(e) => setExcessReason(e.target.value)}
                 placeholder="Ej: El depósito está lleno."
                 aria-label="Razón del aviso de exceso"
-                className="mt-3 h-11 w-full rounded-xl border border-neutral-300 bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300 focus:border-accent focus:ring-2 focus:ring-accent/30"
+                className="mt-3 h-[52px] w-full rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
               />
               <p className="mt-1.5 text-right text-xs text-neutral-400">
                 {excessReason.length} / {EXCESS_REASON_MAX}

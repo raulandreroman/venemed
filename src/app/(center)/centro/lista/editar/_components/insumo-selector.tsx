@@ -221,7 +221,7 @@ export function InsumoSelector({
 
         {/* search */}
         <div className="shrink-0 px-4 pb-3">
-          <div className="flex h-12 w-full items-center gap-2.5 rounded-xl border border-neutral-300 bg-surface px-4 text-neutral-700 focus-within:border-accent">
+          <div className="flex h-[52px] w-full items-center gap-2.5 rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-neutral-700 focus-within:border-2 focus-within:border-accent">
             <SearchIcon />
             <input
               type="search"
@@ -258,7 +258,7 @@ export function InsumoSelector({
                 }}
                 placeholder="Nombre del insumo"
                 aria-label="Nombre del insumo manual"
-                className="h-11 flex-1 rounded-xl border border-neutral-300 bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300 focus:border-accent focus:ring-2 focus:ring-accent/30"
+                className="h-[52px] flex-1 rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
               />
               <Button type="button" size="sm" onClick={submitManual}>
                 Añadir
