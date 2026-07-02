@@ -154,7 +154,7 @@ export function ReceptionToggle({
           <div
             ref={panelRef}
             tabIndex={-1}
-            className="absolute inset-x-0 bottom-0 z-10 mx-auto flex max-h-[85dvh] w-full max-w-[390px] flex-col gap-4 overflow-y-auto rounded-t-[20px] bg-surface px-5 pb-5 pt-2 text-center shadow-xl outline-none"
+            className="absolute inset-x-0 bottom-0 z-10 mx-auto flex max-h-[85dvh] w-full max-w-[390px] flex-col gap-4 overflow-y-auto rounded-t-[24px] bg-surface px-5 pb-5 pt-2 text-center shadow-xl outline-none"
           >
             <div className="flex justify-center pb-1">
               <span className="h-1 w-9 rounded-full bg-neutral-300" />

@@ -303,7 +303,7 @@ export function OtpStep({
               aria-label={`Dígito ${i + 1}`}
               onChange={onDigitChange(i)}
               onKeyDown={onDigitKeyDown(i)}
-              className={`h-14 w-12 rounded-xl border text-center text-xl font-semibold text-neutral-900 outline-none focus:ring-2 ${
+              className={`h-14 w-12 rounded-md border text-center text-xl font-semibold text-neutral-900 outline-none focus:ring-2 ${
                 hasCodeError
                   ? "border-error focus:border-error focus:ring-error/30"
                   : "border-neutral-300 focus:border-accent focus:ring-accent/30"

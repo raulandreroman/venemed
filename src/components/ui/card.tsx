@@ -6,7 +6,7 @@ type CardProps = ComponentProps<"div"> & { children: ReactNode };
 export function Card({ className = "", children, ...rest }: CardProps) {
   return (
     <div
-      className={`rounded-2xl border border-neutral-100 bg-surface p-4 shadow-sm ${className}`}
+      className={`rounded-2xl border border-neutral-300 bg-surface p-4 ${className}`}
       {...rest}
     >
       {children}

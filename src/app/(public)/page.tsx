@@ -46,7 +46,7 @@ export default async function LandingPage() {
         </Link>
         <Link
           href="/centro"
-          className="rounded-xl border-[1.5px] border-neutral-300 bg-surface px-4 py-2 text-[15px] font-semibold text-neutral-900"
+          className="rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 py-2 text-[15px] font-semibold text-neutral-900"
         >
           Ingresar
         </Link>

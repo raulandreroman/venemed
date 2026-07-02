@@ -26,7 +26,7 @@ export function AppBar({
   align?: "center" | "start";
 }) {
   return (
-    <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-neutral-100 bg-surface px-4">
+    <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-neutral-100 bg-surface px-3">
       {onBack ? (
         <button
           type="button"
