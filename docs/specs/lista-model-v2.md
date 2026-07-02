@@ -74,10 +74,10 @@ The entity-level `request.kind` (`need`/`surplus`) is **removed** — surplus is
 
 ### 3e. Lifecycle without expiry
 
-`draft → active → paused → closed`. **`expired` is removed.** Transitions:
+`draft → active → closed`. **`expired` is removed.** Transitions (as built):
 - **active**: the live lista, appears on the donor surface.
-- **paused**: reception toggle off ("Perfil · Pausado") — hidden from donors, reactivatable.
-- **closed**: center finalizes, or reception pause closes it ("Cerrada hace 12 min al desactivar recepción"). Terminal; a new lista can be created after.
+- **closed**: the center finalizes ("Finalizar"), **or** the reception toggle is switched off — which **closes all of the center's live listas** (`closedReason='cancelled'`, "Cerrada hace 12 min al desactivar recepción"). Terminal; a new lista can be created after. Re-enabling reception does **not** reopen them — the center re-publishes.
+- **paused**: a **reserved enum value, currently unused.** The schema and every center query treat `paused` as "live" (`status in ('active','paused')`), but **no action transitions a lista into `paused`** — reception-off closes rather than pauses (`recepcion.ts`). Kept in the enum for a future soft-pause that hides a lista from donors without closing it. *(Corrects the earlier "paused = reception off, reactivatable" framing — that behavior is `closed`, not `paused`.)*
 
 ## 4. Freshness replaces the window
 
@@ -283,7 +283,7 @@ Extends §7. Confirmed against `recepcion.ts`, `publicar.ts`, `gestionar.ts`, sc
 
 ### Reception kill-switch — `center.reception_paused_at timestamptz null`
 `null` = receiving. A **timestamp** (not a bool) so "Pausada · desde hace 12 min" renders for free.
-- **Pause ON** → stamp `reception_paused_at = now()` **and close ALL** of the center's live listas (`active`/`paused`) → `status='closed'`, `closed_reason='cancelled'`, `closed_at=now()`, in one transaction. With no active lista the center drops off the cached donor list. *(This is why §3e's "paused = hidden/reactivatable" is aspirational — code actually **closes** on reception-pause; reactivation re-publishes.)*
+- **Pause ON** → stamp `reception_paused_at = now()` **and close ALL** of the center's live listas (`active`/`paused`) → `status='closed'`, `closed_reason='cancelled'`, `closed_at=now()`, in one transaction. With no active lista the center drops off the cached donor list. (This is why the `paused` *status* is unused — reception-off **closes** rather than pauses; see §3e.)
 - **Pause OFF** → clear `reception_paused_at` only; it does **not** reopen the cancelled listas.
 - A paused center may not publish or reactivate (guarded in `publicar.ts`/`gestionar.ts`). **Responsable-only** (`requireResponsable()`); an Operador is bounced to `/centro`.
 
