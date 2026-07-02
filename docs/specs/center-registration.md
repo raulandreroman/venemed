@@ -4,7 +4,7 @@
 > **Branch**: `feat/center-registro`, **stacked on** `feat/center-auth` (Phase 1, not yet merged to `main`). The PR targets `feat/center-auth` and auto-retargets to `main` once Phase 1 lands.
 > **Scope**: the **center registration flow** `R0 → Datos → Verificar teléfono → En revisión`, and the transactional `createCenterForCurrentUser` write. **Replaces** the Phase 1 placeholder `src/app/(center)/centro/registro/page.tsx` with the real flow.
 > **Reuses (do NOT rebuild)**: Phase 1 auth foundation — Supabase SSR clients, `getCurrentCenter`, `requireCenter`, `resolveLoginDestination`, the OTP UI in `login-form.tsx`, the `(center)` shell, design system (`src/components/ui/**`, `globals.css` tokens).
-> **Related**: `docs/specs/center-auth.md` (Phase 1), `docs/specs/data-model.md` (schema source of truth). Stack already scaffolded — **do not re-scaffold, do not add deps unless §10 says so.**
+> **Related**: `docs/specs/center-auth.md` (Phase 1), `docs/specs/lista-model-v2.md` (schema model of record — replaced the retired `data-model.md`). Stack already scaffolded — **do not re-scaffold, do not add deps unless §10 says so.**
 > **Figma**: back office page `7:34`, file `tGvDuvWW99K4QzDH0GlmW7`. Frames: R0 `29:2451`, Datos `8:493`, Datos con errores `29:1935`, Verificar teléfono `8:580`, Código incorrecto `8:623`, Intentos agotados `29:1998`, En revisión `8:733`.
 
 ---

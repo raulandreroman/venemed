@@ -5,7 +5,7 @@
 > **Status**: ready to build. Last updated 2026-06-28.
 > **Branch**: `feat/center-auth` (off `main`). `main` is **protected** — land via PR (final phase).
 > **Scope**: the **identity/session layer** for the center back office and the **login (L1)** flow only. Builds the Supabase-SSR plumbing, route protection, phone-OTP login, post-login identity resolution + status routing, a guarded `(center)` shell, and **placeholder** guarded pages for everything downstream.
-> **Related**: `docs/specs/data-model.md` (schema source of truth), `docs/specs/donor-slice.md` (donor surface + design-system conventions to reuse). Stack already scaffolded (Next.js 16 App Router, React 19 RSC, TypeScript, Tailwind v4, Drizzle/postgres-js, pnpm). **Do not re-scaffold.**
+> **Related**: `docs/specs/lista-model-v2.md` (schema + donor/center model of record — replaced the retired `data-model.md`/`donor-slice.md`). Stack already scaffolded (Next.js 16 App Router, React 19 RSC, TypeScript, Tailwind v4, Drizzle/postgres-js, pnpm). **Do not re-scaffold.**
 
 ---
 

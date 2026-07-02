@@ -1,7 +1,8 @@
 # Lista model v2 — one evergreen list per center
 
-> **Status**: draft — for review. Last updated 2026-07-01.
-> A model pivot: *solicitud* → **lista**, **one evergreen lista per center**, **no time windows** (freshness-confirm replaces expiry), per-item **urgency**, and the old *aviso de exceso* folded in as a **"No aceptamos"** item bucket. Supersedes large parts of [data-model.md](data-model.md), [cron-jobs.md](cron-jobs.md), [donor-slice.md](donor-slice.md), [aviso-exceso.md](aviso-exceso.md), [center-workspace.md](center-workspace.md).
+> **Status**: CANONICAL — model of record (shipped in `main`, slices A/B/C = PRs #36/#41/#39). Last updated 2026-07-02.
+> A model pivot: *solicitud* → **lista**, **one evergreen lista per center**, **no time windows** (freshness-confirm replaces expiry), per-item **urgency**, and the old *aviso de exceso* folded in as a **"No aceptamos"** item bucket.
+> This spec **absorbed and replaced** the retired time-window specs — `data-model.md`, `cron-jobs.md`, `donor-slice.md`, `donor-fidelity.md`, `aviso-exceso.md`, `center-workspace.md`, `backend-fields-cron.md` (deleted 2026-07-02; their still-true content lives in §11–§14 below).
 > Source design: Figma «VenemedApp» → page **"Back Office - Junio 30"** (Flow principal `205:7312`, Dashboard `205:7121`, Dashboard-Lista states `210:11795`/`13030`/`13091`/`13152`/`13213`).
 
 ## 1. The pivot, in one paragraph
@@ -166,3 +167,140 @@ A is the foundation; B builds on it; C uses the existing donor frames.
 | D7 | Donor sort + card model | **Resolved from frames** (`11:2`): one card/center, Urgente badge + urgent-first chips + No-aceptamos summary; sort **Reciente/fresh-first + stale-sink** (urgency on-card, not in sort) |
 
 All decisions resolved. Only remaining external dependency: donor **copy** is still being finalized in Figma (frame titles/labels) — cosmetic, doesn't block build.
+
+---
+
+# Folded appendix — content absorbed from the retired specs
+
+> §§1–10 above are the model. §§11–14 preserve the still-true, code-verified detail from the seven specs this doc replaced. Verified against `src/db/schema.ts`, `queries.ts`, the actions, and the donor/center components on 2026-07-02.
+
+## 11. Supporting data model (non-lista tables)
+
+The lista/lista_item tables are defined in §3. The rest of the schema (unchanged in substance by the pivot, only the `request`→`lista` FKs/enums renamed):
+
+### `center`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK `defaultRandom()` | |
+| `name` | text not null | |
+| `type` | enum `center_type` **nullable** | `hospital`, `clinic`, `elder_care_home`, `childrens_shelter`, `collection_center`. Null when the center-type flag is off. |
+| `description` | text nullable | |
+| `city` | text **not null** | drives the donor city filter |
+| `state` | text nullable | |
+| `address_line` / `address_reference` | text nullable | "Dónde entregar" source |
+| `regular_schedule_text` | text nullable | regular receiving hours |
+| `lat` / `lng` | numeric nullable | reserved for maps; not in UI |
+| `whatsapp_phone` | text nullable | **optional, unverified** delivery-coordination contact (no longer an OTP target). `normalizeVePhone()` validates it. |
+| `status` | enum `center_status` not null default `pending_review` | `pending_review`, `approved`, `rejected`, `suspended` — the moderation gate |
+| `rejection_reason` | text nullable | shown on "Centro rechazado" |
+| `verified_at` | timestamptz nullable | admin-approval time |
+| `reception_paused_at` | timestamptz nullable | reception kill-switch (§14) |
+| `created_at` / `updated_at` | timestamptz not null default now | |
+
+### `app_user` (post migration 0008 — email auth)
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | = Supabase `auth.users` uid (1:1) |
+| `name` | text nullable | |
+| `email` / `email_verified_at` | | the verified session email (unique, lowercased) — **replaced** the dropped `phone`/`phone_verified_at` |
+| `cargo` | varchar(60) nullable | operator's role/title at the center |
+| `is_platform_admin` | boolean not null default false | moderators/staff |
+| `last_login_at` | timestamptz nullable | |
+| `created_at` / `updated_at` | timestamptz not null default now | |
+
+### `membership` — links `app_user → center`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `user_id` | uuid → `app_user` not null cascade | `uniqueIndex on (user_id)` — one center per user in v1 (closes the concurrent-duplicate race) |
+| `center_id` | uuid → `center` not null cascade | |
+| `role` | enum `member_role` not null default `center_admin` | `center_admin` (Responsable) / `center_member` (Operador) |
+| `created_at` | timestamptz not null default now | |
+
+Single-use email team invitations live in the **`invitation`** table + `invitation_status` enum (added PR #43; see `src/lib/team/`).
+
+### `supply` (*insumo* catalog)
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `name` | text not null | "Acetaminofén 500 mg" |
+| `category` | enum `supply_category` not null | see §14 (6 area values + dormant `general`) |
+| `is_active` | boolean not null default true | hide deprecated items without deleting |
+
+### `moderation_event` (append-only audit)
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `actor_user_id` | uuid → `app_user` nullable | null for system actions |
+| `subject_type` | enum `moderation_subject_type` not null | `center`, **`lista`** (was `request`) |
+| `subject_id` | uuid not null | polymorphic, no FK |
+| `action` | text not null | `approved`, `rejected`, `suspended`, … (no `expired_by_cron` — cron gone) |
+| `reason` | text nullable | |
+| `created_at` | timestamptz not null default now | |
+
+### `share_event` (write-only analytics)
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `lista_id` | uuid → `lista` not null cascade | (was `request_id`) |
+| `channel` | enum `share_channel` not null default `unknown` | `whatsapp`, `instagram`, `x`, `copy_link`, `unknown` |
+| `created_at` | timestamptz not null default now | |
+
+**Principles that still hold:** single-writer per center (last-write-wins per row, no CRDTs); catalog **or** free-text items (`supply_id` nullable ⇒ free-text `custom_name`); soft/auditable moderation (status transition + `moderation_event`, never hard delete); status drives visibility (explicit enums, never implicit nulls).
+
+## 12. Backend mechanics — share tracking & delivery note
+
+### Share tracking (`recordShare`)
+`share_count` (denormalized counter on `lista`) + `share_event` (one row per share) are written **only** by the `recordShare(listaId, channel)` server action (`src/app/actions/share.ts`); the share UI otherwise just builds intent URLs / calls `navigator.share`. It's unauthenticated (anonymous donors call it over RPC), so it's guarded:
+
+1. **UUID shape-check** the id first — non-UUID is a cheap no-op (avoids a round-trip + pointless revalidate).
+2. **Existence + active gate folded into the bump**: `UPDATE lista SET share_count = share_count + 1 WHERE id = ? AND status = 'active' RETURNING id`. Only a returned row triggers the `share_event` insert + revalidate — bounding all writes/invalidation to genuine active listas.
+3. Increment is a SQL expression (`share_count + 1`), not read-modify-write — concurrency-safe.
+4. On a confirmed share, revalidate **`lista:<id>`** + **`landing-stats`** but **NOT `active-listas`** (the donor card shows no share count → a list-wide bust per share would be wasteful churn).
+
+**Channel map:** WhatsApp→`whatsapp`, X→`x`, copy-link→`copy_link`, Instagram→`navigator.share ? instagram : copy_link`, native share sheet→`unknown`. **Fire-and-forget:** callers use `recordShare(...).catch(() => {})` (the `.catch`, not a bare `void`, swallows a failed RPC without an unhandled rejection). Native-share CTAs record only on *successful* share; the scroll-to-`#comparte` fallback records nothing (the channel button then tapped records the single event).
+
+### Per-lista `delivery_instructions` (`varchar(120)`, nullable)
+A drop-off note layered on the center's static address — the center address/reference/schedule are the base, `delivery_instructions` is an additive override. Rendered in "Dónde entregar" *after* the center address/reference and *before* the map link, emphasized. Shown only on the **active** detail (a closed lista renders address-only). Authored via the editor's "Nota" field; selected by `getListaById` / `getCenterListaById` / `getCenterListaForEdit`.
+
+## 13. Donor surface details (filters, states, sheet, fidelity)
+
+Extends §6. Confirmed live in `filter-select.tsx`, `search-box.tsx`, `listas/page.tsx`, `request-sheet.tsx`, `@modal/(.)listas/[id]`, the share components.
+
+- **URL is the single source of truth**: `?search=&city=&type=&category=&sort=`. The RSC page reads `searchParams`, normalizes, calls `getActiveListas`. Controls mutate the URL via `router.replace(..., { scroll: false })` inside `startTransition`; the list re-renders **server-side — no client data fetching**.
+- **Search** (`SearchBox`): debounced ~300ms; ILIKE across **center name OR city OR item name** (`center.name`, `lista.city`, and item `supply.name`/`custom_name` via EXISTS). Placeholder "Buscar por centro, ciudad o ayuda…".
+- **Filters** are two labeled pill-dropdowns (native `<select>` for a11y + zero-JS fallback): **"Ubicación"** (`uniqueSorted(city)`) and **"Sector"** (`centerTypeLabel`), each with a leading "Todas/Todos" clear option. Facets are computed from a **second unfiltered `getActiveListas({})`** so an option never disappears mid-filter. Dimensions combine with AND. Memoize `getActiveListas` in `unstable_cache` keyed on the normalized filters (don't add `force-dynamic`).
+- **Empty states**: filtered → "No hay listas que coincidan / Prueba con otros filtros…"; unfiltered → "No hay listas activas / Vuelve pronto…". Unknown id → `not-found.tsx` (404), not a crash. Pending transitions expose `data-pending` on the controls.
+- **Detail = intercepted bottom sheet**: `@modal` slot + `(.)listas/[id]` interceptor — opening from the list overlays a sheet; direct visit / refresh / deep link renders the **full page** (with `AppBar`); scrim/back dismisses. Content stays a Server Component (`getListaById`) so the shareable URL is byte-identical SSR in both — *sharing is the core action, the URL must stay SSR*. Sheet a11y: `role="dialog" aria-modal="true"`, Escape dismiss, body-scroll lock, focus trap, focus restored to the triggering card on close.
+- **Detail delivery sections**: "Dónde entregar" (`addressLine` + `addressReference` + "Abrir en mapas" link, no embedded map) and "Cuándo entregar" (`regularScheduleText`). All delivery copy inherits from the center (plus the per-lista note, §12).
+- **Share UX**: active-detail footer CTA is **"Compartir lista"** (`navigator.share` when available, else scroll to `ShareSection`); closed-detail CTA is "Ver listas activas". `ShareSection` = WhatsApp/Instagram/X circles (brand hues `#25D366`/`#C13584`/`#0f1419` are sanctioned brand exceptions) + "Copiar link" (accent = action).
+- **Single-accent fidelity** (Figma foundations `32:4167`): accent `#1F5AA8` **only** for actions (primary buttons, links, active/selected, focus ring); everything else neutral; semantic colors signal **state only**. Sanctioned non-action accent-subtle surfaces: the landing conversion panel + the "+N más" count pill. Font **Inter** (400/500/600/700); scale Display 28 / H1 22 / H2 18 / Body 16 / Label 14 / Caption 12; tap targets ≥48×48. Semantic hexes: error `#C0362C`/`#FCEBE9`, warning `#B45309`/`#FEF4E6`, success `#1E7D52`/`#E8F5EE`.
+- **Caching posture**: donor routes `export const revalidate = 60`; queries in `unstable_cache` (`active-listas`, `landing-stats`, `lista:<id>`); center edit/reconfirm/pause call `revalidateTag(..., "max")`.
+
+## 14. Center workspace details (reception, short_id, catalog)
+
+Extends §7. Confirmed against `recepcion.ts`, `publicar.ts`, `gestionar.ts`, schema.
+
+### Reception kill-switch — `center.reception_paused_at timestamptz null`
+`null` = receiving. A **timestamp** (not a bool) so "Pausada · desde hace 12 min" renders for free.
+- **Pause ON** → stamp `reception_paused_at = now()` **and close ALL** of the center's live listas (`active`/`paused`) → `status='closed'`, `closed_reason='cancelled'`, `closed_at=now()`, in one transaction. With no active lista the center drops off the cached donor list. *(This is why §3e's "paused = hidden/reactivatable" is aspirational — code actually **closes** on reception-pause; reactivation re-publishes.)*
+- **Pause OFF** → clear `reception_paused_at` only; it does **not** reopen the cancelled listas.
+- A paused center may not publish or reactivate (guarded in `publicar.ts`/`gestionar.ts`). **Responsable-only** (`requireResponsable()`); an Operador is bounced to `/centro`.
+
+### `lista.short_id bigint generated always as identity`
+Human-friendly "#1044" — a **global monotonic** sequence (not per-center), matching the Figma "#{short_id}" card meta. `ADD COLUMN … GENERATED ALWAYS AS IDENTITY` backfills existing rows.
+
+### `supply_category` — area = category (1:1), 6 values + dormant `general`
+| Area (UI) | `supply_category` |
+|---|---|
+| Quirófano | `surgical` |
+| Emergencias | `emergency` |
+| Farmacia | `pharmacy` |
+| Hospitalización | `inpatient` |
+| Refugio infantil | `pediatrics` |
+| Adultos mayores | `geriatrics` |
+
+`general` is a **dormant** enum value — kept, never dropped (dropping forces a full type recreation); custom/free-text items fall back to it. Publish derives the lista's denormalized `categories[]` from its items' `supply.category`.
+
+### Profile stats
+Profile shows lifetime **Activas + Cumplidas** (Cumplidas = `closed/fulfilled` count); the "Donantes" stat was removed per product. *(Verify against the profile component before relying on the exact labels.)*

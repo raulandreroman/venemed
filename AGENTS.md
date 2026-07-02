@@ -10,12 +10,14 @@ Read this before working in the repo. It captures the product, architecture, con
 
 ## What VeneMed is
 
-A **time-windowed medical-aid platform for Venezuela**. Health centers (hospitals, clinics, elderly homes, children's shelters, collection centers) publish *solicitudes* — requests for supplies (*insumos*) with a 12/24/48h window. Donors browse **anonymously, no login**, and share requests as links with a countdown so they **stop circulating** once the window closes or is paused — preventing wasted donations and center overload. Spanish (es-VE), mobile-first (390px). Built fast in response to an earthquake; reliability under a donor traffic surge matters.
+A **list-based medical-aid platform for Venezuela**. Health centers (hospitals, clinics, elderly homes, children's shelters, collection centers) each maintain **one living lista** — a single evergreen board of the supplies (*insumos*) they need right now, in three buckets: **Urgente / Necesitamos / No aceptamos**. There is **no countdown**. A lista never expires on a timer; it just gets **stale** (`now − updated_at`) and a freshness nudge ("Actualizada hace 5 días · ¿sigue vigente?") asks the center to re-confirm. Stale listas **sink in the donor ordering** instead of being taken down. Donors browse **anonymously, no login**, and share a center's lista as a link. Spanish (es-VE), mobile-first (390px). Built fast in response to an earthquake; reliability under a donor traffic surge matters.
+
+> **Model history**: VeneMed began *time-windowed* (per-request *solicitudes* with a 12/24/48h countdown + expiry cron). It pivoted to the evergreen **lista** model above — `request`→`lista`, one lista per center, freshness instead of expiry, per-item urgency, excess folded in as an item bucket. Canonical model: [`docs/specs/lista-model-v2.md`](docs/specs/lista-model-v2.md). Treat any lingering "solicitud / ventana / countdown / expiry" reference as removed.
 
 **Three surfaces:**
-- **Donor (public, no auth)** — landing, active-requests list, request detail (as a bottom-sheet). The surge lands here → it's CDN-cached.
-- **Center (back office, auth)** — registration, WhatsApp/SMS OTP login, dashboard, create/manage solicitudes, edit center data.
-- **Admin (moderation)** — vets centers (`pending_review → approved/rejected`). *Not built yet.*
+- **Donor (public, no auth)** — landing, active-listas list (**one card per center**), lista detail (as a bottom-sheet). The surge lands here → it's CDN-cached.
+- **Center (back office, auth)** — registration, email-OTP login, one-lista dashboard (freshness card + Urgente/Necesitamos/No aceptamos), create-once/edit editor, team roles + invitations, edit center data, reception toggle.
+- **Admin (moderation)** — vets centers (`pending_review → approved/rejected`). Built (login + queue + review + approve/reject).
 
 ## Stack
 
@@ -70,36 +72,36 @@ pnpm supabase:stop    # tear down when done (data persists across start/stop)
 ```
 src/
   app/
-    (public)/            # donor surface → "/", /solicitudes, /solicitudes/[id]
-      solicitudes/[id]/  # detail; opens as an INTERCEPTED bottom-sheet (@modal) over the list, full-page on direct load
+    (public)/            # donor surface → "/", /listas, /listas/[id]  (one card per center)
+      listas/[id]/       # detail; opens as an INTERCEPTED bottom-sheet (@modal) over the list, full-page on direct load
     (center)/            # back office (gated by middleware)
-      centro/{login,registro,editar,en-revision,rechazado}/ + centro (dashboard placeholder)
-      actions/           # "use server" actions (auth, registro, editar)
-    (admin)/             # moderation (placeholder)
-    api/cron/            # secured cron endpoints
-  components/ui/         # design-system primitives (Button, RequestCard, Chip, Tag, AppBar, Countdown, …)
-  db/                    # schema.ts, index.ts (db), queries.ts, seed.ts, jobs.ts (cron), migrations/
+      centro/{login,registro,editar,en-revision,rechazado,perfil,lista,equipo,unirse}/ + centro (dashboard)
+    actions/             # "use server" actions (auth, registro, editar, publicar/gestionar lista, share, team)
+    (admin)/             # moderation (login + queue + centros/[id] review)
+  components/ui/         # design-system primitives (Button, Chip, Tag, StatusBadge, RoleTag, AppBar, …) — no Countdown
+  db/                    # schema.ts, index.ts (db), queries.ts, admin-queries.ts, seed.ts, migrations/  (no jobs.ts — expiry cron retired)
   lib/
     supabase/{server,client,middleware}.ts   # @supabase/ssr
     auth/                # getCurrentCenter, requireCenter, on-login (status routing)
-    registro/validation.ts, geo/ve-states.ts, format.ts
+    listas/, team/, registro/validation.ts, geo/ve-states.ts, format.ts, flags.ts
   middleware.ts          # session refresh + gates (center) routes
 e2e/                     # Playwright specs (donor.spec always-on; center.spec gated)
-docs/specs/              # the canonical specs — READ THESE (data-model, cron-jobs, donor-*, center-*)
-.github/workflows/       # ci.yml (lint+tsc), e2e.yml, expire-requests.yml (cron trigger)
+docs/specs/              # the canonical specs — READ THESE (lista-model-v2 is the model of record; center-*, admin-*, e2e)
+.github/workflows/       # ci.yml (lint+tsc), e2e.yml   (no expire-requests — cron retired)
 ```
 
 ## Architecture & key decisions
 
 - **Data access is Drizzle/postgres-js, which bypasses RLS.** So **Supabase Auth is only the identity/session layer** — *authorization is enforced in server code by the logged-in center's `center_id`*, never RLS. Do not rely on RLS for app data.
 - **Identity model**: `app_user.id` = the Supabase `auth.users` uid (1:1). `membership` links `app_user → center` (one per center in v1, enforced by a unique index). `center.status` is the moderation gate; login/registration route by it (`approved → /centro`, `pending_review → /centro/en-revision`, `rejected → /centro/rechazado`, no membership → `/centro/registro`). Helpers: `getCurrentCenter()`, `requireCenter()`, `resolveLoginDestination()`.
-- **Request lifecycle**: `draft → active → paused → closed/expired` (terminal: closed/expired). `kind` ∈ `need | surplus` (surplus = "no enviar más de X", reuses the whole entity). Urgency = time-left (`expires_at asc`), no priority field. Delivery: center address inherited + optional per-request `delivery_instructions`. `request.title` is the center-written descriptor. `city` + `categories[]` are **denormalized onto `request`** at publish for the cached donor list.
-- **Caching the surge**: donor reads are cached (`revalidate`/`unstable_cache` with tags `active-requests`, `landing-stats`, `request:<id>`). The cron + share actions `revalidateTag(tag, "max")` (Next 16 requires the 2-arg form).
-- **Expiry cron**: `src/db/jobs.ts:expireDueRequests()` flips lapsed `active`/`paused` → `expired` (+ a `moderation_event`), exposed at `/api/cron/expire-requests` (Bearer `CRON_SECRET`, fail-closed). Vercel **Hobby** caps crons at once/day, so it's triggered by a **GitHub Actions schedule** (`.github/workflows/expire-requests.yml`, every 5 min) hitting the endpoint. On Vercel Pro, move to a native `vercel.json` cron.
+- **Lista lifecycle**: `draft → active → paused → closed` (terminal: closed). **No `expired` state** — no timer takes a lista down. **One active lista per center** (partial unique index on `center_id where status in ('active','paused')`); create-once, edit thereafter. Items (`lista_item`) carry `bucket` (`need | excess`) + `is_urgent`; the three donor/dashboard sections are read-time derivations — Urgente = `need ∧ is_urgent`, Necesitamos = `need ∧ ¬is_urgent`, No aceptamos = `excess`. `request.kind`/`title`/`window_hours`/`expires_at` are **gone**; `excess_reason` (≤40) lives on the lista. Delivery: center address inherited + optional per-lista `delivery_instructions`. `city` + `categories[]` are **denormalized onto `lista`** at publish for the cached donor list.
+- **Freshness replaces the window**: staleness = `now − updated_at`. The dashboard nudges at **≥3 days** ("¿sigue vigente?"); "Sí, sigue vigente" touches `updated_at` (content-free reconfirm). The donor list sorts **fresh-first** and **sinks stale listas (>7d)** rather than removing them. No background job — freshness is computed at read time.
+- **Caching the surge**: donor reads are cached (`revalidate`/`unstable_cache` with tags `active-listas`, `landing-stats`, `lista:<id>`). Edit/reconfirm/pause + `recordShare` call `revalidateTag(tag, "max")` (Next 16 requires the 2-arg form). Note: `recordShare` deliberately revalidates `lista:<id>` + `landing-stats` but **not** `active-listas` (the card shows no share count).
+- **No cron.** The expiry cron (`jobs.ts:expireDueRequests`, `/api/cron/expire-requests`, `expire-requests.yml`) was **deleted** with the pivot — there is no scheduled job in the app.
 
 ## Conventions
 
-- **Identifiers English, UI copy Spanish.** Table/column/enum names are English (`request` = *solicitud*, `supply` = *insumo*, `center` = *centro*); user-facing strings are es-VE.
+- **Identifiers English, UI copy Spanish.** Table/column/enum names are English (`lista` = the center's list, `supply` = *insumo*, `center` = *centro*); user-facing strings are es-VE.
 - **Design system** (`src/components/ui` + `globals.css` tokens, from the Figma UI Kit): font **Inter**; type scale Display 28 / H1 22 / H2 18 / Body 16 / Label 14 / Caption 12. **Single-accent principle: the blue accent (`#1F5AA8`) is ONLY for actions** (buttons, links, active/selected, focus). Everything else is neutral; semantic colors (`success/warning/error` + tints) ONLY signal state. Exact tokens are in `globals.css` — use them, don't hardcode hex. Mobile-first 390px.
 - **Match the surrounding code.** Server Components by default; `"use client"` only where interactivity needs it.
 
@@ -111,7 +113,7 @@ docs/specs/              # the canonical specs — READ THESE (data-model, cron-
 4. **Auth identity is the verified email** (migration 0008). `app_user.email` (unique) = the Supabase-verified session email, lowercased — set by `resolveLoginDestination()` / the registro action from `user.email`, never client input. `app_user.phone` was DROPPED (also a privacy win — removed the top-risk operator PII). `center.whatsapp_phone` is now an OPTIONAL, editable, unverified contact field (`normalizeVePhone()` still validates/normalizes it, but it is no longer tied to the session). Use `normalizeEmail()` for the login/identity email.
 5. **Secure-context APIs**: `navigator.share` / `navigator.clipboard` only work on HTTPS or `localhost` — they silently no-op over a plain-HTTP LAN IP. Test share/copy on the deployed HTTPS URL.
 6. **Don't run two repo-mutating/build workflows on the same working tree at once** (they clobber `.next` + git). Stop the dev server before a workflow runs its own builds.
-7. **e2e + local dev now run against a LOCAL Supabase**, not prod (see "Local development DB"). CI's `e2e` job spins up an ephemeral local Supabase on the runner, runs `db:setup` (Drizzle migrate + seed), and Playwright against it — so `db:seed`/`db:migrate` in CI is now safe (ephemeral per-job DB, never prod). The "dedicated test DB" follow-up is effectively delivered for CI. Donor specs are still written **data-independently**; center specs **write a bounded pending test center**. The OTP test code (`123456`) comes from `[auth.sms.test_otp]` in `supabase/config.toml`. The `expire-requests.yml` cron still hits prod and keeps its prod secrets.
+7. **e2e + local dev now run against a LOCAL Supabase**, not prod (see "Local development DB"). CI's `e2e` job spins up an ephemeral local Supabase on the runner, runs `db:setup` (Drizzle migrate + seed), and Playwright against it — so `db:seed`/`db:migrate` in CI is now safe (ephemeral per-job DB, never prod). The "dedicated test DB" follow-up is effectively delivered for CI. Donor specs are still written **data-independently**; center specs **write a bounded pending test center**. The OTP test code (`123456`) comes from `[auth.email.test_otp]` in `supabase/config.toml`. (There is no cron workflow anymore — `expire-requests.yml` was retired with the lista pivot.)
 8. **OTP rate-limit**: Supabase throttles OTP sends per identity, so tests that each send an OTP must use **different** test emails (`TEST_CENTER_EMAIL` vs `TEST_CENTER_EMAIL_2` vs `TEST_ADMIN_EMAIL`). Locally the `[auth.email.test_otp]` map sidesteps real sending, but keep the split for parity.
 
 ## Workflow & CI/CD
@@ -128,10 +130,10 @@ Center auth needs a Supabase **test email + fixed OTP code** (the local `[auth.e
 
 ## Specs (canonical — keep in sync with code)
 
-`docs/specs/`: `data-model.md`, `cron-jobs.md`, `donor-slice.md`, `donor-fidelity.md`, `center-auth.md`, `center-registration.md`, `center-edit.md`, `center-workspace.md` (Phase 3 scope — decisions locked), `e2e-smoke.md`. Diagrams in `docs/diagrams/`, the designer brief in `docs/briefs/`.
+`docs/specs/`: **`lista-model-v2.md`** is the model of record (entity, data model, freshness, donor surface, author/edit flow — supersedes the retired time-window specs). Surface specs: `center-auth.md`, `center-registration.md`, `center-edit.md`, `admin-moderation.md`, `e2e-smoke.md`, `local-dev-db.md`, `ui-kit-audit.md`. Diagrams in `docs/diagrams/`, the designer brief in `docs/briefs/`. *(The old `data-model.md` / `cron-jobs.md` / `donor-slice.md` / `donor-fidelity.md` / `aviso-exceso.md` / `center-workspace.md` / `backend-fields-cron.md` were folded into `lista-model-v2.md` and removed.)*
 
 ## Status & roadmap
 
-**Done & in `main`**: donor surface (landing/list/detail-sheet, design-fidelity), cron + share tracking, CI/CD, e2e smoke, the **center back office** (auth + login, registration, edit center data) with the moderation gate, the **admin moderation UI** (login + queue + review + approve/reject), the **local dev DB** (local Supabase for dev + e2e), and **auto-migrate on prod deploy** (Vercel build step).
+**Done & in `main`**: the **lista model v2** (`request`→`lista`, no time windows, freshness + per-item urgency, excess as an item bucket, expiry cron retired), the **donor surface** (landing / one-card-per-center list / detail-sheet, share tracking, design-fidelity), the **center back office** (email-OTP auth + login, registration, edit center data, one-lista dashboard + create-once/edit editor, reception toggle, **team roles + single-use email invitations**) behind the moderation gate, the **admin moderation UI** (login + queue + review + approve/reject), the **local dev DB** (local Supabase for dev + e2e), **auto-migrate on prod deploy** (Vercel build step), and the **UI-kit audit** (token foundation + primitives).
 
-**Next**: **Phase 3** center workspace — *scoped & decisions locked in `docs/specs/center-workspace.md`*; building in 4 slices (1 dashboard → 2 create+selector+publish (incl. migration `0004`: `supply_category` 3→6 + `center.reception_paused_at`) → 3 detail+Finalizar+Extender → 4 profile+reception toggle). **Surplus** redesigned as a future center-level banner (own mini-spec, not a solicitud). Then **offline** (PWA read + draft-with-confirm — data-model sync columns: client `id`, `idempotency_key`, `updated_at`). (Auth moved to **email OTP** — the Twilio WhatsApp sender onboarding is no longer on the critical path.)
+**Next**: **offline** (PWA read + draft-with-confirm — data-model sync columns: client `id`, `idempotency_key`, `updated_at`) and the **admin centers directory / suspend UI**. **Surplus** already redesigned as the `excess` item bucket on the lista (not a separate entity).
