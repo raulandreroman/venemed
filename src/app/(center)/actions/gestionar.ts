@@ -62,11 +62,14 @@ export async function finalizeLista(listaId: string): Promise<void> {
 }
 
 /**
- * Reactivate (reopen) a closed lista the logged-in center owns (Figma 8:1009
- * "Reactivar solicitud"): status → `active`, clears `closedAt`/`closedReason`,
- * `publishedAt = now`. Ownership-scoped + only valid on a terminal row; refused
- * while the center's reception is paused (a paused center has no active
- * lista). Revalidates the donor surge reads, then back to /centro.
+ * Reactivate a `paused` (reception-off) or legacy `closed` lista the logged-in
+ * center owns (Figma 8:1009 "Reactivar solicitud"): status → `active`, clears
+ * `closedAt`/`closedReason`, `publishedAt = now`, resets `updatedAt` (freshness).
+ * Ownership-scoped. If the center's reception is paused, reactivating ALSO
+ * resumes reception (clears `reception_paused_at`) in the same transaction — the
+ * UI shows a confirm dialog first (reactivate-button). An already-`active` lista
+ * is a no-op (redirect to its detail). Revalidates the donor surge reads, then
+ * back to /centro.
  */
 export async function reactivateLista(listaId: string): Promise<void> {
   const current = await requireCenter();
@@ -82,40 +85,63 @@ export async function reactivateLista(listaId: string): Promise<void> {
     .limit(1);
   if (!row) notFound();
 
-  // Only a terminal lista can be reactivated; active/paused is a no-op.
-  if (row.status !== "closed") {
+  // Already live → nothing to do; a paused/closed lista is what we reactivate.
+  if (row.status === "active") {
     redirect(`/centro/lista/${listaId}`);
   }
 
-  // A paused center can't have an active lista — block until reception resumes.
-  const [c] = await db
-    .select({ receptionPausedAt: center.receptionPausedAt })
-    .from(center)
-    .where(eq(center.id, centerId))
-    .limit(1);
-  if (c?.receptionPausedAt) {
-    throw new Error("La recepción de donaciones está pausada.");
+  try {
+    // One transaction: resume reception (if paused) + bring the lista back live.
+    // Reactivating while reception is paused is intentional — the UI confirms
+    // "esto reanudará la recepción" before calling.
+    await db.transaction(async (tx) => {
+      await tx
+        .update(center)
+        .set({ receptionPausedAt: null })
+        .where(eq(center.id, centerId));
+
+      await tx
+        .update(lista)
+        .set({
+          status: "active",
+          closedAt: null,
+          closedReason: null,
+          publishedAt: sql`now()`,
+          // Reset the freshness clock too — otherwise a just-reactivated lista
+          // keeps its old updatedAt and the ≥3d "sigue vigente?" card can appear
+          // immediately (schema has no $onUpdate for this column).
+          updatedAt: sql`now()`,
+        })
+        .where(and(eq(lista.id, listaId), eq(lista.centerId, centerId)));
+    });
+  } catch (err) {
+    // 23505 on the one-active-per-center index (another lista already active) →
+    // send the center to that live lista rather than surfacing a 500.
+    if (!isUniqueViolation(err)) throw err;
+    const [existing] = await db
+      .select({ id: lista.id })
+      .from(lista)
+      .where(
+        and(eq(lista.centerId, centerId), inArray(lista.status, ["active"])),
+      )
+      .limit(1);
+    if (existing) redirect(`/centro/lista/${existing.id}`);
+    redirect("/centro");
   }
-
-  const now = new Date();
-
-  await db
-    .update(lista)
-    .set({
-      status: "active",
-      closedAt: null,
-      closedReason: null,
-      publishedAt: now,
-      // Reset the freshness clock too — otherwise a just-reactivated lista
-      // keeps its old updatedAt and the ≥3d "sigue vigente?" card can appear
-      // immediately (schema has no $onUpdate for this column).
-      updatedAt: sql`now()`,
-    })
-    .where(and(eq(lista.id, listaId), eq(lista.centerId, centerId)));
 
   revalidateLista(listaId);
 
   redirect("/centro");
+}
+
+/** Postgres unique_violation (SQLSTATE 23505), as surfaced by postgres-js. */
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === "23505"
+  );
 }
 
 /**

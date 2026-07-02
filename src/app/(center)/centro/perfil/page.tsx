@@ -3,14 +3,9 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
 import { AppBar, Tag } from "@/components/ui";
-import { CenterRequestCard } from "@/app/(center)/centro/_components/center-request-card";
 import { ModoOperadorBanner } from "@/app/(center)/centro/_components/modo-operador-banner";
 import { SignOutButton } from "@/app/(center)/_components/sign-out-button";
-import {
-  getCenterActiveListas,
-  getCenterListasClosedSince,
-  getCenterProfile,
-} from "@/db/queries";
+import { getCenterActiveListas, getCenterProfile } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import {
@@ -49,14 +44,9 @@ export default async function CenterProfilePage() {
   const showType = CENTER_TYPE_ENABLED && profile.type != null;
   const typeLabel = showType ? centerTypeLabel(profile.type!) : null;
 
-  // Pausado screen lists the listas closed by the pause; the Activo screen's
-  // "Desactivar recepción" sheet lists the active lista that WILL close.
-  const closedOnPause = paused
-    ? await getCenterListasClosedSince(
-        current.centerId,
-        profile.receptionPausedAt!,
-      )
-    : [];
+  // The Activo screen's "Desactivar recepción" sheet lists the active lista
+  // that WILL be paused. A paused lista now lives on the dashboard (not closed),
+  // so there's no "cerradas al pausar" list here anymore.
   const activeRequests = paused
     ? []
     : (await getCenterActiveListas(current.centerId)).map((r) => ({
@@ -136,18 +126,6 @@ export default async function CenterProfilePage() {
             }
             activeRequests={activeRequests}
           />
-        )}
-
-        {/* Pausado: requests closed at pause */}
-        {paused && closedOnPause.length > 0 && (
-          <section className="flex flex-col gap-3">
-            <h2 className="text-base font-bold text-neutral-900">
-              Solicitudes cerradas al pausar
-            </h2>
-            {closedOnPause.map((r) => (
-              <CenterRequestCard key={r.id} request={r} />
-            ))}
-          </section>
         )}
 
         {/* (3) lifetime stats — Activas + Finalizadas (decision §5.3) */}

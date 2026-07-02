@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "./button";
 
@@ -57,8 +58,13 @@ export function ConfirmDialog({
   }, [open, onCancel]);
 
   if (!open) return null;
+  // Portal to <body> so the fixed overlay escapes any ancestor stacking context
+  // (e.g. the dashboard's `sticky z-20` footer, which otherwise traps the scrim
+  // BELOW the `z-30` header). The dialog only opens from a client click, so
+  // `document` is always defined here; guard SSR defensively anyway.
+  if (typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -106,6 +112,7 @@ export function ConfirmDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

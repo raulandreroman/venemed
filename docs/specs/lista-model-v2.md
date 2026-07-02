@@ -74,10 +74,10 @@ The entity-level `request.kind` (`need`/`surplus`) is **removed** — surplus is
 
 ### 3e. Lifecycle without expiry
 
-`draft → active → closed`. **`expired` is removed.** Transitions (as built):
+`draft → active → (paused ⇄ active) → closed`. **`expired` is removed.** Transitions (as built):
 - **active**: the live lista, appears on the donor surface.
-- **closed**: the center finalizes ("Finalizar"), **or** the reception toggle is switched off — which **closes all of the center's live listas** (`closedReason='cancelled'`, "Cerrada hace 12 min al desactivar recepción"). Terminal; a new lista can be created after. Re-enabling reception does **not** reopen them — the center re-publishes.
-- **paused**: a **reserved enum value, currently unused.** The schema and every center query treat `paused` as "live" (`status in ('active','paused')`), but **no action transitions a lista into `paused`** — reception-off closes rather than pauses (`recepcion.ts`). Kept in the enum for a future soft-pause that hides a lista from donors without closing it. *(Corrects the earlier "paused = reception off, reactivatable" framing — that behavior is `closed`, not `paused`.)*
+- **paused**: reception-off **pauses** the center's `active` lista(s) → `status='paused'` (`recepcion.ts`). A paused lista is **preserved, not closed**: the donor list filters `status='active'` so it drops off the public surface, but it still shows on the center dashboard (which reads `active|paused`) with a "Recepción pausada" notice. Resuming reception (or "Reactivar lista") flips it back to `active` and resets `updatedAt` (freshness). The one-active-per-center unique index covers `active|paused`, so a paused lista still reserves the center's single-lista slot.
+- **closed**: the center finalizes ("Finalizar") → `closedReason='fulfilled'`. Terminal; a new lista can be created after. **Legacy note:** rows closed by the *old* close-on-pause behavior (`closedReason='cancelled'`) stay `closed`; the center brings them back via the same "Reactivar lista" button (which also resumes reception).
 
 ## 4. Freshness replaces the window
 
@@ -283,9 +283,10 @@ Extends §7. Confirmed against `recepcion.ts`, `publicar.ts`, `gestionar.ts`, sc
 
 ### Reception kill-switch — `center.reception_paused_at timestamptz null`
 `null` = receiving. A **timestamp** (not a bool) so "Pausada · desde hace 12 min" renders for free.
-- **Pause ON** → stamp `reception_paused_at = now()` **and close ALL** of the center's live listas (`active`/`paused`) → `status='closed'`, `closed_reason='cancelled'`, `closed_at=now()`, in one transaction. With no active lista the center drops off the cached donor list. (This is why the `paused` *status* is unused — reception-off **closes** rather than pauses; see §3e.)
-- **Pause OFF** → clear `reception_paused_at` only; it does **not** reopen the cancelled listas.
-- A paused center may not publish or reactivate (guarded in `publicar.ts`/`gestionar.ts`). **Responsable-only** (`requireResponsable()`); an Operador is bounced to `/centro`.
+- **Pause ON** → stamp `reception_paused_at = now()` **and pause** the center's `active` listas → `status='paused'`, in one transaction. The lista is **preserved, not closed**: the donor list (`status='active'`) drops it, but the center dashboard still shows it. (This is why the `paused` *status* is now in use — reception-off **pauses** rather than closes; see §3e.)
+- **Pause OFF** → clear `reception_paused_at` **and** restore the center's `paused` listas → `status='active'`, resetting `updatedAt` (freshness), in one transaction — the lista reappears to donors immediately.
+- **"Reactivar lista"** (`gestionar.ts` `reactivateLista`) reactivates a `paused` (or legacy `closed`) lista and, when reception is still paused, **also clears `reception_paused_at`** (the UI shows a confirm first). It no longer throws when reception is paused.
+- Publishing / reactivating is **Responsable-only** for the toggle (`requireResponsable()`); an Operador is bounced to `/centro`.
 
 ### `lista.short_id bigint generated always as identity`
 Human-friendly "#1044" — a **global monotonic** sequence (not per-center), matching the Figma "#{short_id}" card meta. `ADD COLUMN … GENERATED ALWAYS AS IDENTITY` backfills existing rows.

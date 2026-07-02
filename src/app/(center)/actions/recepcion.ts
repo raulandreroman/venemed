@@ -15,12 +15,16 @@ import { requireResponsable } from "@/lib/auth/require-responsable";
 /**
  * Center-level "Recepción de donaciones" kill-switch (center-workspace §3.4).
  *
- * `pause = true`  → stamp `center.reception_paused_at = now()` AND close ALL of
- *   this center's live requests (`active`/`paused`) as `closed` /
- *   `closedReason = 'cancelled'` / `closedAt = now()` (decision §5.2). With no
- *   active requests, the center naturally drops off the cached donor list.
- * `pause = false` → clear `reception_paused_at` only. It does NOT reopen the
- *   cancelled requests (decision §5.2) — the center re-publishes when ready.
+ * `pause = true`  → stamp `center.reception_paused_at = now()` AND set this
+ *   center's `active` lista(s) to `paused` (decision §5.2). A `paused` lista is
+ *   PRESERVED (not closed): it drops off the cached donor list — which filters
+ *   `status = 'active'` — but still shows on the center dashboard so nothing is
+ *   lost.
+ * `pause = false` → clear `reception_paused_at` AND flip this center's `paused`
+ *   lista(s) back to `active`, resetting `updatedAt` (freshness) so the restored
+ *   lista reappears to donors immediately (decision §5.2). Legacy `closed`
+ *   rows (from the old close-on-pause behavior) stay closed — the center
+ *   reactivates those via the "Reactivar lista" button.
  *
  * Authorization derives from `requireResponsable()` (session → membership →
  * centerId, Responsable-only — an Operador is bounced to /centro); a client
@@ -37,8 +41,8 @@ export async function setReception(pause: boolean): Promise<void> {
   const { centerId } = current;
 
   if (pause) {
-    // One transaction: pause the center + close all its live requests.
-    const closed = await db.transaction(async (tx) => {
+    // One transaction: pause the center + pause (hide, don't close) its live listas.
+    const affected = await db.transaction(async (tx) => {
       await tx
         .update(center)
         .set({ receptionPausedAt: sql`now()` })
@@ -46,16 +50,9 @@ export async function setReception(pause: boolean): Promise<void> {
 
       return tx
         .update(lista)
-        .set({
-          status: "closed",
-          closedReason: "cancelled",
-          closedAt: sql`now()`,
-        })
+        .set({ status: "paused" })
         .where(
-          and(
-            eq(lista.centerId, centerId),
-            inArray(lista.status, ["active", "paused"]),
-          ),
+          and(eq(lista.centerId, centerId), inArray(lista.status, ["active"])),
         )
         .returning({ id: lista.id });
     });
@@ -63,17 +60,28 @@ export async function setReception(pause: boolean): Promise<void> {
     // Invalidate the donor surge reads (Next 16 two-arg "max" form, gotcha #3).
     revalidateTag("active-listas", "max");
     revalidateTag("landing-stats", "max");
-    for (const r of closed) revalidateTag(`lista:${r.id}`, "max");
+    for (const r of affected) revalidateTag(`lista:${r.id}`, "max");
   } else {
-    await db
-      .update(center)
-      .set({ receptionPausedAt: null })
-      .where(eq(center.id, centerId));
+    // One transaction: resume the center + restore its paused listas to active
+    // (reset freshness so a restored lista isn't instantly stale).
+    const affected = await db.transaction(async (tx) => {
+      await tx
+        .update(center)
+        .set({ receptionPausedAt: null })
+        .where(eq(center.id, centerId));
 
-    // Resume changes nothing donor-visible (the closed listas stay closed),
-    // but revalidating the surge tags is cheap + keeps the list authoritative.
+      return tx
+        .update(lista)
+        .set({ status: "active", updatedAt: sql`now()` })
+        .where(
+          and(eq(lista.centerId, centerId), inArray(lista.status, ["paused"])),
+        )
+        .returning({ id: lista.id });
+    });
+
     revalidateTag("active-listas", "max");
     revalidateTag("landing-stats", "max");
+    for (const r of affected) revalidateTag(`lista:${r.id}`, "max");
   }
 
   redirect("/centro/perfil");
