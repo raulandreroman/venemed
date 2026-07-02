@@ -64,24 +64,27 @@ export default async function JoinInvitePage({
         <span className="text-base font-bold text-neutral-900">VeneMed</span>
       </div>
 
-      <section className="mt-6 flex flex-col items-center gap-3 rounded-2xl border border-neutral-100 bg-surface p-5 text-center shadow-sm">
-        <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-lg font-bold text-accent-on">
-          {initialsFrom(invite.centerName)}
-        </span>
-        <h1 className="text-xl font-bold leading-tight text-neutral-900">
-          {invite.centerName} te invitó a unirte
-        </h1>
-        <p className="text-sm leading-relaxed text-neutral-500">
-          {invite.inviterName ?? "El responsable"} te agregó como{" "}
-          {roleLabel(invite.role)}. Podrás editar la lista del centro y
-          agregar insumos.
-        </p>
-        <p className="text-xs text-neutral-400">
-          Esta invitación vence en 24 h
-        </p>
-      </section>
-
-      <JoinForm token={token} />
+      <JoinForm
+        token={token}
+        inviteCard={
+          <section className="mt-6 flex flex-col items-center gap-3 rounded-2xl border border-neutral-100 bg-surface p-5 text-center shadow-sm">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-lg font-bold text-accent-on">
+              {initialsFrom(invite.centerName)}
+            </span>
+            <h1 className="text-xl font-bold leading-tight text-neutral-900">
+              {invite.centerName} te invitó a unirte
+            </h1>
+            <p className="text-sm leading-relaxed text-neutral-500">
+              {invite.inviterName ?? "El responsable"} te agregó como{" "}
+              {roleLabel(invite.role)}. Podrás editar la lista del centro y
+              agregar insumos.
+            </p>
+            <p className="text-xs text-neutral-400">
+              Esta invitación vence en 24 h
+            </p>
+          </section>
+        }
+      />
     </main>
   );
 }

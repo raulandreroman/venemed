@@ -1,20 +1,15 @@
 "use client";
 
-import { useCallback, useRef, useState, type FormEvent } from "react";
+import { useCallback, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { Button } from "@/components/ui";
 import { normalizeEmail } from "@/lib/registro/validation";
 import { createClient } from "@/lib/supabase/client";
 import { OtpStep } from "@/app/(center)/_components/otp-step";
-import { acceptInvitation, rejectInvitation } from "@/app/(center)/actions/equipo";
+import { acceptInvitation } from "@/app/(center)/actions/equipo";
 
 type Step = "email" | "otp";
-
-function isNextRedirectError(e: unknown): boolean {
-  const digest = (e as { digest?: unknown })?.digest;
-  return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
-}
 
 /**
  * Email → 6-digit-code step for accepting a team invite (mirrors
@@ -23,26 +18,22 @@ function isNextRedirectError(e: unknown): boolean {
  * membership and redirects (ends in `redirect(...)`, so `onVerified`'s bare
  * `await` needs no catch — Next applies the thrown NEXT_REDIRECT).
  */
-export function JoinForm({ token }: { token: string }) {
+export function JoinForm({
+  token,
+  inviteCard,
+}: {
+  token: string;
+  /** Invite header card — shown on the email step, hidden during OTP entry. */
+  inviteCard?: ReactNode;
+}) {
   const [step, setStep] = useState<Step>("email");
   const [emailInput, setEmailInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
-  const [rejecting, setRejecting] = useState(false);
   const captchaRef = useRef<CaptchaHandle>(null);
 
   const email = normalizeEmail(emailInput);
-
-  const onReject = useCallback(async () => {
-    setRejecting(true);
-    try {
-      await rejectInvitation(token); // ends in redirect()
-    } catch (e) {
-      if (isNextRedirectError(e)) throw e;
-      setRejecting(false);
-    }
-  }, [token]);
 
   const onSubmitEmail = useCallback(
     async (e: FormEvent) => {
@@ -96,7 +87,9 @@ export function JoinForm({ token }: { token: string }) {
   }
 
   return (
-    <form onSubmit={onSubmitEmail} className="mt-6 flex flex-1 flex-col" noValidate>
+    <>
+      {inviteCard}
+      <form onSubmit={onSubmitEmail} className="mt-6 flex flex-1 flex-col" noValidate>
       <h2 className="text-base font-bold text-neutral-900">
         Confirma tu correo para unirte
       </h2>
@@ -136,15 +129,8 @@ export function JoinForm({ token }: { token: string }) {
         <p className="text-sm text-neutral-500">
           Te enviaremos un código de acceso a tu correo.
         </p>
-        <button
-          type="button"
-          onClick={() => void onReject()}
-          disabled={rejecting}
-          className="text-sm font-semibold text-neutral-500 disabled:opacity-50"
-        >
-          {rejecting ? "Rechazando…" : "Rechazar invitación"}
-        </button>
       </div>
-    </form>
+      </form>
+    </>
   );
 }
