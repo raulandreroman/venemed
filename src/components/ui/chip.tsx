@@ -41,10 +41,10 @@ export function Chip({ param, value, label, className = "" }: ChipProps) {
       onClick={toggle}
       aria-pressed={selected}
       data-pending={isPending || undefined}
-      className={`inline-flex shrink-0 items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+      className={`inline-flex shrink-0 items-center rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
         selected
-          ? "border-accent bg-accent text-accent-on"
-          : "border-neutral-300 bg-surface text-neutral-700 hover:bg-neutral-100"
+          ? "bg-accent font-semibold text-accent-on"
+          : "bg-neutral-100 text-neutral-700 hover:bg-neutral-300"
       } ${className}`}
     >
       {label}
