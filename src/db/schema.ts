@@ -1,6 +1,6 @@
 /**
  * VeneMed database schema (Drizzle / Postgres).
- * Source of truth: docs/specs/data-model.md (v1).
+ * Source of truth: docs/specs/lista-model-v2.md.
  * Identifiers are English; user-facing copy is Spanish.
  */
 import {
@@ -213,11 +213,11 @@ export const lista = pgTable(
     publishedAt: timestamp("published_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     closedReason: closedReason("closed_reason"),
-    // denormalized at publish for the cached donor list (see data-model.md §8)
+    // denormalized at publish for the cached donor list (see lista-model-v2.md §3d)
     city: text("city"),
     categories: text("categories").array(),
     shareCount: integer("share_count").notNull().default(0),
-    // offline-sync support (see data-model.md §7)
+    // offline-sync support (see lista-model-v2.md)
     idempotencyKey: text("idempotency_key").unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

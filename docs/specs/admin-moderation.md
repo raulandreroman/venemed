@@ -2,7 +2,7 @@
 
 > **Status**: ready to implement. Branch `feat/admin-moderation` (off `main`). `main` is PROTECTED — land via PR (final phase).
 > **Last updated**: 2026-06-29.
-> **Read first**: `AGENTS.md`, `docs/specs/data-model.md`, `docs/specs/center-auth.md`.
+> **Read first**: `AGENTS.md`, `docs/specs/lista-model-v2.md` (schema model of record — replaced the retired `data-model.md`), `docs/specs/center-auth.md`.
 > **Design source**: Figma `tGvDuvWW99K4QzDH0GlmW7`, page **7:34 (Back Office)**, section **51:1868 "Admin · Moderación"** (+ A1/A2/A3/A4 frames under section `53:*`).
 
 ---
