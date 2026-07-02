@@ -46,7 +46,7 @@ export function ShareCtaButton({
 
   return (
     <Button variant="primary" fullWidth onClick={onClick}>
-      Compartir lista
+      Compartir este centro
     </Button>
   );
 }

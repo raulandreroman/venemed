@@ -4,10 +4,9 @@ import { notFound } from "next/navigation";
 import { AppBar } from "@/components/ui";
 import { getListaById } from "@/db/queries";
 import {
-  DETAIL_TITLE,
   DetailFooter,
   RequestDetailBody,
-  ShareGlyph,
+  detailTitle,
 } from "./_components/detail-body";
 
 // Surge read path: ISR. Query is additionally memoized in getListaById.
@@ -28,20 +27,18 @@ export async function generateMetadata({
 }
 
 /**
- * Full-page detail — rendered on direct visit / refresh / deep link. When the
- * route is reached from the list it is intercepted into a bottom sheet
- * (@modal/(.)listas/[id]). Both share the same RequestDetailBody.
+ * Canonical donor detail — the sole "Perfil Centro" full page for both direct
+ * visits and in-app navigation (the intercepted bottom sheet was retired in
+ * issue #55). Back returns to the list via the AppBar.
  */
 export default async function RequestDetailPage({ params }: PageProps) {
   const { id } = await params;
   const req = await getListaById(id);
   if (!req) notFound();
 
-  const isActive = req.status !== "closed";
-
   return (
     <>
-      <AppBar title={DETAIL_TITLE} trailing={isActive ? <ShareGlyph /> : undefined} />
+      <AppBar title={detailTitle(req)} />
 
       <main className="flex-1 px-4 pb-28 pt-4">
         <RequestDetailBody req={req} />

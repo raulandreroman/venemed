@@ -99,6 +99,8 @@ export type ListaDetailData = ListaBase & {
     addressLine: string | null;
     addressReference: string | null;
     regularScheduleText: string | null;
+    verifiedAt: Date | null; // powers the "Verificado" tag
+    receptionPausedAt: Date | null; // null = "Recibiendo donaciones"
   };
   items: (ListaItemData & { isFulfilled: boolean })[];
 };
@@ -297,6 +299,8 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       addressLine: center.addressLine,
       addressReference: center.addressReference,
       regularScheduleText: center.regularScheduleText,
+      verifiedAt: center.verifiedAt,
+      receptionPausedAt: center.receptionPausedAt,
     })
     .from(lista)
     .innerJoin(center, eq(center.id, lista.centerId))
@@ -348,6 +352,8 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       addressLine: r.addressLine,
       addressReference: r.addressReference,
       regularScheduleText: r.regularScheduleText,
+      verifiedAt: r.verifiedAt,
+      receptionPausedAt: r.receptionPausedAt,
     },
     items,
   };

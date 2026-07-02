@@ -3,7 +3,7 @@ import { expectNoErrorOverlay } from "./_helpers";
 
 /**
  * Donor surge path — data-INDEPENDENT (no hardcoded seed center, no CI seeding).
- * Runs read-only against whatever active requests exist. The card→sheet test
+ * Runs read-only against whatever active requests exist. The card→page test
  * skips gracefully if the list is empty (e.g. all seed requests have expired).
  * NOTE: a dedicated/seeded test DB is the proper long-term fix (see e2e spec).
  */
@@ -40,7 +40,7 @@ test.describe("donor surge path", () => {
     await expectNoErrorOverlay(page);
   });
 
-  test("Ver más opens the intercepted sheet matching the card", async ({
+  test("Ver más opens the detail full page matching the card", async ({
     page,
   }) => {
     await page.goto("/listas");
@@ -66,19 +66,21 @@ test.describe("donor surge path", () => {
 
     await card.getByRole("link", { name: "Ver más" }).click();
 
-    const sheet = page.getByRole("dialog", { name: "Detalle de la lista" });
-    await expect(sheet).toBeVisible();
-    // The opened sheet shows the SAME center as the clicked card.
-    await expect(sheet.getByText(centerName!).first()).toBeVisible();
-    // At least one of the three sections (Urgente / Necesitamos / No
-    // aceptamos) renders — which ones depends on seed data.
-    const sectionCount = await sheet
-      .getByText(/Urgente|Necesitamos|No aceptamos/)
-      .count();
-    expect(sectionCount).toBeGreaterThan(0);
-    // No leftover countdown/expiry copy from the retired time-window model.
+    // Full-page detail (canonical) — a real route, NOT an intercepted sheet.
+    await expect(page).toHaveURL(/\/listas\/[^/]+$/);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    const main = page.locator("main");
+    // The opened page shows the SAME center as the clicked card.
+    await expect(main.getByText(centerName!).first()).toBeVisible();
+    // The items section heading renders (active listas always list needs).
     await expect(
-      sheet.getByText(/vence|ventana|cuenta regresiva/i),
+      main.getByRole("heading", { name: "Qué necesita el centro" }),
+    ).toBeVisible();
+    // No leftover countdown/expiry copy from the retired time-window model
+    // (the Figma "ventana de 12 h" line is stale — intentionally not shown).
+    await expect(
+      page.getByText(/vence|ventana|cuenta regresiva/i),
     ).toHaveCount(0);
     await expectNoErrorOverlay(page);
   });

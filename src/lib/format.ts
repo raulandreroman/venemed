@@ -156,6 +156,29 @@ export function isListaStale(
   return now.getTime() - toDate(date).getTime() >= days * DAY;
 }
 
+/**
+ * "Esta lista tiene 5 días sin ser actualizada" — donor detail staleness
+ * banner (Figma 210:14154). Returns null when < 1 full day old, so the banner
+ * is only shown for listas that are actually going stale.
+ */
+export function formatStalenessBanner(
+  date: Date | string | null,
+  now: Date = new Date(),
+): string | null {
+  if (!date) return null;
+  const days = Math.floor((now.getTime() - toDate(date).getTime()) / DAY);
+  if (days < 1) return null;
+  return `Esta lista tiene ${days} ${days === 1 ? "día" : "días"} sin ser actualizada`;
+}
+
+/** "Publicado hace 4 h" — detail item-section metadata line. */
+export function formatPublishedAgo(
+  date: Date | string | null,
+  now: Date = new Date(),
+): string {
+  return date ? `Publicado ${formatRelativeTime(date, now)}` : "";
+}
+
 /** "Actualizada hace 5 días" — donor card + detail freshness line (§6). */
 export function formatListaUpdated(
   date: Date | string | null,
