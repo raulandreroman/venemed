@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { getRequestById } from "@/db/queries";
+import { isUuid } from "@/lib/uuid";
 import {
   DetailFooter,
   RequestDetailBody,
@@ -18,6 +19,7 @@ type PageProps = { params: Promise<{ id: string }> };
  */
 export default async function InterceptedRequestDetail({ params }: PageProps) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   const req = await getRequestById(id);
   if (!req) notFound();
 

@@ -1,5 +1,6 @@
 "use server";
 
+import { and, eq, ne, notExists } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { appUser, center, membership } from "@/db/schema";
@@ -58,6 +59,29 @@ export async function createCenterForCurrentUser(
   // membership (center_admin) — all-or-nothing.
   try {
     await db.transaction(async (tx) => {
+      // Reconcile a divergent/stale row: `email` is UNIQUE, so if it's currently
+      // held by a DIFFERENT app_user id (a returning operator whose auth user was
+      // deleted+recreated with a new uid) the id-targeted upsert below would hit
+      // `app_user_email_unique` (23505) and be misclassified as the membership
+      // race. Drop that row FIRST — but only when it has NO membership, so a real
+      // center is never affected. Mirrors resolveLoginDestination().
+      if (email) {
+        await tx
+          .delete(appUser)
+          .where(
+            and(
+              eq(appUser.email, email),
+              ne(appUser.id, user.id),
+              notExists(
+                tx
+                  .select({ id: membership.id })
+                  .from(membership)
+                  .where(eq(membership.userId, appUser.id)),
+              ),
+            ),
+          );
+      }
+
       await tx
         .insert(appUser)
         .values({

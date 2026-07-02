@@ -6,6 +6,7 @@ import type { CenterRequestDetailData } from "@/db/queries";
 import { getCenterActiveSurplus, getCenterRequestById } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 import { closedReasonLabel, formatDeliveryCutoff } from "@/lib/format";
+import { isUuid } from "@/lib/uuid";
 
 import { ExtendButton } from "./_components/extend-button";
 import { FinalizeButton } from "./_components/finalize-button";
@@ -29,6 +30,7 @@ export default async function CenterRequestDetailPage({
     redirect("/centro/rechazado");
   }
 
+  if (!isUuid(id)) notFound();
   const req = await getCenterRequestById(center.centerId, id);
   if (!req) notFound();
 

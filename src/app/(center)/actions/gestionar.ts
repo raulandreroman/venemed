@@ -86,12 +86,7 @@ export async function extendWindow(
   }
 
   const [row] = await db
-    .select({
-      id: request.id,
-      status: request.status,
-      expiresAt: request.expiresAt,
-      windowHours: request.windowHours,
-    })
+    .select({ id: request.id, status: request.status })
     .from(request)
     .where(and(eq(request.id, requestId), eq(request.centerId, centerId)))
     .limit(1);
@@ -105,14 +100,23 @@ export async function extendWindow(
   // tiempo extra") — not a reset. Bumping both expiresAt and windowHours by the
   // same amount keeps the detail progress bar's start (expiresAt − windowHours)
   // anchored at the original publish, so the bar simply gains remaining time.
-  const base = row.expiresAt ?? new Date();
-  const expiresAt = new Date(base.getTime() + hours * 3600 * 1000);
-  const windowHours = (row.windowHours ?? 0) + hours;
-
+  //
+  // Compute the new values in SQL in a single UPDATE so two concurrent extends
+  // both apply (a read-modify-write in JS drops one). The status predicate keeps
+  // the approved-status guard atomic with the mutation.
   await db
     .update(request)
-    .set({ windowHours, expiresAt })
-    .where(and(eq(request.id, requestId), eq(request.centerId, centerId)));
+    .set({
+      windowHours: sql`${request.windowHours} + ${hours}`,
+      expiresAt: sql`coalesce(${request.expiresAt}, now()) + (${hours} || ' hours')::interval`,
+    })
+    .where(
+      and(
+        eq(request.id, requestId),
+        eq(request.centerId, centerId),
+        sql`${request.status} in ('active', 'paused')`,
+      ),
+    );
 
   revalidateRequest(requestId);
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AppBar } from "@/components/ui";
 import { getRequestById } from "@/db/queries";
+import { isUuid } from "@/lib/uuid";
 import {
   DETAIL_TITLE,
   DetailFooter,
@@ -19,6 +20,7 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { id } = await params;
+  if (!isUuid(id)) return { title: "Solicitud no encontrada · VeneMed" };
   const req = await getRequestById(id);
   if (!req) return { title: "Solicitud no encontrada · VeneMed" };
   return {
@@ -34,6 +36,7 @@ export async function generateMetadata({
  */
 export default async function RequestDetailPage({ params }: PageProps) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
   const req = await getRequestById(id);
   if (!req) notFound();
 

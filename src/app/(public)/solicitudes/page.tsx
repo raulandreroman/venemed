@@ -46,8 +46,12 @@ export default async function SolicitudesPage({
   const sp = await searchParams;
 
   const sort: RequestSort = sp.sort === "urgency" ? "urgency" : "recent";
+  // Cap the unauthenticated search term before it reaches getActiveRequests:
+  // it drives a leading-wildcard ILIKE and is part of the cache key, so bound
+  // it to a sane max and drop it if empty after trim (avoid DB/cache amplification).
+  const search = sp.search?.trim().slice(0, 64) || undefined;
   const filters: RequestFilters = {
-    search: sp.search,
+    search,
     city: sp.city,
     type: CENTER_TYPE_ENABLED ? sp.type : undefined,
     category: sp.category,

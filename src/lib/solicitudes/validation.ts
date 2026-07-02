@@ -9,6 +9,8 @@
 
 export const TITLE_MAX = 40;
 export const INSTRUCTIONS_MAX = 120;
+export const MAX_ITEMS = 50;
+export const CUSTOM_NAME_MAX = 60;
 export const WINDOW_OPTIONS = [12, 24, 48] as const;
 export type WindowHours = (typeof WINDOW_OPTIONS)[number];
 
@@ -58,12 +60,15 @@ export function validatePublishRequest(
   const items = input.items ?? [];
   if (items.length === 0) {
     errors.items = "Agrega al menos un insumo.";
+  } else if (items.length > MAX_ITEMS) {
+    errors.items = `Máximo ${MAX_ITEMS} insumos.`;
   } else {
     const allValid = items.every((it) => {
       const hasSupply = !!it.supplyId;
-      const hasCustom = !!it.customName?.trim();
+      const custom = it.customName?.trim() ?? "";
+      const hasCustom = !!custom;
       // exactly one of the two
-      return hasSupply !== hasCustom;
+      return hasSupply !== hasCustom && custom.length <= CUSTOM_NAME_MAX;
     });
     if (!allValid) errors.items = "Hay un insumo inválido.";
   }

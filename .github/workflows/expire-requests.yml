@@ -17,4 +17,4 @@ jobs:
         run: |
           curl -fsS --max-time 60 -X GET \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            https://venemed.vercel.app/api/cron/expire-requests
+            https://venemedapp.org/api/cron/expire-requests

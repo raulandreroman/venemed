@@ -15,13 +15,20 @@ export function SearchBox() {
   const [isPending, startTransition] = useTransition();
   const isFirst = useRef(true);
 
+  // Always holds the freshest searchParams so the debounced navigation merges
+  // onto current params (avoids reverting a concurrent filter/sort change).
+  const searchParamsRef = useRef(searchParams);
+  useEffect(() => {
+    searchParamsRef.current = searchParams;
+  }, [searchParams]);
+
   useEffect(() => {
     if (isFirst.current) {
       isFirst.current = false;
       return;
     }
     const timer = setTimeout(() => {
-      const next = new URLSearchParams(searchParams.toString());
+      const next = new URLSearchParams(searchParamsRef.current.toString());
       const trimmed = value.trim();
       if (trimmed) next.set("search", trimmed);
       else next.delete("search");
