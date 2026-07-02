@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.5.3",
+    "@react-email/components": "^1.0.12",
     "@sentry/nextjs": "^10.62.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
@@ -30,7 +31,8 @@
     "next": "16.2.9",
     "postgres": "^3.4.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "resend": "^6.16.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
