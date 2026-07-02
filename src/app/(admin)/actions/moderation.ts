@@ -6,6 +6,7 @@ import { revalidateTag } from "next/cache";
 import { db } from "@/db";
 import { center, moderationEvent } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { sendCenterApprovedEmail } from "@/lib/email/send-center-approved";
 import type { ModerationResult } from "./types";
 
 // --- helpers (module-private; not exported, so this file stays "use server"-safe) ---
@@ -87,6 +88,13 @@ export async function approveCenter(
 
     // Approve changes the donor landing's approved-center count + center routing.
     revalidateAdminLists({ landing: true });
+
+    // Best-effort: notify the center they can now publish. Only reached on a
+    // real transition (the status guard early-returns on re-approve above).
+    // sendCenterApprovedEmail swallows its own errors and never throws, so a
+    // send failure can't turn this committed approval into a reported failure.
+    await sendCenterApprovedEmail(centerId);
+
     return { ok: true, status: "approved" };
   } catch {
     return { ok: false, error: GENERIC_ERROR };

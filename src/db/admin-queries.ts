@@ -196,3 +196,31 @@ export async function getCenterForReview(
     history,
   };
 }
+
+// ---- 3.3 getCenterApprovalRecipient ---------------------------------------
+
+/**
+ * Resolves who to notify when a center is approved: the center_admin member's
+ * verified app_user.email + the center name (for the greeting). Reuses the same
+ * membership join as getCenterForReview. `email` is nullable for legacy
+ * phone-only rows — callers skip the send when it's null. Returns null for a
+ * missing/unknown center id. Caller MUST be authorized via requireAdmin().
+ */
+export async function getCenterApprovalRecipient(
+  centerId: string,
+): Promise<{ email: string | null; centerName: string | null } | null> {
+  const [row] = await db
+    .select({ email: appUser.email, centerName: center.name })
+    .from(membership)
+    .innerJoin(appUser, eq(appUser.id, membership.userId))
+    .innerJoin(center, eq(center.id, membership.centerId))
+    .where(
+      and(
+        eq(membership.centerId, centerId),
+        eq(membership.role, "center_admin"),
+      ),
+    )
+    .limit(1);
+
+  return row ?? null;
+}
