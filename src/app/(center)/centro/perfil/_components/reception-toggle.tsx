@@ -127,7 +127,7 @@ export function ReceptionToggle({
 
         <p className="mt-3 text-sm text-neutral-700">
           {paused
-            ? "Tu centro no aparece en la lista pública. Las solicitudes activas se cerraron al desactivar la recepción."
+            ? "Tu centro no aparece en la lista pública. Tu lista quedó en pausa y volverá a mostrarse cuando reactives la recepción."
             : "Tu centro aparece en la lista pública. Los donantes pueden ver tus solicitudes activas y enviar ayuda."}
         </p>
 
@@ -169,8 +169,9 @@ export function ReceptionToggle({
                 ¿Desactivar la recepción?
               </h2>
               <p className="mt-1 text-sm leading-relaxed text-neutral-500">
-                Tu centro dejará de aparecer en la lista pública. Tus solicitudes
-                activas se cerrarán inmediatamente.
+                Tu centro dejará de aparecer en la lista pública. Tu lista
+                quedará en pausa (no se elimina) y volverá a mostrarse cuando
+                reactives la recepción.
               </p>
             </div>
 
@@ -178,8 +179,8 @@ export function ReceptionToggle({
               <div className="rounded-xl bg-warning-tint p-3.5 text-left">
                 <p className="text-sm font-semibold text-warning">
                   {count === 1
-                    ? "Se cerrará 1 solicitud activa:"
-                    : `Se cerrarán ${count} solicitudes activas:`}
+                    ? "Se pausará tu lista activa:"
+                    : `Se pausarán ${count} listas activas:`}
                 </p>
                 <ul className="mt-1.5 flex flex-col gap-1">
                   {activeRequests.map((r) => (
@@ -198,9 +199,8 @@ export function ReceptionToggle({
             )}
 
             <p className="text-xs leading-relaxed text-neutral-400">
-              Podrás reactivar la recepción cuando vuelvas a poder recibir
-              donaciones. Si solo quieres cerrar algunas solicitudes, puedes
-              finalizarlas una por una sin desactivar la recepción.
+              Podrás reactivar la recepción cuando quieras y tu lista volverá a
+              mostrarse tal como estaba.
             </p>
 
             {error && (

@@ -11,6 +11,7 @@ import { DashboardHeader } from "./_components/dashboard-header";
 import { FreshnessCard } from "./_components/freshness-card";
 import { ListaSections } from "./_components/lista-sections";
 import { ModoOperadorBanner } from "./_components/modo-operador-banner";
+import { ReactivateButton } from "./_components/reactivate-button";
 import { ShareListaButton } from "./_components/share-lista-button";
 
 const EDITOR_HREF = "/centro/lista/editar";
@@ -90,6 +91,18 @@ export default async function CenterDashboardPage() {
           <p className="text-sm text-neutral-400">Actualizada {updatedAgo}</p>
         </div>
 
+        {lista.status === "paused" && (
+          <div className="rounded-2xl border border-warning/20 bg-warning-tint p-4">
+            <h2 className="text-base font-bold text-neutral-900">
+              Recepción pausada
+            </h2>
+            <p className="mt-1 text-sm text-neutral-700">
+              Tu lista está en pausa y no es visible para donantes. Reactívala
+              para volver a recibir ayuda.
+            </p>
+          </div>
+        )}
+
         {stale && <FreshnessCard updatedAgo={updatedAgo} />}
 
         <ListaSections items={lista.items} />
@@ -99,7 +112,11 @@ export default async function CenterDashboardPage() {
         <Button href={EDITOR_HREF} fullWidth>
           Editar lista
         </Button>
-        <ShareListaButton listaId={lista.id} />
+        {lista.status === "paused" ? (
+          <ReactivateButton requestId={lista.id} receptionPaused />
+        ) : (
+          <ShareListaButton listaId={lista.id} />
+        )}
       </footer>
     </>
   );
