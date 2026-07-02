@@ -44,8 +44,11 @@ export type CenterDetailsValues = {
 
 export function CenterDetailsSection({
   initial,
+  readOnly = false,
 }: {
   initial: CenterDetailsValues;
+  /** Operador view: read-only, no "Editar datos del centro" action. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -102,10 +105,12 @@ export function CenterDetailsSection({
       <Section
         title="Información del centro"
         action={
-          <EditButton
-            label="Editar datos del centro"
-            onClick={() => setEditing(true)}
-          />
+          readOnly ? undefined : (
+            <EditButton
+              label="Editar datos del centro"
+              onClick={() => setEditing(true)}
+            />
+          )
         }
       >
         <ReadRow label="Nombre legal" value={values.name} />
@@ -189,8 +194,11 @@ export type ResponsableValues = {
 
 export function ResponsableSection({
   initial,
+  readOnly = false,
 }: {
   initial: ResponsableValues;
+  /** Operador view: read-only, no "Cambiar responsable" action. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -242,10 +250,12 @@ export function ResponsableSection({
       <Section
         title="Persona responsable"
         action={
-          <EditButton
-            label="Cambiar responsable"
-            onClick={() => setEditing(true)}
-          />
+          readOnly ? undefined : (
+            <EditButton
+              label="Cambiar responsable"
+              onClick={() => setEditing(true)}
+            />
+          )
         }
       >
         <ReadRow

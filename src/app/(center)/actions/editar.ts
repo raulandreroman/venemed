@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { appUser, center } from "@/db/schema";
-import { getCurrentCenter } from "@/lib/auth/current-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
+import { requireResponsable } from "@/lib/auth/require-responsable";
 import {
   validateCenterDetails,
   validateResponsable,
@@ -32,10 +32,7 @@ import type {
 export async function updateCenterDetails(
   input: CenterDetailsInput,
 ): Promise<void> {
-  const current = await getCurrentCenter();
-  if (current.kind === "anon") redirect("/centro/login");
-  if (current.kind === "no-membership") redirect("/centro/registro");
-  const { centerId } = current.center;
+  const { centerId } = await requireResponsable();
 
   if (Object.keys(validateCenterDetails(input)).length > 0) {
     throw new Error("Datos del centro inválidos.");
@@ -64,10 +61,7 @@ export async function updateCenterDetails(
  * verified login identity). Same authz/validation/return contract.
  */
 export async function updateResponsable(input: ResponsableInput): Promise<void> {
-  const current = await getCurrentCenter();
-  if (current.kind === "anon") redirect("/centro/login");
-  if (current.kind === "no-membership") redirect("/centro/registro");
-  const { userId } = current.center;
+  const { userId } = await requireResponsable();
 
   if (Object.keys(validateResponsable(input)).length > 0) {
     throw new Error("Datos del responsable inválidos.");
@@ -97,12 +91,9 @@ export async function updateResponsable(input: ResponsableInput): Promise<void> 
 export async function updateCenterForCurrentUser(
   input: CreateCenterInput,
 ): Promise<void> {
-  // (1) Resolve session/authz. redirect() returns `never`, narrowing `current`
-  // to the "center" branch below.
-  const current = await getCurrentCenter();
-  if (current.kind === "anon") redirect("/centro/login");
-  if (current.kind === "no-membership") redirect("/centro/registro");
-  const { centerId, userId, status } = current.center;
+  // (1) Resolve session/authz — Responsable-only (requireResponsable bounces
+  // an Operador to /centro; anon/no-membership route the same as before).
+  const { centerId, userId, status } = await requireResponsable();
 
   // (2) Re-validate server-side (defense-in-depth against tampering).
   const errors = validateRegistro(input);

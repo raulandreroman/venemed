@@ -8,3 +8,4 @@ export { AppBar } from "./app-bar";
 export { ProgressBar } from "./progress-bar";
 export { SegmentedControl } from "./segmented-control";
 export { ConfirmDialog } from "./confirm-dialog";
+export { RoleTag } from "./role-tag";
