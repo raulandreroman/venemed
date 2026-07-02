@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { getActiveListas, type ListaFilters } from "@/db/queries";
+import { centerType } from "@/db/schema";
 import { centerTypeLabel } from "@/lib/format";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import type { CenterType } from "@/lib/registro/validation";
@@ -39,10 +40,17 @@ export default async function SolicitudesPage({
 }) {
   const sp = await searchParams;
 
+  const search = sp.search?.trim().slice(0, 64) || undefined;
+  const type =
+    CENTER_TYPE_ENABLED &&
+    (centerType.enumValues as readonly string[]).includes(sp.type ?? "")
+      ? sp.type
+      : undefined;
+
   const filters: ListaFilters = {
-    search: sp.search,
+    search,
     city: sp.city,
-    type: CENTER_TYPE_ENABLED ? sp.type : undefined,
+    type,
     category: sp.category,
     sort: "recent",
   };

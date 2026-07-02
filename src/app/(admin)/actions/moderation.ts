@@ -28,9 +28,12 @@ const ADMIN_LIST_TAGS = [
   "admin-centers:suspended",
 ];
 
-function revalidateAdminLists(opts?: { landing?: boolean }) {
+function revalidateAdminLists(opts?: { landing?: boolean; donor?: boolean }) {
   for (const tag of ADMIN_LIST_TAGS) revalidateTag(tag, "max");
   if (opts?.landing) revalidateTag("landing-stats", "max");
+  // A moderation status change (suspend/reject) pulls the center's active lista
+  // off the cached public list — revalidate the donor surface too.
+  if (opts?.donor) revalidateTag("active-listas", "max");
 }
 
 // ---- 4.1 approveCenter -----------------------------------------------------
@@ -151,8 +154,9 @@ export async function rejectCenter(
 
     if (!ok) return { ok: false, error: GENERIC_ERROR };
 
-    // Reject doesn't change the approved count → skip landing-stats.
-    revalidateAdminLists();
+    // Reject pulls a (possibly-approved) center's active lista off the public
+    // list and out of the landing count — revalidate donor surface + stats.
+    revalidateAdminLists({ landing: true, donor: true });
     return { ok: true, status: "rejected" };
   } catch {
     return { ok: false, error: GENERIC_ERROR };
@@ -209,8 +213,8 @@ export async function suspendCenter(
 
     if (!ok) return { ok: false, error: GENERIC_ERROR };
 
-    // A suspended center drops out of the approved count.
-    revalidateAdminLists({ landing: true });
+    // A suspended center drops out of the approved count and off the public list.
+    revalidateAdminLists({ landing: true, donor: true });
     return { ok: true, status: "suspended" };
   } catch {
     return { ok: false, error: GENERIC_ERROR };

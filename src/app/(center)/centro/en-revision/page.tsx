@@ -57,7 +57,7 @@ export default async function EnRevisionPage() {
               Estamos verificando tu centro
             </h1>
             <p className="text-[15px] leading-[22px] text-neutral-500">
-              Tu teléfono quedó verificado. Ahora nuestro equipo confirmará la
+              Tu correo quedó verificado. Ahora nuestro equipo confirmará la
               veracidad del centro y de la persona responsable antes de activar
               tus alertas.
             </p>

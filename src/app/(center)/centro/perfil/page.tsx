@@ -37,7 +37,7 @@ export default async function CenterProfilePage() {
     redirect("/centro/rechazado");
   }
 
-  const profile = await getCenterProfile(current.centerId, current.userId);
+  const profile = await getCenterProfile(current.centerId);
   if (!profile) redirect("/centro");
 
   const paused = profile.receptionPausedAt != null;
@@ -68,7 +68,7 @@ export default async function CenterProfilePage() {
   const responsable: ResponsableValues = {
     responsibleName: profile.responsibleName ?? "",
     cargo: profile.cargo ?? "",
-    email: current.email ?? "",
+    email: profile.responsibleEmail ?? "",
     whatsappPhone: profile.whatsappPhone
       ? formatVePhone(profile.whatsappPhone)
       : "",

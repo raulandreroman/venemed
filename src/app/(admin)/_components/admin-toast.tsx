@@ -26,7 +26,9 @@ export function AdminToast() {
 
   const [message] = useState<string | null>(() => {
     const done = params.get("done");
-    return done && done in MESSAGES ? MESSAGES[done] : null;
+    return done && Object.prototype.hasOwnProperty.call(MESSAGES, done)
+      ? MESSAGES[done]
+      : null;
   });
   const [visible, setVisible] = useState<boolean>(() => message !== null);
 

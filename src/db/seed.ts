@@ -50,11 +50,16 @@ async function provisionTestMembership(centerId: string) {
   // Find an existing auth user for this email (auth.users survives db:seed,
   // which only resets the domain tables), else create one email-confirmed.
   let userId: string | undefined;
-  const { data: list, error: listErr } = await admin.auth.admin.listUsers({
-    perPage: 1000,
-  });
-  if (listErr) throw listErr;
-  userId = list.users.find((u) => u.email === email)?.id;
+  const perPage = 1000;
+  for (let page = 1; !userId; page++) {
+    const { data: list, error: listErr } = await admin.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+    if (listErr) throw listErr;
+    userId = list.users.find((u) => u.email === email)?.id;
+    if (list.users.length < perPage) break; // last (short/empty) page reached
+  }
 
   if (!userId) {
     const { data: created, error: createErr } =

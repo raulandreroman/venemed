@@ -17,6 +17,39 @@ export const ROUTE_BY_STATUS = {
 } as const;
 
 /**
+ * Raised when the reconcile-delete of a stale, membership-less `app_user` row
+ * (same email, different auth uid) fails because that old uid is still
+ * referenced elsewhere (e.g. `moderation_event.actor_user_id`,
+ * `invitation.invited_by` / `accepted_by`) — a Postgres foreign-key violation
+ * (SQLSTATE 23503). Surfacing it as this typed error (instead of letting the
+ * raw 23503 bubble into an unhandled 500) lets the login flow show a clean
+ * "needs manual reconciliation" message. Fixing it requires re-pointing those
+ * references by hand — not something login can (or should) do automatically.
+ */
+export class AppUserReconciliationError extends Error {
+  constructor(cause?: unknown) {
+    super(
+      "Tu cuenta necesita reconciliación manual. Contáctanos para completar el acceso.",
+    );
+    this.name = "AppUserReconciliationError";
+    this.cause = cause;
+  }
+}
+
+/** Postgres foreign-key-violation SQLSTATE. */
+const PG_FK_VIOLATION = "23503";
+
+/** Narrow an unknown thrown value to a postgres-js error carrying a `.code`. */
+function isForeignKeyViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === PG_FK_VIOLATION
+  );
+}
+
+/**
  * Reconcile + upsert the `app_user` row for a freshly-verified Supabase auth
  * user (id = auth uid). Extracted from `resolveLoginDestination` so a
  * brand-new invitee (who has never gone through `finishLogin`) also gets an
@@ -37,20 +70,32 @@ export async function upsertAppUserFromSession(user: User): Promise<void> {
     // `app_user_email_unique` and 500. Drop that row FIRST — but only when it
     // has NO membership, so a real center is never affected.
     if (email) {
-      await tx
-        .delete(appUser)
-        .where(
-          and(
-            eq(appUser.email, email),
-            ne(appUser.id, user.id),
-            notExists(
-              tx
-                .select({ id: membership.id })
-                .from(membership)
-                .where(eq(membership.userId, appUser.id)),
+      try {
+        await tx
+          .delete(appUser)
+          .where(
+            and(
+              eq(appUser.email, email),
+              ne(appUser.id, user.id),
+              notExists(
+                tx
+                  .select({ id: membership.id })
+                  .from(membership)
+                  .where(eq(membership.userId, appUser.id)),
+              ),
             ),
-          ),
-        );
+          );
+      } catch (error) {
+        // The stale row's old uid is still referenced by another table
+        // (moderation_event.actor_user_id, invitation.invited_by/accepted_by,
+        // …), so Postgres refuses the delete with a 23503. Convert it into a
+        // clean, typed error the login flow can present, rather than an
+        // unhandled 500. Anything else re-throws unchanged.
+        if (isForeignKeyViolation(error)) {
+          throw new AppUserReconciliationError(error);
+        }
+        throw error;
+      }
     }
 
     await tx

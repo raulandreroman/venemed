@@ -158,7 +158,12 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
       const [byIdempotency] = await db
         .select({ id: lista.id })
         .from(lista)
-        .where(eq(lista.idempotencyKey, input.idempotencyKey))
+        .where(
+          and(
+            eq(lista.centerId, centerId),
+            eq(lista.idempotencyKey, input.idempotencyKey),
+          ),
+        )
         .limit(1);
       const [byCenter] = byIdempotency
         ? []

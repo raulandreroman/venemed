@@ -27,6 +27,20 @@ import {
   supply,
 } from "./schema";
 
+// ---- shared helpers ---------------------------------------------------------
+
+/** Canonical UUID shape — guards id params before they hit a Postgres uuid cast
+ * (a malformed id would otherwise throw 22P02 → 500 instead of a clean 404). */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Escape LIKE/ILIKE metacharacters (\ % _) so a user-supplied search term is
+ * matched literally and can't inject wildcard patterns. Postgres LIKE defaults
+ * to `\` as the escape char, so no explicit ESCAPE clause is needed. */
+function escapeLike(term: string): string {
+  return term.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 // ---- shared types ----------------------------------------------------------
 
 export type ListaSort = "recent"; // Reciente
@@ -133,6 +147,9 @@ async function queryActiveListas(
   filters: ListaFilters,
 ): Promise<ListaCardData[]> {
   const search = filters.search?.trim();
+  // Match the term literally — escape LIKE metacharacters so a caller can't
+  // inject wildcard patterns (defense-in-depth; length capping is at the boundary).
+  const searchPattern = search ? `%${escapeLike(search)}%` : undefined;
 
   const rows = await db
     .select({
@@ -159,16 +176,16 @@ async function queryActiveListas(
         filters.category
           ? arrayContains(lista.categories, [filters.category])
           : undefined,
-        search
+        searchPattern
           ? or(
-              ilike(center.name, `%${search}%`),
-              ilike(lista.city, `%${search}%`),
+              ilike(center.name, searchPattern),
+              ilike(lista.city, searchPattern),
               sql`EXISTS (
                 SELECT 1 FROM ${listaItem} li
                 LEFT JOIN ${supply} s ON s.id = li.supply_id
                 WHERE li.lista_id = ${lista.id}
-                  AND (s.name ILIKE ${"%" + search + "%"}
-                       OR li.custom_name ILIKE ${"%" + search + "%"})
+                  AND (s.name ILIKE ${searchPattern}
+                       OR li.custom_name ILIKE ${searchPattern})
               )`,
             )
           : undefined,
@@ -341,6 +358,9 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
  * so the page can call notFound(). Cached; tags "active-listas" and "lista:<id>".
  */
 export function getListaById(id: string): Promise<ListaDetailData | null> {
+  // Malformed (non-UUID) id → clean 404 (page notFound()s on null) instead of a
+  // Postgres uuid-cast error bubbling up as a 500.
+  if (!UUID_RE.test(id)) return Promise.resolve(null);
   return unstable_cache(() => queryListaById(id), ["lista", id], {
     revalidate: 60,
     tags: ["active-listas", `lista:${id}`],
@@ -637,6 +657,7 @@ export type CenterProfileData = {
   verifiedAt: Date | null;
   receptionPausedAt: Date | null;
   responsibleName: string | null;
+  responsibleEmail: string | null;
   cargo: string | null;
   /** lifetime stats (decision §5.3 — Activas + Cumplidas only, no Donantes). */
   activas: number;
@@ -646,15 +667,15 @@ export type CenterProfileData = {
 };
 
 /**
- * Center info + responsable + lifetime stats for the profile screen. One
- * center+app_user join (mirrors the editar page select) plus a single FILTER
- * aggregate for Activas/Cumplidas. `userId` selects the responsable row;
- * `centerId` scopes everything (Drizzle bypasses RLS). Returns null when the
- * center row is missing (defensive — requireCenter guarantees it exists).
+ * Center info + responsable + lifetime stats for the profile screen. The
+ * responsable identity (name/cargo/email) is resolved from the center's
+ * `center_admin` membership row — NOT the current viewer — so it's correct
+ * regardless of who opens the screen (an Operador must still see the true
+ * Responsable). `centerId` scopes everything (Drizzle bypasses RLS). Returns
+ * null when the center row is missing (defensive — requireCenter guarantees it).
  */
 export async function getCenterProfile(
   centerId: string,
-  userId: string,
 ): Promise<CenterProfileData | null> {
   const [row] = await db
     .select({
@@ -669,10 +690,18 @@ export async function getCenterProfile(
       verifiedAt: center.verifiedAt,
       receptionPausedAt: center.receptionPausedAt,
       responsibleName: appUser.name,
+      responsibleEmail: appUser.email,
       cargo: appUser.cargo,
     })
     .from(center)
-    .leftJoin(appUser, eq(appUser.id, userId))
+    .leftJoin(
+      membership,
+      and(
+        eq(membership.centerId, center.id),
+        eq(membership.role, "center_admin"),
+      ),
+    )
+    .leftJoin(appUser, eq(appUser.id, membership.userId))
     .where(eq(center.id, centerId))
     .limit(1);
 
