@@ -30,7 +30,7 @@ export function CenterRequestCard({
   const shareMessage = "Ayuda al centro en VeneMed:";
 
   return (
-    <Card data-testid="center-request-card">
+    <Card data-testid="center-request-card" className="p-[18px]">
       {/* body → center detail (the share button below stays a public link) */}
       <Link
         href={`/centro/lista/${request.id}`}

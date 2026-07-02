@@ -355,10 +355,10 @@ function TextField({
         onChange={onChange}
         placeholder={placeholder}
         aria-invalid={error ? true : undefined}
-        className={`mt-1.5 h-12 w-full rounded-xl border bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300 focus:ring-2 ${
+        className={`mt-2 h-[52px] w-full rounded-md border-[1.5px] bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 ${
           error
-            ? "border-error focus:border-error focus:ring-error/30"
-            : "border-neutral-300 focus:border-accent focus:ring-accent/30"
+            ? "border-error focus:border-2 focus:border-error focus:ring-error/30"
+            : "border-neutral-300 focus:border-2 focus:border-accent focus:ring-accent/30"
         }`}
       />
       {error ? (
@@ -400,12 +400,12 @@ function SelectField({
         value={value}
         onChange={onChange}
         aria-invalid={error ? true : undefined}
-        className={`mt-1.5 h-12 w-full appearance-none rounded-xl border bg-surface bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat px-3 pr-10 text-[15px] outline-none focus:ring-2 ${
-          value ? "text-neutral-900" : "text-neutral-300"
+        className={`mt-2 h-[52px] w-full appearance-none rounded-md border-[1.5px] bg-surface bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat px-4 pr-10 text-base outline-none focus:ring-2 ${
+          value ? "text-neutral-900" : "text-neutral-400"
         } ${
           error
-            ? "border-error focus:border-error focus:ring-error/30"
-            : "border-neutral-300 focus:border-accent focus:ring-accent/30"
+            ? "border-error focus:border-2 focus:border-error focus:ring-error/30"
+            : "border-neutral-300 focus:border-2 focus:border-accent focus:ring-accent/30"
         }`}
         style={{
           backgroundImage:
@@ -444,13 +444,13 @@ function PhoneField({
         Teléfono de contacto (WhatsApp) · opcional
       </label>
       <div
-        className={`mt-1.5 flex overflow-hidden rounded-xl border ${
+        className={`mt-2 flex overflow-hidden rounded-md border-[1.5px] ${
           error
             ? "border-error focus-within:ring-2 focus-within:ring-error/30"
-            : "border-neutral-300 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30"
+            : "border-neutral-300 focus-within:border-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30"
         }`}
       >
-        <span className="flex items-center border-r border-neutral-300 bg-neutral-50 px-3 text-[15px] font-semibold text-neutral-900">
+        <span className="flex items-center border-r border-neutral-300 bg-neutral-50 px-3 text-base font-semibold text-neutral-900">
           +58
         </span>
         <input
@@ -462,7 +462,7 @@ function PhoneField({
           value={value}
           onChange={onChange}
           aria-invalid={error ? true : undefined}
-          className="h-12 w-full bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300"
+          className="h-[52px] w-full bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400"
         />
       </div>
       {error ? (
@@ -503,10 +503,10 @@ function EmailField({
         value={value}
         onChange={onChange}
         aria-invalid={error ? true : undefined}
-        className={`mt-1.5 h-12 w-full rounded-xl border bg-surface px-3 text-[15px] text-neutral-900 outline-none placeholder:text-neutral-300 focus:ring-2 ${
+        className={`mt-2 h-[52px] w-full rounded-md border-[1.5px] bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 ${
           error
-            ? "border-error focus:border-error focus:ring-error/30"
-            : "border-neutral-300 focus:border-accent focus:ring-accent/30"
+            ? "border-error focus:border-2 focus:border-error focus:ring-error/30"
+            : "border-neutral-300 focus:border-2 focus:border-accent focus:ring-accent/30"
         }`}
       />
       {error ? (

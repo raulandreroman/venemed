@@ -37,7 +37,7 @@ export function SearchBox() {
   return (
     <div
       data-pending={isPending || undefined}
-      className="flex h-12 w-full items-center gap-2.5 rounded-xl border border-neutral-300 bg-surface px-4 text-neutral-700 focus-within:border-accent"
+      className="flex h-[52px] w-full items-center gap-2.5 rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-neutral-700 focus-within:border-2 focus-within:border-accent"
     >
       <SearchIcon />
       <input

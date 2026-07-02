@@ -353,8 +353,8 @@ function Field({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-11 w-full rounded-xl border bg-surface px-3 text-[15px] text-neutral-900 outline-none focus:ring-2 focus:ring-accent/30 ${
-          error ? "border-error" : "border-neutral-300 focus:border-accent"
+        className={`h-[52px] w-full rounded-md border-[1.5px] bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:ring-2 focus:ring-accent/30 ${
+          error ? "border-error" : "border-neutral-300 focus:border-2 focus:border-accent"
         }`}
       />
       {error && <span className="text-xs text-error">{error}</span>}
@@ -383,9 +383,9 @@ function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-11 w-full rounded-xl border bg-surface px-3 text-[15px] outline-none focus:ring-2 focus:ring-accent/30 ${
+        className={`h-[52px] w-full rounded-md border-[1.5px] bg-surface px-4 text-base outline-none focus:ring-2 focus:ring-accent/30 ${
           value ? "text-neutral-900" : "text-neutral-400"
-        } ${error ? "border-error" : "border-neutral-300 focus:border-accent"}`}
+        } ${error ? "border-error" : "border-neutral-300 focus:border-2 focus:border-accent"}`}
       >
         <option value="" disabled>
           {placeholder}
