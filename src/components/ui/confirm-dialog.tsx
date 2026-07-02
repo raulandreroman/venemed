@@ -31,7 +31,7 @@ export function ConfirmDialog({
   body: string;
   confirmLabel: string;
   cancelLabel?: string;
-  confirmVariant?: "primary" | "outline";
+  confirmVariant?: "primary" | "outline" | "danger";
   pending?: boolean;
   error?: string | null;
   onConfirm: () => void;

@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { center, lista } from "@/db/schema";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
-import { requireCenter } from "@/lib/auth/require-center";
+import { requireResponsable } from "@/lib/auth/require-responsable";
 
 // NOTE: a "use server" module may export ONLY async functions (gotcha #1). This
 // file exports just `setReception`; no types/consts are exported.
@@ -22,14 +22,15 @@ import { requireCenter } from "@/lib/auth/require-center";
  * `pause = false` → clear `reception_paused_at` only. It does NOT reopen the
  *   cancelled requests (decision §5.2) — the center re-publishes when ready.
  *
- * Authorization derives from `requireCenter()` (session → membership → centerId);
- * a client never supplies the id. Every write is centerId-scoped (Drizzle
- * bypasses RLS — center scoping is the only authorization). Ends in
- * `redirect(...)` (throws), so it runs after commit + revalidate. The profile /
- * dashboard queries are uncached, so the redirect shows the flipped state.
+ * Authorization derives from `requireResponsable()` (session → membership →
+ * centerId, Responsable-only — an Operador is bounced to /centro); a client
+ * never supplies the id. Every write is centerId-scoped (Drizzle bypasses RLS —
+ * center scoping is the only authorization). Ends in `redirect(...)` (throws),
+ * so it runs after commit + revalidate. The profile / dashboard queries are
+ * uncached, so the redirect shows the flipped state.
  */
 export async function setReception(pause: boolean): Promise<void> {
-  const current = await requireCenter();
+  const current = await requireResponsable();
   if (current.status !== "approved") {
     redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
   }

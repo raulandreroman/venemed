@@ -161,3 +161,38 @@ export async function latestCenterEvent(
   `;
   return row;
 }
+
+/**
+ * Make the invitee email re-runnable for center-team.spec.ts: delete any
+ * membership it holds (from a prior run, or from a stray registration) and its
+ * app_user row, plus any lapsed/used invitation rows for the named seed
+ * center — so a fresh join is deterministic. Bounded to the ONE named email +
+ * the ONE named center; never a blanket wipe. No-op if either is absent.
+ */
+export async function ensureInviteeUnattached(
+  sql: Sql,
+  email: string,
+  centerName: string,
+): Promise<void> {
+  const normalized = email.toLowerCase();
+
+  // Clear non-pending invitations (and their accepted_by FK to this app_user)
+  // BEFORE deleting the app_user row below — deleting app_user first would
+  // violate invitation_accepted_by_app_user_id_fk on any re-run after a prior
+  // accept.
+  const centerRows = await sql<{ id: string }[]>`
+    select id from "center" where name = ${centerName} limit 1
+  `;
+  if (centerRows.length > 0) {
+    await sql`
+      delete from "invitation"
+      where center_id = ${centerRows[0].id} and status != 'pending'
+    `;
+  }
+
+  await sql`
+    delete from "membership"
+    where user_id in (select id from "app_user" where email = ${normalized})
+  `;
+  await sql`delete from "app_user" where email = ${normalized}`;
+}

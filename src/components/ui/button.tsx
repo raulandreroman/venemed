@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
-type Variant = "primary" | "ghost" | "secondary" | "outline";
+type Variant = "primary" | "ghost" | "secondary" | "outline" | "danger";
 type Size = "md" | "sm";
 
 const base =
@@ -16,6 +16,9 @@ const variants: Record<Variant, string> = {
     "bg-transparent text-accent hover:bg-accent/10",
   outline:
     "border border-neutral-300 bg-surface text-neutral-900 hover:bg-neutral-100",
+  // Destructive action (e.g. "Quitar" a team member). Reuses the existing
+  // error tokens only — there is no --color-error-on, so text is `text-surface`.
+  danger: "bg-error text-surface hover:bg-error/90 active:bg-error/80",
 };
 
 const sizes: Record<Size, string> = {

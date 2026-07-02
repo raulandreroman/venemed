@@ -1,8 +1,10 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
 import { AppBar, Tag } from "@/components/ui";
 import { CenterRequestCard } from "@/app/(center)/centro/_components/center-request-card";
+import { ModoOperadorBanner } from "@/app/(center)/centro/_components/modo-operador-banner";
 import { SignOutButton } from "@/app/(center)/_components/sign-out-button";
 import {
   getCenterActiveListas,
@@ -18,6 +20,7 @@ import {
 } from "@/lib/format";
 import type { CenterType } from "@/lib/registro/validation";
 
+import { LockedRow } from "./_components/locked-row";
 import { ReceptionToggle } from "./_components/reception-toggle";
 import {
   CenterDetailsSection,
@@ -81,6 +84,8 @@ export default async function CenterProfilePage() {
       : "",
   };
 
+  const isOperador = current.role === "center_member";
+
   return (
     <>
       <AppBar title="Ajustes" backHref="/centro" />
@@ -118,14 +123,20 @@ export default async function CenterProfilePage() {
           </div>
         </section>
 
-        {/* (2) reception kill-switch */}
-        <ReceptionToggle
-          paused={paused}
-          pausedSince={
-            paused ? `desde ${formatRelativeTime(profile.receptionPausedAt)}` : ""
-          }
-          activeRequests={activeRequests}
-        />
+        {isOperador && <ModoOperadorBanner />}
+
+        {/* (2) reception kill-switch — Responsable-only */}
+        {!isOperador && (
+          <ReceptionToggle
+            paused={paused}
+            pausedSince={
+              paused
+                ? `desde ${formatRelativeTime(profile.receptionPausedAt)}`
+                : ""
+            }
+            activeRequests={activeRequests}
+          />
+        )}
 
         {/* Pausado: requests closed at pause */}
         {paused && closedOnPause.length > 0 && (
@@ -146,11 +157,47 @@ export default async function CenterProfilePage() {
           <StatCell label="Finalizadas" value={profile.cumplidas} />
         </section>
 
-        {/* (4) Información del centro — inline editable */}
-        <CenterDetailsSection initial={centerDetails} />
+        {/* (4) Información del centro — inline editable (Responsable) / read-only (Operador) */}
+        <CenterDetailsSection initial={centerDetails} readOnly={isOperador} />
 
-        {/* (5) Persona responsable — inline editable */}
-        <ResponsableSection initial={responsable} />
+        {/* (5) Persona responsable — inline editable (Responsable) / read-only (Operador) */}
+        <ResponsableSection initial={responsable} readOnly={isOperador} />
+
+        {/* (5b) Equipo — Responsable gets the entry point; Operador sees it
+            (+ profile edit + reception) as locked rows. */}
+        {isOperador ? (
+          <Section title="Solo el responsable puede">
+            <LockedRow
+              title="Perfil del centro"
+              subtitle="Editar datos y responsable"
+            />
+            <LockedRow
+              title="Miembros del equipo"
+              subtitle="Invitar y gestionar accesos"
+            />
+            <LockedRow
+              title="Pausar recepción"
+              subtitle="Cerrar la lista al público"
+            />
+          </Section>
+        ) : (
+          <Section title="Equipo">
+            <Link
+              href="/centro/equipo"
+              className="flex items-center justify-between border-b border-neutral-100 py-3 last:border-b-0"
+            >
+              <div>
+                <p className="text-[15px] font-medium text-neutral-900">
+                  Miembros del equipo
+                </p>
+                <p className="text-xs text-neutral-500">
+                  Invitar y gestionar accesos
+                </p>
+              </div>
+              <ChevronRight />
+            </Link>
+          </Section>
+        )}
 
         {/* (6) Cuenta */}
         <Section title="Cuenta">
@@ -184,6 +231,25 @@ function Section({
       <h2 className="mb-2 text-sm font-semibold text-neutral-500">{title}</h2>
       <div className="flex flex-col">{children}</div>
     </section>
+  );
+}
+
+function ChevronRight() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="shrink-0 text-neutral-300"
+      aria-hidden="true"
+    >
+      <path d="m9 18 6-6-6-6" />
+    </svg>
   );
 }
 

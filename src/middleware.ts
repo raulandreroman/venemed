@@ -1,8 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-// Paths under (center) that are reachable WITHOUT a session.
-const PUBLIC_CENTER_PATHS = ["/centro/login", "/centro/registro"];
+// Paths under (center) that are reachable WITHOUT a session. `/centro/unirse`
+// is the invite-link join flow — an anonymous invitee must reach the
+// email/OTP step before they have a session (team-invitations).
+const PUBLIC_CENTER_PATHS = ["/centro/login", "/centro/registro", "/centro/unirse"];
 
 // Paths under (admin) that are reachable WITHOUT a session.
 const PUBLIC_ADMIN_PATHS = ["/admin/login"];

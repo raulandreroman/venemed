@@ -4,8 +4,10 @@ import {
   and,
   arrayContains,
   asc,
+  count,
   desc,
   eq,
+  gt,
   gte,
   ilike,
   inArray,
@@ -15,7 +17,15 @@ import {
 import { unstable_cache } from "next/cache";
 
 import { db } from "./index";
-import { appUser, center, lista, listaItem, supply } from "./schema";
+import {
+  appUser,
+  center,
+  invitation,
+  lista,
+  listaItem,
+  membership,
+  supply,
+} from "./schema";
 
 // ---- shared types ----------------------------------------------------------
 
@@ -773,4 +783,128 @@ export async function getCenterListasClosedSince(
     createdAt: r.createdAt,
     items: itemsByLista.get(r.id) ?? [],
   }));
+}
+
+// ---- team (Equipo / invitations) -------------------------------------------
+// All queries below are center-scoped by a server-resolved `centerId`
+// (requireResponsable() / getInvitationForJoin's own hash lookup) — uncached,
+// no donor surge tags, matching the center-private query contract used
+// elsewhere in this file (getCenterProfile, getCenterActiveListas, …).
+
+export type TeamMemberData = {
+  userId: string;
+  name: string | null;
+  email: string | null;
+  role: "center_admin" | "center_member";
+  createdAt: Date;
+};
+
+/**
+ * The center's team, Responsable first then by join order. Since v1 enforces
+ * exactly one `center_admin` per center (the registrant), that admin is the
+ * unambiguous "who added this member" for every `center_member` row — there is
+ * no per-member `invited_by` column on `membership` (out of scope for v1).
+ */
+export async function getTeamMembers(centerId: string): Promise<TeamMemberData[]> {
+  const rows = await db
+    .select({
+      userId: appUser.id,
+      name: appUser.name,
+      email: appUser.email,
+      role: membership.role,
+      createdAt: membership.createdAt,
+    })
+    .from(membership)
+    .innerJoin(appUser, eq(appUser.id, membership.userId))
+    .where(eq(membership.centerId, centerId))
+    .orderBy(
+      sql`case when ${membership.role} = 'center_admin' then 0 else 1 end`,
+      asc(membership.createdAt),
+    );
+  return rows;
+}
+
+/** Total members (including the Responsable) — powers "N de 5 miembros". */
+export async function countCenterMembers(centerId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(membership)
+    .where(eq(membership.centerId, centerId));
+  return row?.n ?? 0;
+}
+
+export type PendingInvitationData = {
+  id: string;
+  label: string | null;
+  createdAt: Date;
+  expiresAt: Date;
+};
+
+/** Non-lapsed pending invitations, newest first. */
+export async function getPendingInvitations(
+  centerId: string,
+): Promise<PendingInvitationData[]> {
+  return db
+    .select({
+      id: invitation.id,
+      label: invitation.label,
+      createdAt: invitation.createdAt,
+      expiresAt: invitation.expiresAt,
+    })
+    .from(invitation)
+    .where(
+      and(
+        eq(invitation.centerId, centerId),
+        eq(invitation.status, "pending"),
+        gt(invitation.expiresAt, sql`now()`),
+      ),
+    )
+    .orderBy(desc(invitation.createdAt));
+}
+
+export type InvitationForJoin = {
+  invitationId: string;
+  status: "pending" | "accepted" | "revoked" | "expired";
+  expiresAt: Date;
+  role: "center_admin" | "center_member";
+  label: string | null;
+  centerId: string;
+  centerName: string;
+  centerStatus: "pending_review" | "approved" | "rejected" | "suspended";
+  inviterName: string | null;
+  memberCount: number;
+};
+
+/**
+ * Resolve an invitation by its token HASH (never the raw token — see
+ * src/lib/team/token.ts) for the join page. Returns null on no match; callers
+ * still re-check status/expiry/center-status themselves so every failure path
+ * funnels to the SAME generic "invalid invite" outcome (never reveal which
+ * check failed).
+ */
+export async function getInvitationForJoin(
+  tokenHash: string,
+): Promise<InvitationForJoin | null> {
+  const [row] = await db
+    .select({
+      invitationId: invitation.id,
+      status: invitation.status,
+      expiresAt: invitation.expiresAt,
+      role: invitation.role,
+      label: invitation.label,
+      centerId: invitation.centerId,
+      centerName: center.name,
+      centerStatus: center.status,
+      inviterName: appUser.name,
+    })
+    .from(invitation)
+    .innerJoin(center, eq(center.id, invitation.centerId))
+    .leftJoin(appUser, eq(appUser.id, invitation.invitedBy))
+    .where(eq(invitation.tokenHash, tokenHash))
+    .limit(1);
+
+  if (!row) return null;
+
+  const memberCount = await countCenterMembers(row.centerId);
+  return { ...row, memberCount };
 }
