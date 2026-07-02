@@ -121,7 +121,7 @@ export function RejectSheet({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="absolute inset-x-0 bottom-0 z-50 mx-auto flex max-h-[92dvh] w-full max-w-[390px] flex-col rounded-t-[20px] bg-surface shadow-xl outline-none"
+        className="absolute inset-x-0 bottom-0 z-50 mx-auto flex max-h-[92dvh] w-full max-w-[390px] flex-col rounded-t-[24px] bg-surface shadow-xl outline-none"
       >
         <div className="flex shrink-0 justify-center pt-2 pb-1">
           <span className="h-1 w-9 rounded-full bg-neutral-300" />

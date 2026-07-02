@@ -200,7 +200,7 @@ export function InsumoSelector({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="absolute inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90dvh] w-full max-w-[390px] flex-col rounded-t-[20px] bg-surface shadow-xl outline-none"
+        className="absolute inset-x-0 bottom-0 z-50 mx-auto flex max-h-[90dvh] w-full max-w-[390px] flex-col rounded-t-[24px] bg-surface shadow-xl outline-none"
       >
         <div className="flex shrink-0 justify-center pt-2 pb-1">
           <span className="h-1 w-9 rounded-full bg-neutral-300" />
@@ -289,7 +289,7 @@ export function InsumoSelector({
               aria-label={`Crear ${query}`}
               className="mb-1 flex w-full items-center gap-3 border-b border-neutral-100 py-3 text-left"
             >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-subtle text-accent">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-accent-subtle text-accent">
                 <PlusIcon />
               </span>
               <span className="text-[15px] text-neutral-900">
@@ -369,7 +369,7 @@ function Checkbox({ checked }: { checked: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${
+      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border ${
         checked
           ? "border-accent bg-accent text-accent-on"
           : "border-neutral-300 bg-surface"

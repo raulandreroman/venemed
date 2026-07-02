@@ -40,7 +40,7 @@ export function RequestCard({ request }: { request: ListaCardData }) {
       </div>
 
       {/* center */}
-      <h3 className="mt-3 text-lg font-bold leading-tight text-neutral-900">
+      <h3 className="mt-3 text-lg font-semibold leading-tight text-neutral-900">
         {request.centerName}
       </h3>
       {request.centerDescription && (

@@ -502,7 +502,7 @@ function NeedRow({
         </span>
         <span
           aria-hidden="true"
-          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border ${
             draftChecked
               ? "border-accent bg-accent text-accent-on"
               : "border-neutral-300 bg-surface"
