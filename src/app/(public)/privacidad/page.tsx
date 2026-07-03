@@ -3,10 +3,22 @@ import type { ReactNode } from "react";
 
 import { AppBar } from "@/components/ui";
 
+const title = "Privacidad y seguridad · VeneMed";
+const description =
+  "Cómo VeneMed protege a donantes y centros: navegación anónima, sin rastreadores, y la identidad de las personas de los centros nunca es pública.";
+
 export const metadata: Metadata = {
-  title: "Privacidad y seguridad · VeneMed",
-  description:
-    "Cómo VeneMed protege a donantes y centros: navegación anónima, sin rastreadores, y la identidad de las personas de los centros nunca es pública.",
+  title,
+  description,
+  alternates: { canonical: "/privacidad" },
+  openGraph: {
+    type: "website",
+    siteName: "VeneMed",
+    locale: "es_VE",
+    url: "/privacidad",
+    title,
+    description,
+  },
 };
 
 // Static content — safe to prerender and cache aggressively.

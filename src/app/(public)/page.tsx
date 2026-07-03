@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Button, RequestCard } from "@/components/ui";
@@ -7,6 +8,12 @@ import { formatRelativeTime } from "@/lib/format";
 // Surge-facing read path: ISR, regenerated at most once per minute.
 // Underlying queries are additionally memoized via unstable_cache.
 export const revalidate = 60;
+
+// Title/description/openGraph come from the root layout defaults; only the
+// canonical is page-specific.
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 const STEPS = [
   {
