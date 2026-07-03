@@ -1,84 +1,76 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import type { ReactElement } from "react";
 
-import { BrandMark } from "@/app/_brand/mark";
 import type { ListaDetailData } from "@/db/queries";
-import { centerTypeLabel, formatListaUpdated } from "@/lib/format";
+import { formatListaUpdated } from "@/lib/format";
 
 /**
  * Shared social-share card for a lista, rendered by Satori (next/og
  * ImageResponse) from two routes: the landscape og:image (1200×630) and the
  * story route (1080×1920, attached to native shares). So: inline styles only,
  * flexbox only (every div with >1 child sets display:flex), no Tailwind/
- * className, no CSS grid. es-VE copy, conversational voice.
+ * className, no CSS grid. es-VE copy.
+ *
+ * Restyled to the designer's Figma card (a 390×742 frame). The whole layout is
+ * authored once at that "design scale" and multiplied by a per-format `scale`
+ * factor, so both formats stay visually identical bar the item caps.
  *
  * Colors are the design-system tokens from globals.css, inlined as constants
- * (Satori can't read CSS custom properties). Single-accent rule: with the "Ver
- * lista" button removed, the blue accent appears ONLY in the BrandMark logo;
- * everything else is neutral, with the excess line's "Por favor no traigan"
- * label carrying the semantic warning tint (a state signal, not an action).
+ * (Satori can't read CSS custom properties). NOTE two values the designer chose
+ * that do NOT have a matching token in globals.css (design wins here):
+ *   - WORDMARK #0e2a52 — the design calls it "primary/900"; the repo's #0e2a52
+ *     is actually --color-accent-pressed (there is no primary/900; neutral/900
+ *     is #111827).
+ *   - AVISO_TEXT #8a3f07 — design "warning/700"; the repo has no warning/700
+ *     (--color-warning is #b45309 = warning/600).
  */
 const SURFACE = "#ffffff"; // --color-surface
-const NEUTRAL_900 = "#111827"; // --color-neutral-900 (primary text)
-const NEUTRAL_700 = "#374151"; // --color-neutral-700 (secondary text)
-const NEUTRAL_500 = "#6b7280"; // --color-neutral-500 (tertiary text)
-const WARNING = "#b45309"; // --color-warning ("No aceptamos" signal)
+const WORDMARK = "#0e2a52"; // design primary/900 (== --color-accent-pressed)
+const NEUTRAL_900 = "#111827"; // --color-neutral-900 (headline name)
+const NEUTRAL_700 = "#374151"; // --color-neutral-700 (headline/chip text)
+const NEUTRAL_500 = "#6b7280"; // --color-neutral-500 (subline / meta)
+const NEUTRAL_100 = "#eef0f4"; // --color-neutral-100 (neutral pill fill)
+const ERROR_600 = "#c0362c"; // --color-error (urgent text/glyph)
+const ERROR_50 = "#fcebe9"; // --color-error-tint (urgent pill fill)
+const WARNING_50 = "#fef4e6"; // --color-warning-tint (aviso badge fill)
+const AVISO_TEXT = "#8a3f07"; // design warning/700 (no token; > --color-warning)
+
+// VeneMed logo mark (240×204 PNG). Satori can't read files at JSX time, so the
+// PNG is read once at module load and inlined as a data: URI on an <img>.
+const LOGO_PATH = path.join(process.cwd(), "src/assets/venemed-logo-mark.png");
+const LOGO_DATA_URI = `data:image/png;base64,${readFileSync(LOGO_PATH).toString("base64")}`;
+const LOGO_ASPECT = 240 / 204; // ≈1.176 — rendered 40×34 at design scale
 
 export type ListaCardFormat = "landscape" | "story";
 
 type FormatSpec = {
   size: { width: number; height: number };
-  padTop: number;
-  padBottom: number;
-  padX: number;
-  brandSize: number;
-  wordmarkFont: number;
-  eyebrowFont: number;
-  headlineFont: number;
-  itemsFont: number;
-  excessFont: number;
-  footerFont: number;
-  bodyGap: number;
+  scale: number; // multiplier applied to every design-scale value
+  safeY: number; // vertical inset (IG overlays the story's top/bottom)
   itemCap: number;
 };
 
-// Story keeps critical content in the middle safe area — Instagram overlays UI
-// roughly the top/bottom 250px, so the vertical padding is generous and the
-// column is justified space-between within it.
+// Both formats render the same 390-wide design, scaled. Story ≈ ×2.77 (1080 /
+// 390); landscape is scaled down and vertically centered with a tighter cap so
+// the shorter frame stays legible.
 const FORMATS: Record<ListaCardFormat, FormatSpec> = {
   landscape: {
     size: { width: 1200, height: 630 },
-    padTop: 64,
-    padBottom: 64,
-    padX: 64,
-    brandSize: 52,
-    wordmarkFont: 32,
-    eyebrowFont: 28,
-    headlineFont: 52,
-    itemsFont: 40,
-    excessFont: 28,
-    footerFont: 24,
-    bodyGap: 20,
-    itemCap: 7,
+    scale: 1.7,
+    safeY: 40,
+    itemCap: 6,
   },
   story: {
     size: { width: 1080, height: 1920 },
-    padTop: 280,
-    padBottom: 280,
-    padX: 96,
-    brandSize: 76,
-    wordmarkFont: 46,
-    eyebrowFont: 40,
-    headlineFont: 84,
-    itemsFont: 62,
-    excessFont: 44,
-    footerFont: 36,
-    bodyGap: 40,
-    itemCap: 11,
+    scale: 1080 / 390, // ≈2.769
+    safeY: 250,
+    itemCap: 12,
   },
 };
 
 /** center.type -> leading article for the conversational headline. Null (or an
- * unknown type) drops the article gracefully: "Hospital X necesita:". */
+ * unknown type) drops the article gracefully: "Hospital X está necesitando:". */
 const CENTER_ARTICLE: Record<string, string> = {
   hospital: "El",
   clinic: "La",
@@ -91,58 +83,227 @@ function centerArticle(type: string | null): string | null {
   return type ? CENTER_ARTICLE[type] ?? null : null;
 }
 
-/** Natural Spanish enumeration: "a, b y c" (conj "y") or "a, b o c" (conj "o").
- * Caps at `max`, folding the remainder into a trailing "y N más" / "o N más". */
-function enumerate(
-  names: string[],
-  conj: "y" | "o",
-  max: number,
-): string {
-  const clean = names.map((n) => n.trim()).filter(Boolean);
-  if (clean.length === 0) return "";
-  if (clean.length === 1) return clean[0];
+type PillItem = { name: string; urgent: boolean };
 
-  if (clean.length > max) {
-    const shown = clean.slice(0, max);
-    const more = clean.length - max;
-    return `${shown.join(", ")} ${conj} ${more} más`;
-  }
-  const head = clean.slice(0, -1);
-  const last = clean[clean.length - 1];
-  return `${head.join(", ")} ${conj} ${last}`;
+function needPills(lista: ListaDetailData): PillItem[] {
+  // Urgent items first (design's call), then the rest. Every need item counts
+  // regardless of isFulfilled — mirrors the donor detail/share derivations.
+  const need = lista.items.filter((it) => it.bucket === "need");
+  const urgent = need.filter((it) => it.isUrgent).map((it) => ({ name: it.name, urgent: true }));
+  const rest = need.filter((it) => !it.isUrgent).map((it) => ({ name: it.name, urgent: false }));
+  return [...urgent, ...rest];
 }
 
-function itemNames(lista: ListaDetailData, bucket: "need" | "excess"): string[] {
-  // Count every matching item regardless of isFulfilled — mirrors the donor
-  // detail/share derivations.
-  return lista.items.filter((it) => it.bucket === bucket).map((it) => it.name);
+function excessNames(lista: ListaDetailData): string[] {
+  return lista.items.filter((it) => it.bucket === "excess").map((it) => it.name.trim()).filter(Boolean);
 }
 
-function Wordmark({ spec }: { spec: FormatSpec }) {
+function Logo({ scale }: { scale: number }): ReactElement {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: spec.brandSize * 0.3 }}>
-      <BrandMark size={spec.brandSize} />
-      <div
-        style={{
-          display: "flex",
-          fontSize: spec.wordmarkFont,
-          fontWeight: 700,
-          color: NEUTRAL_900,
-        }}
-      >
-        VeneMed
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={LOGO_DATA_URI}
+      alt=""
+      width={40 * scale}
+      height={40 * scale / LOGO_ASPECT}
+      style={{ objectFit: "contain" }}
+    />
+  );
+}
+
+function Header({ scale }: { scale: number }): ReactElement {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 * scale }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 * scale }}>
+        <Logo scale={scale} />
+        <div style={{ display: "flex", fontSize: 20 * scale, fontWeight: 700, color: WORDMARK }}>
+          VeneMed
+        </div>
+      </div>
+      <div style={{ display: "flex", fontSize: 14 * scale, fontWeight: 500, color: NEUTRAL_500 }}>
+        Ver más listas en Venemedapp.org
       </div>
     </div>
   );
 }
 
-function CardShell({
-  spec,
+/** A rounded pill (chips + item pills + the aviso badge share the shape). */
+function Pill({
+  scale,
+  bg,
+  color,
+  fontSize,
+  fontWeight,
+  padY = 5,
   children,
 }: {
-  spec: FormatSpec;
-  children: ReactElement;
-}) {
+  scale: number;
+  bg: string;
+  color: string;
+  fontSize: number;
+  fontWeight: number;
+  padY?: number;
+  children: ReactElement | string;
+}): ReactElement {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        background: bg,
+        color,
+        fontSize: fontSize * scale,
+        fontWeight,
+        borderRadius: 999,
+        paddingLeft: 12 * scale,
+        paddingRight: 12 * scale,
+        paddingTop: padY * scale,
+        paddingBottom: padY * scale,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ChipRow({ lista, scale }: { lista: ListaDetailData; scale: number }): ReactElement | null {
+  const hasUrgent = lista.items.some((it) => it.bucket === "need" && it.isUrgent);
+  if (!lista.city && !hasUrgent) return null;
+  return (
+    <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center" }}>
+      {lista.city ? (
+        <Pill scale={scale} bg={NEUTRAL_100} color={NEUTRAL_700} fontSize={13} fontWeight={500}>
+          {lista.city}
+        </Pill>
+      ) : (
+        <div style={{ display: "flex" }} />
+      )}
+      {hasUrgent && (
+        <Pill scale={scale} bg={ERROR_50} color={ERROR_600} fontSize={13} fontWeight={600}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 * scale }}>
+            <div style={{ display: "flex", fontSize: 10 * scale }}>●</div>
+            <div style={{ display: "flex" }}>Urgente</div>
+          </div>
+        </Pill>
+      )}
+    </div>
+  );
+}
+
+function Headline({ lista, scale }: { lista: ListaDetailData; scale: number }): ReactElement {
+  const article = centerArticle(lista.centerType);
+  const hasNeeds = lista.items.some((it) => it.bucket === "need");
+  return (
+    // Satori has no inline rich text: to wrap the mixed-weight sentence
+    // word-by-word (like the Figma text block), each word is its own flex
+    // item in a wrapping row.
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        fontSize: 24 * scale,
+        lineHeight: 34 / 24,
+      }}
+    >
+      {[
+        ...(article ? [{ text: article, weight: 400, color: NEUTRAL_700 }] : []),
+        ...lista.centerName
+          .split(/\s+/)
+          .map((w) => ({ text: w, weight: 700, color: NEUTRAL_900 })),
+        ...(hasNeeds ? "está necesitando:" : "está recibiendo donaciones")
+          .split(" ")
+          .map((w) => ({ text: w, weight: 500, color: NEUTRAL_700 })),
+      ].map((token, i) => (
+        <div
+          key={i}
+          style={{
+            display: "flex",
+            fontWeight: token.weight,
+            color: token.color,
+            marginRight: 6 * scale,
+          }}
+        >
+          {token.text}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ItemPills({ lista, scale, cap }: { lista: ListaDetailData; scale: number; cap: number }): ReactElement | null {
+  const pills = needPills(lista);
+  if (pills.length === 0) return null;
+  const shown = pills.slice(0, cap);
+  const overflow = pills.length - shown.length;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 * scale }}>
+      {shown.map((p, i) => (
+        <Pill
+          key={i}
+          scale={scale}
+          bg={p.urgent ? ERROR_50 : NEUTRAL_100}
+          color={p.urgent ? ERROR_600 : NEUTRAL_700}
+          fontSize={14}
+          fontWeight={500}
+        >
+          {p.name}
+        </Pill>
+      ))}
+      {overflow > 0 && (
+        <Pill scale={scale} bg={NEUTRAL_100} color={NEUTRAL_700} fontSize={14} fontWeight={500}>
+          {`+${overflow} más`}
+        </Pill>
+      )}
+    </div>
+  );
+}
+
+/** Warning badge: a white circle with an "!" glyph + the excess-item names. */
+function AvisoBadge({ lista, scale }: { lista: ListaDetailData; scale: number }): ReactElement | null {
+  const names = excessNames(lista);
+  if (names.length === 0) return null;
+  const circle = 28 * scale;
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10 * scale,
+        width: "100%",
+        background: WARNING_50,
+        borderRadius: 999,
+        paddingLeft: 12 * scale,
+        paddingRight: 12 * scale,
+        paddingTop: 8 * scale,
+        paddingBottom: 8 * scale,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: circle,
+          height: circle,
+          borderRadius: 999,
+          background: SURFACE,
+          color: AVISO_TEXT,
+          fontSize: 18 * scale,
+          fontWeight: 700,
+        }}
+      >
+        !
+      </div>
+      <div style={{ display: "flex", fontSize: 14 * scale, fontWeight: 600, color: AVISO_TEXT }}>
+        {`No aceptamos: ${names.join(", ")}`}
+      </div>
+    </div>
+  );
+}
+
+/** Outer frame: white surface, vertically centered content within the IG-safe
+ * inset, design-scale horizontal padding. */
+function CardShell({ spec, children }: { spec: FormatSpec; children: ReactElement }): ReactElement {
   return (
     <div
       style={{
@@ -150,11 +311,11 @@ function CardShell({
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
-        paddingTop: spec.padTop,
-        paddingBottom: spec.padBottom,
-        paddingLeft: spec.padX,
-        paddingRight: spec.padX,
+        justifyContent: "center",
+        paddingTop: spec.safeY,
+        paddingBottom: spec.safeY,
+        paddingLeft: 32 * spec.scale,
+        paddingRight: 32 * spec.scale,
         background: SURFACE,
         fontFamily: "Inter",
       }}
@@ -166,7 +327,8 @@ function CardShell({
 
 /** Generic branded fallback — not-found / draft / paused listas and any render
  * error, so social crawlers never get an unstyled 404. */
-function FallbackCard({ spec }: { spec: FormatSpec }) {
+function FallbackCard({ spec }: { spec: FormatSpec }): ReactElement {
+  const { scale } = spec;
   return (
     <div
       style={{
@@ -176,110 +338,49 @@ function FallbackCard({ spec }: { spec: FormatSpec }) {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: spec.bodyGap,
+        gap: 16 * scale,
         background: SURFACE,
         fontFamily: "Inter",
       }}
     >
-      <BrandMark size={spec.brandSize * 1.7} />
-      <div style={{ display: "flex", fontSize: spec.headlineFont * 0.85, fontWeight: 700, color: NEUTRAL_900 }}>
-        VeneMed
-      </div>
-      <div style={{ display: "flex", fontSize: spec.eyebrowFont, color: NEUTRAL_500 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={LOGO_DATA_URI} alt="" width={96 * scale} height={96 * scale / LOGO_ASPECT} style={{ objectFit: "contain" }} />
+      <div style={{ display: "flex", fontSize: 28 * scale, fontWeight: 700, color: WORDMARK }}>VeneMed</div>
+      <div style={{ display: "flex", fontSize: 16 * scale, fontWeight: 500, color: NEUTRAL_500 }}>
         Insumos médicos para Venezuela
       </div>
     </div>
   );
 }
 
-function Eyebrow({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec }) {
-  const cityType = [lista.city, lista.centerType ? centerTypeLabel(lista.centerType) : null]
-    .filter(Boolean)
-    .join(" · ");
-  if (!cityType) return null;
-  return (
-    <div style={{ display: "flex", fontSize: spec.eyebrowFont, color: NEUTRAL_500 }}>
-      {cityType}
-    </div>
-  );
-}
-
-function Footer({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: spec.footerFont * 0.2 }}>
-      <div style={{ display: "flex", fontSize: spec.footerFont, color: NEUTRAL_500 }}>
-        {formatListaUpdated(lista.updatedAt)}
-      </div>
-      <div style={{ display: "flex", fontSize: spec.footerFont, color: NEUTRAL_500 }}>
-        venemedapp.org
-      </div>
-    </div>
-  );
-}
-
-function ActiveCard({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec }) {
-  const article = centerArticle(lista.centerType);
-  const leadName = article ? `${article} ${lista.centerName}` : lista.centerName;
-
-  const needs = itemNames(lista, "need");
-  const excess = itemNames(lista, "excess");
-  const needsSentence = enumerate(needs, "y", spec.itemCap);
-  const excessSentence = enumerate(excess, "o", Math.min(spec.itemCap, 6));
-
+function ActiveCard({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec }): ReactElement {
+  const { scale } = spec;
   return (
     <CardShell spec={spec}>
-      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        {/* top: brand + location eyebrow */}
-        <div style={{ display: "flex", flexDirection: "column", gap: spec.bodyGap * 0.6 }}>
-          <Wordmark spec={spec} />
-          <Eyebrow lista={lista} spec={spec} />
-        </div>
-
-        {/* body: headline + conversational item list */}
-        <div style={{ display: "flex", flexDirection: "column", gap: spec.bodyGap }}>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "baseline",
-              gap: spec.headlineFont * 0.22,
-              fontSize: spec.headlineFont,
-              lineHeight: 1.12,
-            }}
-          >
-            <div style={{ display: "flex", fontWeight: 700, color: NEUTRAL_900 }}>
-              {leadName}
-            </div>
-            <div style={{ display: "flex", fontWeight: 400, color: NEUTRAL_700 }}>
-              {needs.length > 0 ? "necesita:" : "está recibiendo donaciones"}
-            </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 48 * scale }}>
+        <Header scale={scale} />
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <ChipRow lista={lista} scale={scale} />
+          <div style={{ display: "flex", flexDirection: "column", marginTop: 12 * scale }}>
+            <Headline lista={lista} scale={scale} />
           </div>
-
-          {needs.length > 0 && (
-            <div style={{ display: "flex", fontSize: spec.itemsFont, fontWeight: 500, color: NEUTRAL_900, lineHeight: 1.25 }}>
-              {needsSentence}
-            </div>
-          )}
-
-          {excess.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", fontSize: spec.excessFont, lineHeight: 1.3, marginTop: spec.bodyGap * 0.3 }}>
-              <div style={{ display: "flex", color: WARNING, fontWeight: 600, marginRight: spec.excessFont * 0.32 }}>
-                Por favor no traigan:
-              </div>
-              <div style={{ display: "flex", color: NEUTRAL_700 }}>
-                {excessSentence}
-              </div>
-            </div>
-          )}
+          <div style={{ display: "flex", marginTop: 8 * scale, fontSize: 12 * scale, fontWeight: 400, color: NEUTRAL_500 }}>
+            {formatListaUpdated(lista.updatedAt)}
+          </div>
+          <div style={{ display: "flex", marginTop: 24 * scale }}>
+            <ItemPills lista={lista} scale={scale} cap={spec.itemCap} />
+          </div>
+          <div style={{ display: "flex", marginTop: 24 * scale }}>
+            <AvisoBadge lista={lista} scale={scale} />
+          </div>
         </div>
-
-        <Footer lista={lista} spec={spec} />
       </div>
     </CardShell>
   );
 }
 
-function ClosedCard({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec }) {
+function ClosedCard({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec }): ReactElement {
+  const { scale } = spec;
   const message =
     lista.closedReason === "cancelled"
       ? "Lista cancelada · gracias por compartir"
@@ -287,23 +388,15 @@ function ClosedCard({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec 
 
   return (
     <CardShell spec={spec}>
-      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: spec.bodyGap * 0.6 }}>
-          <Wordmark spec={spec} />
-          <Eyebrow lista={lista} spec={spec} />
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: spec.bodyGap }}>
-          <div style={{ display: "flex", flexWrap: "wrap", fontSize: spec.headlineFont, fontWeight: 700, color: NEUTRAL_900, lineHeight: 1.12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 48 * scale }}>
+        <Header scale={scale} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 * scale }}>
+          <div style={{ display: "flex", flexWrap: "wrap", fontSize: 24 * scale, fontWeight: 700, color: NEUTRAL_900, lineHeight: 34 / 24 }}>
             {lista.centerName}
           </div>
-          <div style={{ display: "flex", fontSize: spec.itemsFont * 0.8, fontWeight: 600, color: NEUTRAL_700, lineHeight: 1.25 }}>
+          <div style={{ display: "flex", fontSize: 16 * scale, fontWeight: 600, color: NEUTRAL_700 }}>
             {message}
           </div>
-        </div>
-
-        <div style={{ display: "flex", fontSize: spec.footerFont, color: NEUTRAL_500 }}>
-          venemedapp.org
         </div>
       </div>
     </CardShell>
@@ -313,7 +406,7 @@ function ClosedCard({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec 
 /**
  * The single card element both share routes render. `lista` null (not found /
  * draft / paused) → the branded fallback; closed → the thank-you card;
- * otherwise the conversational active card.
+ * otherwise the active card.
  */
 export function ListaCard({
   lista,
