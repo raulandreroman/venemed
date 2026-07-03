@@ -7,7 +7,6 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import { formatRelativeTime, formatVePhone } from "@/lib/format";
 
-import { CenterAvatar } from "../../../_components/center-avatar";
 import {
   STATUS_LABEL,
   actionLabel,
@@ -44,7 +43,6 @@ export default async function CenterReviewPage({ params }: PageProps) {
 
         {/* identity */}
         <div className="flex items-center gap-3 border-b border-neutral-100 px-4 py-4">
-          <CenterAvatar name={c.name} className="h-12 w-12 text-base" />
           <div className="min-w-0">
             <h2 className="truncate text-[22px] font-bold leading-7 text-neutral-900">
               {c.name}

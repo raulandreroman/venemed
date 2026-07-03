@@ -68,9 +68,6 @@ export default async function JoinInvitePage({
         token={token}
         inviteCard={
           <section className="mt-6 flex flex-col items-center gap-3 rounded-2xl border border-neutral-100 bg-surface p-5 text-center shadow-sm">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-lg font-bold text-accent-on">
-              {initialsFrom(invite.centerName)}
-            </span>
             <h1 className="text-xl font-bold leading-tight text-neutral-900">
               {invite.centerName} te invitó a unirte
             </h1>
@@ -100,13 +97,4 @@ function InfoScreen({ title, body }: { title: string; body: string }) {
       </Link>
     </main>
   );
-}
-
-function initialsFrom(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const letters = parts
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("");
-  return letters.toUpperCase() || "C";
 }

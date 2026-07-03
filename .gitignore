@@ -50,3 +50,4 @@ next-env.d.ts
 
 # annotated-spec derived HTML (regenerate via render.py)
 docs/specs/*.html
+.claude/worktrees/
