@@ -83,15 +83,6 @@ export default async function CenterProfilePage() {
       <main className="flex flex-1 flex-col gap-6 px-4 pb-12 pt-5">
         {/* (1) avatar + name + chips */}
         <section className="flex flex-col items-center gap-3 text-center">
-          <span
-            className={`flex h-20 w-20 items-center justify-center rounded-full text-2xl font-bold ${
-              paused
-                ? "bg-neutral-100 text-neutral-500"
-                : "bg-accent text-accent-on"
-            }`}
-          >
-            {initialsFrom(profile.name)}
-          </span>
           <div>
             <h1 className="text-[22px] font-bold leading-tight text-neutral-900">
               {profile.name}
@@ -231,12 +222,3 @@ function ChevronRight() {
   );
 }
 
-/** Initials from the center name, e.g. "Hospital J.M. de los Ríos" → "HJ". */
-function initialsFrom(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const letters = parts
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("");
-  return letters.toUpperCase() || "C";
-}

@@ -157,9 +157,10 @@ export function isListaStale(
 }
 
 /**
- * "Esta lista tiene 5 días sin ser actualizada" — donor detail staleness
- * banner (Figma 210:14154). Returns null when < 1 full day old, so the banner
- * is only shown for listas that are actually going stale.
+ * "Esta lista tiene 7 días sin ser actualizada" — donor detail staleness
+ * banner (Figma 210:14154). Returns null under 7 full days, matching the donor
+ * list's stale-sink threshold — under that the freshness nudge is the center's
+ * business, not the donor's.
  */
 export function formatStalenessBanner(
   date: Date | string | null,
@@ -167,7 +168,7 @@ export function formatStalenessBanner(
 ): string | null {
   if (!date) return null;
   const days = Math.floor((now.getTime() - toDate(date).getTime()) / DAY);
-  if (days < 1) return null;
+  if (days < 7) return null;
   return `Esta lista tiene ${days} ${days === 1 ? "día" : "días"} sin ser actualizada`;
 }
 

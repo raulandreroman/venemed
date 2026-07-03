@@ -222,14 +222,9 @@ function IdentityBlock({ req }: { req: ListaDetailData }) {
   const receiving = center.receptionPausedAt == null;
   return (
     <>
-      <div className="flex items-center gap-4">
-        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-accent text-xl font-bold text-accent-on">
-          {initials(req.centerName)}
-        </span>
-        <h1 className="text-[22px] font-bold leading-tight text-neutral-900">
-          {req.centerName}
-        </h1>
-      </div>
+      <h1 className="text-[22px] font-bold leading-tight text-neutral-900">
+        {req.centerName}
+      </h1>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {center.verifiedAt && (
           <Tag variant="fulfilled">
@@ -280,7 +275,7 @@ function AddressCard({
 
 function StalenessBanner({ text }: { text: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-xl bg-accent-subtle px-3 py-2.5 text-sm text-neutral-700">
+    <div className="mb-4 flex items-center gap-2 rounded-xl bg-accent-subtle px-3 py-2.5 text-sm text-neutral-700">
       <ClockIcon />
       <span>{text}</span>
     </div>
@@ -422,15 +417,6 @@ function BangIcon({ className = "" }: { className?: string }) {
   );
 }
 
-function initials(name: string): string {
-  const letters = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]);
-  return letters.join("").toUpperCase() || "?";
-}
 
 function mapQuery(addressLine: string | null, city: string): string {
   return [addressLine, city].filter(Boolean).join(", ") || city;

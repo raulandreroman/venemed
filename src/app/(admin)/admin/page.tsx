@@ -10,7 +10,6 @@ import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import { formatRelativeTime, isOlderThanHours } from "@/lib/format";
 
 import { AdminToast } from "../_components/admin-toast";
-import { CenterAvatar } from "../_components/center-avatar";
 import { centerTypeLabel } from "../_components/labels";
 import { QueueTabs, tabToStatus, type QueueTab } from "../_components/queue-tabs";
 
@@ -82,7 +81,6 @@ function QueueRow({ center: c, tab }: { center: CenterQueueRow; tab: QueueTab })
   return (
     <Link href={`/admin/centros/${c.id}`} className="block">
       <Card className="flex items-center gap-3 transition-colors hover:bg-neutral-50">
-        <CenterAvatar name={c.name} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <p className="truncate text-base font-semibold text-neutral-900">

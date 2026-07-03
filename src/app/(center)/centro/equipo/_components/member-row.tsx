@@ -48,16 +48,6 @@ export function MemberRow({ member }: { member: MemberRowData }) {
 
   return (
     <div className="flex items-center gap-3 border-b border-neutral-100 py-3 last:border-b-0">
-      <span
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-          member.role === "center_admin"
-            ? "bg-accent text-accent-on"
-            : "bg-neutral-100 text-neutral-700"
-        }`}
-      >
-        {initialsFrom(displayName)}
-      </span>
-
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-[15px] font-semibold text-neutral-900">
@@ -97,15 +87,6 @@ export function MemberRow({ member }: { member: MemberRowData }) {
       />
     </div>
   );
-}
-
-function initialsFrom(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const letters = parts
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("");
-  return letters.toUpperCase() || "?";
 }
 
 function CloseIcon() {
