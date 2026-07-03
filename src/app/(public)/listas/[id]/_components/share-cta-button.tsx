@@ -4,6 +4,7 @@ import { useCallback } from "react";
 
 import { recordShare } from "@/app/actions/share";
 import { Button } from "@/components/ui";
+import { shareWithOptionalImage } from "@/lib/share/native-share";
 
 /**
  * Footer primary CTA for an active request: "Compartir lista".
@@ -27,18 +28,21 @@ export function ShareCtaButton({
 }) {
   const onClick = useCallback(async () => {
     const url = new URL(path, window.location.origin).toString();
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: message, text: message, url });
-        // Only a successful native share records here (channel unknown). The
-        // scroll-to-#comparte fallback records nothing — the channel button the
-        // donor then taps in ShareSection is the single recorded event.
-        recordShare(requestId, "unknown").catch(() => {});
-        return;
-      } catch {
-        // user cancelled or unsupported — fall through to scroll
-      }
+    // Native share sheet (attaching the per-lista OG image when supported),
+    // same message/URL as the in-page ShareSection.
+    const result = await shareWithOptionalImage({ title: message, text: message, url });
+    if (result === "shared") {
+      // Only a successful native share records here (channel unknown). The
+      // scroll-to-#comparte fallback records nothing — the channel button the
+      // donor then taps in ShareSection is the single recorded event.
+      recordShare(requestId, "unknown").catch(() => {});
+      return;
     }
+    if (result === "cancelled") {
+      // User dismissed the share sheet — silent, no scroll.
+      return;
+    }
+    // No native share available — scroll to the in-page channel picker.
     document
       .getElementById("comparte")
       ?.scrollIntoView({ behavior: "smooth", block: "center" });

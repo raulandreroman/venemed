@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 
 import { recordShare } from "@/app/actions/share";
+import { shareWithOptionalImage } from "@/lib/share/native-share";
 
 /**
  * "Comparte esta solicitud" (Figma 20:2 / 30:16798).
@@ -67,17 +68,22 @@ export function ShareSection({
 
   const shareInstagram = useCallback(async () => {
     // Instagram has no web share-intent URL; use the Web Share API when
-    // available, otherwise fall back to copying the link.
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: message, text: message, url: absoluteUrl() });
-        recordShare(requestId, "instagram").catch(() => {});
-        return;
-      } catch {
-        // user cancelled or unsupported — fall through to copy
-      }
+    // available (attaching the per-lista OG image when the platform supports
+    // it), otherwise fall back to copying the link.
+    const result = await shareWithOptionalImage({
+      title: message,
+      text: message,
+      url: absoluteUrl(),
+    });
+    if (result === "shared") {
+      recordShare(requestId, "instagram").catch(() => {});
+      return;
     }
-    // Fallback path records "copy_link" via copyLink itself.
+    if (result === "cancelled") {
+      // User dismissed the share sheet — silent, no copy fallback.
+      return;
+    }
+    // No native share available. Fallback records "copy_link" via copyLink.
     void copyLink();
   }, [message, absoluteUrl, copyLink, requestId]);
 
