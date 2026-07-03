@@ -49,23 +49,29 @@ type FormatSpec = {
   scale: number; // multiplier applied to every design-scale value
   safeY: number; // vertical inset (IG overlays the story's top/bottom)
   itemCap: number;
+  headerRow: boolean; // landscape design (Figma 360:15468): logo left, subline right
+  headerGap: number; // design-scale gap between header and body
 };
 
-// Both formats render the same 390-wide design, scaled. Story ≈ ×2.77 (1080 /
-// 390); landscape is scaled down and vertically centered with a tighter cap so
-// the shorter frame stays legible.
+// Both formats render the same card, scaled. Story mirrors the 390-wide Figma
+// frame (360:15308, ≈×2.77); landscape mirrors the 582-wide og variant
+// (360:15468, ≈×2.06 with slightly tighter type ⇒ net ×1.8 on the 390 values).
 const FORMATS: Record<ListaCardFormat, FormatSpec> = {
   landscape: {
     size: { width: 1200, height: 630 },
-    scale: 1.7,
-    safeY: 40,
-    itemCap: 6,
+    scale: 1.8,
+    safeY: 33,
+    itemCap: 8,
+    headerRow: true,
+    headerGap: 16,
   },
   story: {
     size: { width: 1080, height: 1920 },
     scale: 1080 / 390, // ≈2.769
     safeY: 250,
     itemCap: 12,
+    headerRow: false,
+    headerGap: 48,
   },
 };
 
@@ -111,18 +117,38 @@ function Logo({ scale }: { scale: number }): ReactElement {
   );
 }
 
-function Header({ scale }: { scale: number }): ReactElement {
-  return (
+function Header({ scale, row }: { scale: number; row: boolean }): ReactElement {
+  const wordmark = (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 * scale }}>
+      <Logo scale={scale} />
+      <div style={{ display: "flex", fontSize: 20 * scale, fontWeight: 700, color: WORDMARK }}>
+        VeneMed
+      </div>
+    </div>
+  );
+  const subline = (
+    <div style={{ display: "flex", fontSize: 14 * scale, fontWeight: 500, color: NEUTRAL_500 }}>
+      Ver más listas en Venemedapp.org
+    </div>
+  );
+  // Landscape (Figma 360:15468): one row, subline right. Story (360:15308):
+  // stacked under the wordmark.
+  return row ? (
+    <div
+      style={{
+        display: "flex",
+        width: "100%",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}
+    >
+      {wordmark}
+      {subline}
+    </div>
+  ) : (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 * scale }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 * scale }}>
-        <Logo scale={scale} />
-        <div style={{ display: "flex", fontSize: 20 * scale, fontWeight: 700, color: WORDMARK }}>
-          VeneMed
-        </div>
-      </div>
-      <div style={{ display: "flex", fontSize: 14 * scale, fontWeight: 500, color: NEUTRAL_500 }}>
-        Ver más listas en Venemedapp.org
-      </div>
+      {wordmark}
+      {subline}
     </div>
   );
 }
@@ -259,7 +285,15 @@ function ItemPills({ lista, scale, cap }: { lista: ListaDetailData; scale: numbe
 }
 
 /** Warning badge: a white circle with an "!" glyph + the excess-item names. */
-function AvisoBadge({ lista, scale }: { lista: ListaDetailData; scale: number }): ReactElement | null {
+function AvisoBadge({
+  lista,
+  scale,
+  fullWidth,
+}: {
+  lista: ListaDetailData;
+  scale: number;
+  fullWidth: boolean;
+}): ReactElement | null {
   const names = excessNames(lista);
   if (names.length === 0) return null;
   const circle = 28 * scale;
@@ -269,7 +303,8 @@ function AvisoBadge({ lista, scale }: { lista: ListaDetailData; scale: number })
         display: "flex",
         alignItems: "center",
         gap: 10 * scale,
-        width: "100%",
+        // Landscape design hugs the content; the story design spans the card.
+        ...(fullWidth ? { width: "100%" } : { alignSelf: "flex-start" }),
         background: WARNING_50,
         borderRadius: 999,
         paddingLeft: 12 * scale,
@@ -357,8 +392,8 @@ function ActiveCard({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec 
   const { scale } = spec;
   return (
     <CardShell spec={spec}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 48 * scale }}>
-        <Header scale={scale} />
+      <div style={{ display: "flex", flexDirection: "column", gap: spec.headerGap * scale }}>
+        <Header scale={scale} row={spec.headerRow} />
         <div style={{ display: "flex", flexDirection: "column" }}>
           <ChipRow lista={lista} scale={scale} />
           <div style={{ display: "flex", flexDirection: "column", marginTop: 12 * scale }}>
@@ -371,7 +406,7 @@ function ActiveCard({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec 
             <ItemPills lista={lista} scale={scale} cap={spec.itemCap} />
           </div>
           <div style={{ display: "flex", marginTop: 24 * scale }}>
-            <AvisoBadge lista={lista} scale={scale} />
+            <AvisoBadge lista={lista} scale={scale} fullWidth={!spec.headerRow} />
           </div>
         </div>
       </div>
@@ -388,8 +423,8 @@ function ClosedCard({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec 
 
   return (
     <CardShell spec={spec}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 48 * scale }}>
-        <Header scale={scale} />
+      <div style={{ display: "flex", flexDirection: "column", gap: spec.headerGap * scale }}>
+        <Header scale={scale} row={spec.headerRow} />
         <div style={{ display: "flex", flexDirection: "column", gap: 12 * scale }}>
           <div style={{ display: "flex", flexWrap: "wrap", fontSize: 24 * scale, fontWeight: 700, color: NEUTRAL_900, lineHeight: 34 / 24 }}>
             {lista.centerName}
