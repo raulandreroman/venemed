@@ -146,7 +146,9 @@ export default async function CenterReviewPage({ params }: PageProps) {
         </Section>
       </main>
 
-      {c.status === "pending_review" && (
+      {/* suspended: Aprobar re-approves (guard allows it) and Rechazar converts
+          to rejected — same bar as pending review. */}
+      {(c.status === "pending_review" || c.status === "suspended") && (
         <ReviewActions centerId={c.id} centerName={c.name} city={c.city} />
       )}
 
