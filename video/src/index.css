@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/*
+ * VeneMed design tokens — copied verbatim from the app's src/app/globals.css
+ * (Figma UI Kit tGvDuvWW99K4QzDH0GlmW7) so the vendored components render
+ * pixel-identical to the web app. --font-sans points at the Inter face loaded
+ * via @remotion/google-fonts.
+ */
+:root {
+  --background: #f7f8fa;
+  --foreground: #111827;
+}
+
+@theme {
+  --color-background: #f7f8fa;
+  --color-foreground: #111827;
+  --color-surface: #ffffff;
+
+  --color-accent: #1f5aa8;
+  --color-accent-hover: #174583;
+  --color-accent-pressed: #0e2a52;
+  --color-accent-subtle: #eef4fb;
+  --color-accent-border: #aec9ea;
+  --color-accent-on: #ffffff;
+
+  --color-neutral-900: #111827;
+  --color-neutral-800: #1f2937;
+  --color-neutral-700: #374151;
+  --color-neutral-600: #4b5563;
+  --color-neutral-500: #6b7280;
+  --color-neutral-400: #9aa2b1;
+  --color-neutral-300: #c4cad4;
+  --color-neutral-200: #dde1e8;
+  --color-neutral-100: #eef0f4;
+  --color-neutral-50: #f7f8fa;
+
+  --color-success: #1e7d52;
+  --color-success-tint: #e8f5ee;
+  --color-warning: #b45309;
+  --color-warning-tint: #fef4e6;
+  --color-error: #c0362c;
+  --color-error-tint: #fcebe9;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  --font-sans: "Inter", system-ui, sans-serif;
+}
