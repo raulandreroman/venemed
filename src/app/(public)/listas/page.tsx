@@ -13,10 +13,27 @@ import { SortToggle } from "./_components/sort-toggle";
 
 export const revalidate = 60;
 
+const title = "Listas activas · VeneMed";
+const description =
+  "Explora las listas activas de centros de salud verificados en Venezuela. Descubre qué insumos necesitan ahora y comparte la lista para que la ayuda llegue.";
+
 export const metadata: Metadata = {
-  title: "Listas activas · VeneMed",
-  description:
-    "Listas activas de centros de salud verificados. Encuentra qué necesitan y compártelo.",
+  title,
+  description,
+  alternates: { canonical: "/listas" },
+  openGraph: {
+    type: "website",
+    siteName: "VeneMed",
+    locale: "es_VE",
+    url: "/listas",
+    title,
+    description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
 };
 
 type SearchParams = {

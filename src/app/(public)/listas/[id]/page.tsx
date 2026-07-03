@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AppBar } from "@/components/ui";
 import { getListaById } from "@/db/queries";
+import { buildShareDescription } from "@/lib/listas/share-description";
 import {
   DetailFooter,
   RequestDetailBody,
@@ -20,9 +21,32 @@ export async function generateMetadata({
   const { id } = await params;
   const req = await getListaById(id);
   if (!req) return { title: "Lista no encontrada · VeneMed" };
+
+  const path = `/listas/${req.id}`;
+  const description = buildShareDescription(req);
+  // openGraph.title carries the center+city; the browser <title> keeps the
+  // "· VeneMed" suffix.
+  const ogTitle = [req.centerName, req.city].filter(Boolean).join(" · ");
+
   return {
     title: `${req.centerName} · VeneMed`,
-    description: req.centerDescription ?? undefined,
+    description,
+    alternates: { canonical: path },
+    // Metadata objects merge shallowly per top-level key: setting `openGraph`
+    // here fully replaces the root layout's, so siteName + locale are re-set.
+    openGraph: {
+      type: "article",
+      url: path,
+      siteName: "VeneMed",
+      locale: "es_VE",
+      title: ogTitle,
+      description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description,
+    },
   };
 }
 
