@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -9,10 +9,34 @@ const inter = Inter({
   display: "swap",
 });
 
+const title = "VeneMed — El puente directo entre tu ayuda y los hospitales";
+const description =
+  "Conectamos centros de salud con donantes para que ninguna ayuda se pierda.";
+
 export const metadata: Metadata = {
-  title: "VeneMed — El puente directo entre tu ayuda y los hospitales",
-  description:
-    "Conectamos centros de salud con donantes para que ninguna ayuda se pierda.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://venemedapp.org",
+  ),
+  title,
+  description,
+  openGraph: {
+    type: "website",
+    siteName: "VeneMed",
+    locale: "es_VE",
+    url: "/",
+    title,
+    description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
+};
+
+export const viewport: Viewport = {
+  // --background (#f7f8fa, neutral/50 — page background) from globals.css
+  themeColor: "#f7f8fa",
 };
 
 export default function RootLayout({
