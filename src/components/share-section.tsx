@@ -101,9 +101,6 @@ export function ShareSection({
       <h2 className="text-lg font-semibold text-neutral-900">
         {title ?? "Comparte esta solicitud"}
       </h2>
-      <p className="mt-1 text-sm text-neutral-500">
-        Cada compartida llega más rápido al donante correcto.
-      </p>
 
       <div className="mt-4 flex items-start justify-between gap-2">
         <ShareButton

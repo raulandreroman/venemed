@@ -1,4 +1,3 @@
-import { ShareSection } from "@/components/share-section";
 import { Button, Tag } from "@/components/ui";
 import type { ListaDetailData } from "@/db/queries";
 import {
@@ -145,15 +144,6 @@ function ActiveDetailBody({ req }: { req: ListaDetailData }) {
         </section>
       )}
 
-      <Divider />
-
-      <div id="comparte">
-        <ShareSection
-          requestId={req.id}
-          message={shareMessage(req)}
-          path={`/listas/${req.id}`}
-        />
-      </div>
     </>
   );
 }
