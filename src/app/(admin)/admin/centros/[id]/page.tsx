@@ -13,6 +13,7 @@ import {
   centerTypeLabel,
 } from "../../../_components/labels";
 import { ReviewActions } from "./review-actions";
+import { SuspendActions } from "./suspend-actions";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -147,6 +148,10 @@ export default async function CenterReviewPage({ params }: PageProps) {
 
       {c.status === "pending_review" && (
         <ReviewActions centerId={c.id} centerName={c.name} city={c.city} />
+      )}
+
+      {c.status === "approved" && (
+        <SuspendActions centerId={c.id} centerName={c.name} city={c.city} />
       )}
     </>
   );
