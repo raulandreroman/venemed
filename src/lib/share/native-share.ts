@@ -2,11 +2,11 @@
  * Web Share (Level 2) helper shared by the donor detail CTA and the
  * ShareSection channel buttons.
  *
- * Enriches `navigator.share` so the OS share sheet can carry the lista's OG
- * image as an attached file — while degrading to the exact text+URL share when
- * anything is unavailable. Never a regression: any failure (no image meta,
- * fetch error, `canShare` false, Safari's `NotAllowedError`) falls back to a
- * plain text+URL `navigator.share`.
+ * Enriches `navigator.share` so the OS share sheet can carry the lista's STORY
+ * image (portrait 1080×1920) as an attached file — while degrading to the exact
+ * text+URL share when anything is unavailable. Never a regression: any failure
+ * (non-lista URL, fetch error, `canShare` false, Safari's `NotAllowedError`)
+ * falls back to a plain text+URL `navigator.share`.
  */
 
 export type NativeShareData = {
@@ -22,36 +22,35 @@ export type NativeShareResult =
 
 const SHARE_IMAGE_FILE_NAME = "venemed-lista.png";
 
+// Matches a canonical donor lista path — "/listas/<id>" with no further
+// segments. Both the donor detail and the center-side share blocks pass this
+// same donor URL, so attaching the story card works from center pages too (the
+// card describes the donor lista, which is exactly what those pages share).
+const LISTA_PATH = /^\/listas\/[^/]+$/;
+
 /**
- * Read the per-lista OG image URL from the current document.
+ * Derive the per-lista STORY image URL from the canonical lista URL the caller
+ * already shares (e.g. "https://venemedapp.org/listas/abc"). The story route is
+ * deterministic — "<origin><pathname>/story-image" — so no meta-tag lookup is
+ * needed. Returns null (→ text+URL share) for any non-lista URL, so center-side
+ * pages that share a non-lista link never attach a mismatched image.
  *
- * The image route is build-hashed, so its URL is only knowable at click time.
- * We only attach the PER-LISTA card — gated on the URL containing "/listas/".
- * On center-side pages that reuse ShareSection the page meta is the site-wide
- * brand image (or absent); attaching that would misrepresent the shared lista,
- * so those pages share text+URL only.
+ * The URL already carries the current origin (call sites build it with
+ * `window.location.origin`), so the derived fetch is same-origin on localhost
+ * and preview deploys as well as prod.
  */
-function resolveListaOgImageUrl(): string | null {
-  if (typeof document === "undefined") return null;
-  const meta = document.querySelector<HTMLMetaElement>(
-    'meta[property="og:image"]',
-  );
-  const content = meta?.content?.trim();
-  if (!content || !content.includes("/listas/")) return null;
-  // The meta URL is absolute to metadataBase (venemedapp.org). The image route
-  // exists on whatever deployment serves this page, so rewrite to the current
-  // origin — otherwise the fetch is cross-origin (and fails) on localhost and
-  // preview deploys.
+function resolveStoryImageUrl(listaUrl: string): string | null {
   try {
-    const parsed = new URL(content, window.location.origin);
-    return `${window.location.origin}${parsed.pathname}${parsed.search}`;
+    const parsed = new URL(listaUrl);
+    if (!LISTA_PATH.test(parsed.pathname)) return null;
+    return `${parsed.origin}${parsed.pathname}/story-image`;
   } catch {
     return null;
   }
 }
 
-/** Fetch the OG image as a shareable File, or null on any failure. */
-async function loadOgImageFile(url: string): Promise<File | null> {
+/** Fetch the story image as a shareable File, or null on any failure. */
+async function loadStoryImageFile(url: string): Promise<File | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
@@ -63,8 +62,9 @@ async function loadOgImageFile(url: string): Promise<File | null> {
 }
 
 /**
- * Invoke the native share sheet, attaching the per-lista OG image when the
- * platform supports file sharing.
+ * Invoke the native share sheet, attaching the per-lista STORY image when the
+ * platform supports file sharing. `data.url` is the canonical lista URL; the
+ * story image URL is derived from it.
  *
  * Gesture/activation note: fetching the blob first can consume the user
  * activation on strict browsers (Safari). We fetch the file, then call
@@ -79,8 +79,8 @@ export async function shareWithOptionalImage(
     return "unsupported";
   }
 
-  const imageUrl = resolveListaOgImageUrl();
-  const file = imageUrl ? await loadOgImageFile(imageUrl) : null;
+  const imageUrl = resolveStoryImageUrl(data.url);
+  const file = imageUrl ? await loadStoryImageFile(imageUrl) : null;
 
   if (file && navigator.canShare?.({ files: [file] })) {
     try {

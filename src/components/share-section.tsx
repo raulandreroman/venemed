@@ -31,6 +31,9 @@ export function ShareSection({
   path: string;
 }) {
   const [copied, setCopied] = useState(false);
+  // Instagram goes through navigator.share, which fetches the share image at
+  // tap time — busy state so the tap doesn't feel dead while the PNG loads.
+  const [sharingInstagram, setSharingInstagram] = useState(false);
 
   const absoluteUrl = useCallback(
     () => new URL(path, window.location.origin).toString(),
@@ -67,25 +70,31 @@ export function ShareSection({
   }, [absoluteUrl, requestId]);
 
   const shareInstagram = useCallback(async () => {
-    // Instagram has no web share-intent URL; use the Web Share API when
-    // available (attaching the per-lista OG image when the platform supports
-    // it), otherwise fall back to copying the link.
-    const result = await shareWithOptionalImage({
-      title: message,
-      text: message,
-      url: absoluteUrl(),
-    });
-    if (result === "shared") {
-      recordShare(requestId, "instagram").catch(() => {});
-      return;
+    if (sharingInstagram) return;
+    setSharingInstagram(true);
+    try {
+      // Instagram has no web share-intent URL; use the Web Share API when
+      // available (attaching the per-lista OG image when the platform supports
+      // it), otherwise fall back to copying the link.
+      const result = await shareWithOptionalImage({
+        title: message,
+        text: message,
+        url: absoluteUrl(),
+      });
+      if (result === "shared") {
+        recordShare(requestId, "instagram").catch(() => {});
+        return;
+      }
+      if (result === "cancelled") {
+        // User dismissed the share sheet — silent, no copy fallback.
+        return;
+      }
+      // No native share available. Fallback records "copy_link" via copyLink.
+      void copyLink();
+    } finally {
+      setSharingInstagram(false);
     }
-    if (result === "cancelled") {
-      // User dismissed the share sheet — silent, no copy fallback.
-      return;
-    }
-    // No native share available. Fallback records "copy_link" via copyLink.
-    void copyLink();
-  }, [message, absoluteUrl, copyLink, requestId]);
+  }, [sharingInstagram, message, absoluteUrl, copyLink, requestId]);
 
   return (
     <section>
@@ -107,7 +116,14 @@ export function ShareSection({
           label="Instagram"
           colorClass="bg-[#C13584] text-white"
           onClick={shareInstagram}
-          icon={<span className="text-[11px] font-bold leading-none">IG</span>}
+          busy={sharingInstagram}
+          icon={
+            sharingInstagram ? (
+              <SpinnerIcon />
+            ) : (
+              <span className="text-[11px] font-bold leading-none">IG</span>
+            )
+          }
         />
         <ShareButton
           label="X"
@@ -131,11 +147,13 @@ function ShareButton({
   colorClass,
   icon,
   onClick,
+  busy = false,
 }: {
   label: string;
   colorClass: string;
   icon: React.ReactNode;
   onClick?: () => void;
+  busy?: boolean;
 }) {
   return (
     <div className="flex w-16 flex-col items-center gap-1.5">
@@ -143,7 +161,9 @@ function ShareButton({
         type="button"
         onClick={onClick}
         aria-label={label}
-        className="transition-transform active:scale-95"
+        aria-busy={busy}
+        disabled={busy}
+        className="transition-transform active:scale-95 disabled:opacity-70"
       >
         <span
           className={`flex h-14 w-14 items-center justify-center rounded-full ${colorClass}`}
@@ -187,6 +207,15 @@ function LinkArrowIcon() {
     >
       <path d="M7 17 17 7" />
       <path d="M7 7h10v10" />
+    </svg>
+  );
+}
+
+function SpinnerIcon() {
+  return (
+    <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }

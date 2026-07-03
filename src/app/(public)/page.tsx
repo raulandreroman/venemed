@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Button, RequestCard } from "@/components/ui";
+import { Button, Logo, RequestCard } from "@/components/ui";
 import { getActiveListas, getLandingStats } from "@/db/queries";
 import { formatRelativeTime } from "@/lib/format";
 
@@ -223,21 +223,3 @@ function ShieldIcon() {
   );
 }
 
-function Logo() {
-  return (
-    <span className="flex size-9 items-center justify-center rounded-xl bg-accent">
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        aria-hidden="true"
-      >
-        <path
-          d="M10 3h4a1 1 0 0 1 1 1v5h5a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-5v5a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-5H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h5V4a1 1 0 0 1 1-1z"
-          fill="#ffffff"
-        />
-      </svg>
-    </span>
-  );
-}

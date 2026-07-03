@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { BrandMark } from "./_brand/mark";
+import { officialLogoDataUri } from "./_brand/official-mark";
 import { loadInterFonts } from "@/lib/og/fonts";
 
 // Site-wide Open Graph image — serves "/", "/listas", and any route without
@@ -41,7 +41,8 @@ export default async function Image() {
             gap: 36,
           }}
         >
-          <BrandMark size={140} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={officialLogoDataUri()} alt="" width={165} height={140} style={{ objectFit: "contain" }} />
           <div
             style={{
               display: "flex",
