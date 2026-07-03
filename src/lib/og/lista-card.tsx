@@ -329,7 +329,8 @@ function AvisoBadge({
       >
         !
       </div>
-      <div style={{ display: "flex", fontSize: 14 * scale, fontWeight: 600, color: AVISO_TEXT }}>
+      {/* Medium like the item pills — no weight difference (user call). */}
+      <div style={{ display: "flex", fontSize: 14 * scale, fontWeight: 500, color: AVISO_TEXT }}>
         {`No aceptamos: ${names.join(", ")}`}
       </div>
     </div>
