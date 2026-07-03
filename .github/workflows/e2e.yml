@@ -42,10 +42,26 @@ jobs:
 
       # Start the LOCAL Supabase stack (blank Postgres + Auth). First start pulls
       # images (slow once). supabase CLI is a devDependency → use pnpm exec.
+      # Only the services e2e touches: Postgres (db), Auth via the gateway
+      # (kong), and the mail sink (inbucket — e2e/_mail.ts reads the OTP there).
+      # Data access is Drizzle direct, so REST/Realtime/Storage/Studio/etc. are
+      # dead weight; excluding them skips their image pulls (~60-90s per run).
       - name: Start local Supabase
-        run: pnpm exec supabase start
+        run: pnpm exec supabase start -x analytics,edge-runtime,functions,imgproxy,realtime,storage,studio,vector
 
-      - run: npx playwright install --with-deps chromium
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # Browsers came from cache — only the OS packages need (re)installing.
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       # Schema via DRIZZLE (not supabase migrations) + sample data, on LOCAL.
       # Safe to seed here: it's an ephemeral per-job DB, never prod.
@@ -55,9 +71,7 @@ jobs:
       - name: Run Playwright (against local Supabase)
         run: pnpm test:e2e
 
-      - name: Stop local Supabase
-        if: always()
-        run: pnpm exec supabase stop
+      # No `supabase stop`: the runner is ephemeral — teardown only burns ~20s.
 
       - name: Upload Playwright report
         if: failure()
