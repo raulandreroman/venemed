@@ -119,13 +119,6 @@ export default async function CenterProfilePage() {
           />
         )}
 
-        {/* (3) lifetime stats — Activas + Finalizadas (decision §5.3) */}
-        <section className="flex items-stretch rounded-2xl border border-neutral-100 bg-surface shadow-sm">
-          <StatCell label="Activas" value={profile.activas} />
-          <span className="my-3 w-px self-stretch bg-neutral-100" />
-          <StatCell label="Finalizadas" value={profile.cumplidas} />
-        </section>
-
         {/* (4) Información del centro — inline editable (Responsable) / read-only (Operador) */}
         <CenterDetailsSection initial={centerDetails} readOnly={isOperador} />
 
@@ -176,15 +169,6 @@ export default async function CenterProfilePage() {
         </Section>
       </main>
     </>
-  );
-}
-
-function StatCell({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex flex-1 flex-col items-center gap-1 px-4 py-5">
-      <span className="text-3xl font-bold text-neutral-900">{value}</span>
-      <span className="text-xs text-neutral-500">{label}</span>
-    </div>
   );
 }
 

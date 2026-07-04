@@ -665,20 +665,15 @@ export type CenterProfileData = {
   responsibleName: string | null;
   responsibleEmail: string | null;
   cargo: string | null;
-  /** lifetime stats (decision §5.3 — Activas + Cumplidas only, no Donantes). */
-  activas: number;
-  /** closed AND closedReason = 'fulfilled' (reception-pause closes are
-   * 'cancelled' and deliberately excluded so pausing never inflates this). */
-  cumplidas: number;
 };
 
 /**
- * Center info + responsable + lifetime stats for the profile screen. The
- * responsable identity (name/cargo/email) is resolved from the center's
- * `center_admin` membership row — NOT the current viewer — so it's correct
- * regardless of who opens the screen (an Operador must still see the true
- * Responsable). `centerId` scopes everything (Drizzle bypasses RLS). Returns
- * null when the center row is missing (defensive — requireCenter guarantees it).
+ * Center info + responsable for the profile screen. The responsable identity
+ * (name/cargo/email) is resolved from the center's `center_admin` membership
+ * row — NOT the current viewer — so it's correct regardless of who opens the
+ * screen (an Operador must still see the true Responsable). `centerId` scopes
+ * everything (Drizzle bypasses RLS). Returns null when the center row is
+ * missing (defensive — requireCenter guarantees it).
  */
 export async function getCenterProfile(
   centerId: string,
@@ -711,21 +706,7 @@ export async function getCenterProfile(
     .where(eq(center.id, centerId))
     .limit(1);
 
-  if (!row) return null;
-
-  const [stats] = await db
-    .select({
-      activas: sql<number>`count(*) filter (where ${lista.status} = 'active')::int`,
-      cumplidas: sql<number>`count(*) filter (where ${lista.status} = 'closed' and ${lista.closedReason} = 'fulfilled')::int`,
-    })
-    .from(lista)
-    .where(eq(lista.centerId, centerId));
-
-  return {
-    ...row,
-    activas: stats?.activas ?? 0,
-    cumplidas: stats?.cumplidas ?? 0,
-  };
+  return row ?? null;
 }
 
 /**
