@@ -1,236 +1,106 @@
-"use client";
+import { toast } from 'sonner';
+import { trackEvent } from '@/lib/analytics';
+import { ShareButton } from '@shared/ui/ShareButton';
 
-import { useCallback, useState } from "react";
+type SocialPlatform = 'whatsapp' | 'instagram' | 'x' | 'copy';
 
-import { recordShare } from "@/app/actions/share";
-import { shareWithOptionalImage } from "@/lib/share/native-share";
-
-/**
- * "Comparte esta solicitud" (Figma 20:2 / 30:16798).
- * Four circular share affordances: WhatsApp / Instagram / X / Copiar link.
- * Each affordance builds its share-intent URL AND records a `share_event` via
- * the `recordShare` server action (fire-and-forget — the share UX never awaits
- * analytics; `.catch(() => {})` swallows a failed RPC so it never surfaces as an
- * unhandled promise rejection).
- * Client Component: needs window.location + navigator.clipboard/share.
- * URLs are resolved at click time so there is no SSR/hydration mismatch.
- */
-export function ShareSection({
-  requestId,
-  title,
-  message,
-  path,
-}: {
-  /** Request id, threaded into `recordShare` for the analytics event. */
-  requestId: string;
-  /** Section title, e.g. "Comparte esta solicitud". */
-  title?: string;
-  /** Pre-built share text (without the URL). */
-  message: string;
-  /** Path of the lista, e.g. "/listas/abc". */
-  path: string;
-}) {
-  const [copied, setCopied] = useState(false);
-  // Instagram goes through navigator.share, which fetches the share image at
-  // tap time — busy state so the tap doesn't feel dead while the PNG loads.
-  const [sharingInstagram, setSharingInstagram] = useState(false);
-
-  const absoluteUrl = useCallback(
-    () => new URL(path, window.location.origin).toString(),
-    [path],
-  );
-
-  const open = useCallback((url: string) => {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }, []);
-
-  const shareWhatsApp = useCallback(() => {
-    open(`https://wa.me/?text=${encodeURIComponent(`${message} ${absoluteUrl()}`)}`);
-    recordShare(requestId, "whatsapp").catch(() => {});
-  }, [open, message, absoluteUrl, requestId]);
-
-  const shareX = useCallback(() => {
-    open(
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-        message,
-      )}&url=${encodeURIComponent(absoluteUrl())}`,
-    );
-    recordShare(requestId, "x").catch(() => {});
-  }, [open, message, absoluteUrl, requestId]);
-
-  const copyLink = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(absoluteUrl());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-      recordShare(requestId, "copy_link").catch(() => {});
-    } catch {
-      // Clipboard unavailable (e.g. insecure context) — no-op.
-    }
-  }, [absoluteUrl, requestId]);
-
-  const shareInstagram = useCallback(async () => {
-    if (sharingInstagram) return;
-    setSharingInstagram(true);
-    try {
-      // Instagram has no web share-intent URL; use the Web Share API when
-      // available (attaching the per-lista OG image when the platform supports
-      // it), otherwise fall back to copying the link.
-      const result = await shareWithOptionalImage({
-        title: message,
-        text: message,
-        url: absoluteUrl(),
-      });
-      if (result === "shared") {
-        recordShare(requestId, "instagram").catch(() => {});
-        return;
-      }
-      if (result === "cancelled") {
-        // User dismissed the share sheet — silent, no copy fallback.
-        return;
-      }
-      // No native share available. Fallback records "copy_link" via copyLink.
-      void copyLink();
-    } finally {
-      setSharingInstagram(false);
-    }
-  }, [sharingInstagram, message, absoluteUrl, copyLink, requestId]);
-
-  return (
-    <section>
-      <h2 className="text-lg font-semibold text-neutral-900">
-        {title ?? "Comparte esta solicitud"}
-      </h2>
-
-      <div className="mt-4 flex items-start justify-between gap-2">
-        <ShareButton
-          label="WhatsApp"
-          colorClass="bg-[#25D366] text-white"
-          onClick={shareWhatsApp}
-          icon={<WhatsAppIcon />}
-        />
-        <ShareButton
-          label="Instagram"
-          colorClass="bg-[#C13584] text-white"
-          onClick={shareInstagram}
-          busy={sharingInstagram}
-          icon={
-            sharingInstagram ? (
-              <SpinnerIcon />
-            ) : (
-              <span className="text-[11px] font-bold leading-none">IG</span>
-            )
-          }
-        />
-        <ShareButton
-          label="X"
-          colorClass="bg-[#0f1419] text-white"
-          onClick={shareX}
-          icon={<XIcon />}
-        />
-        <ShareButton
-          label={copied ? "Copiado" : "Copiar link"}
-          colorClass="bg-accent text-accent-on"
-          onClick={copyLink}
-          icon={copied ? <CheckIcon /> : <LinkArrowIcon />}
-        />
-      </div>
-    </section>
-  );
-}
-
-function ShareButton({
-  label,
-  colorClass,
-  icon,
-  onClick,
-  busy = false,
-}: {
-  label: string;
-  colorClass: string;
-  icon: React.ReactNode;
-  onClick?: () => void;
-  busy?: boolean;
-}) {
-  return (
-    <div className="flex w-16 flex-col items-center gap-1.5">
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label={label}
-        aria-busy={busy}
-        disabled={busy}
-        className="transition-transform active:scale-95 disabled:opacity-70"
-      >
-        <span
-          className={`flex h-14 w-14 items-center justify-center rounded-full ${colorClass}`}
-        >
-          {icon}
-        </span>
-      </button>
-      <span className="text-xs text-neutral-700">{label}</span>
-    </div>
-  );
-}
+const shareRoutes: Record<SocialPlatform, string | null> = {
+  whatsapp: 'https://wa.me/',
+  instagram: null,
+  x: 'https://twitter.com/intent/tweet',
+  copy: null,
+};
 
 function WhatsAppIcon() {
   return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 0 1 8.413 3.488 11.824 11.824 0 0 1 3.48 8.413c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.51 5.26l-.999 3.648 3.978-1.715zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+    </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
     </svg>
   );
 }
 
 function XIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
     </svg>
   );
 }
 
-function LinkArrowIcon() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M7 17 17 7" />
-      <path d="M7 7h10v10" />
-    </svg>
-  );
+function shareViaWebShareAPI(title: string, url: string, platform: SocialPlatform) {
+  if (navigator.share) {
+    navigator.share({ title, url, text: title }).catch(() => {});
+    trackEvent('share', platform);
+  } else {
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Link copiado al portapapeles');
+      trackEvent('share', platform);
+    });
+  }
 }
 
-function SpinnerIcon() {
-  return (
-    <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
-      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  );
+function shareWhatsApp() {
+  const url = encodeURIComponent(window.location.href);
+  const text = encodeURIComponent('Mira este contenido:');
+  window.open(`https://wa.me/?text=${text}%20${url}`, '_blank');
+  trackEvent('share', 'whatsapp');
 }
 
-function CheckIcon() {
+function shareInstagram() {
+  const url = window.location.href;
+  shareViaWebShareAPI('Mira esto en Venemed: ' + url, url, 'instagram');
+}
+
+function shareX() {
+  const url = encodeURIComponent(window.location.href);
+  const text = encodeURIComponent('Mira esto en Venemed:');
+  window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+  trackEvent('share', 'x');
+}
+
+function shareCopyLink() {
+  const url = window.location.href;
+  navigator.clipboard.writeText(url).then(() => {
+    toast.success('Link copiado al portapapeles');
+    trackEvent('share', 'copy');
+  });
+}
+
+export function ShareSection() {
   return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
+    <div className="flex gap-2 items-center justify-center">
+      <ShareButton
+        label="WhatsApp"
+        colorClass="bg-[#25D366] text-white"
+        onClick={shareWhatsApp}
+        icon={<WhatsAppIcon />}
+      />
+      <ShareButton
+        label="Instagram"
+        colorClass="bg-[#C13584] text-white"
+        onClick={shareInstagram}
+        icon={<InstagramIcon />}
+      />
+      <ShareButton
+        label="X"
+        colorClass="bg-black text-white"
+        onClick={shareX}
+        icon={<XIcon />}
+      />
+      <ShareButton
+        label="Copiar link"
+        colorClass="bg-gray-500 text-white"
+        onClick={shareCopyLink}
+        icon={<span className="text-sm font-bold">🔗</span>}
+      />
+    </div>
   );
 }
