@@ -1,65 +1,51 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useTransition } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
-type Sort = "recent";
+type Sort = "recent" | "alphabetical";
 
 const OPTIONS: { value: Sort; label: string }[] = [
   { value: "recent", label: "Reciente" },
+  { value: "alphabetical", label: "Alfabético" },
 ];
 
-/**
- * Sort control (Figma 30:15753 "Ordenar por"). Only "Reciente" survives the
- * lista pivot — urgency was time-window-driven (expires_at asc) and that
- * machinery is retired (lista-model-v2 §4).
- */
 export function SortToggle() {
+  const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
 
-  const current: Sort = "recent";
+  const current: Sort =
+    (searchParams.get("sort") as Sort) === "alphabetical"
+      ? "alphabetical"
+      : "recent";
 
-  const select = useCallback(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("sort");
-    const qs = next.toString();
-    startTransition(() => {
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    });
-  }, [router, pathname, searchParams]);
+  function select(value: Sort) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "recent") {
+      params.delete("sort");
+    } else {
+      params.set("sort", value);
+    }
+    router.replace(`${pathname}?${params.toString()}`);
+  }
 
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-[13px] text-neutral-500">Ordenar por</span>
-      <div
-        role="tablist"
-        aria-label="Ordenar listas"
-        data-pending={isPending || undefined}
-        className="inline-flex items-center gap-1 rounded-full bg-neutral-100 p-1"
-      >
-        {OPTIONS.map((opt) => {
-          const active = current === opt.value;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={select}
-              className={`rounded-full px-3 py-1 text-[13px] font-semibold transition-colors ${
-                active
-                  ? "bg-surface text-neutral-900 shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-700"
-              }`}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
+    <div role="tablist" className="flex gap-2">
+      {OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          role="tab"
+          aria-selected={current === opt.value}
+          className={`px-4 py-2 rounded ${
+            current === opt.value
+              ? "bg-blue-600 text-white"
+              : "bg-gray-200 text-gray-700"
+          }`}
+          onClick={() => select(opt.value)}
+        >
+          {opt.label}
+        </button>
+      ))}
     </div>
   );
 }
