@@ -1,124 +1,66 @@
-import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-
-import { Button } from "@/components/ui";
 import { getCenterListaById } from "@/db/queries";
-import { requireCenter } from "@/lib/auth/require-center";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { PublishedShare } from "../../_components/published-share";
 
-import { CenterRequestCard } from "../../../_components/center-request-card";
-import { PublishedShare } from "./_components/published-share";
-
-/**
- * Lista publicada (Figma 32:5064). Dedicated full-page confirm that
- * publishLista redirects to (so it reads the real short_id for the preview
- * card). Reads the lista scoped to the logged-in center; a foreign / missing
- * id is notFound().
- */
 export default async function PublicadaPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = await params;
-  const center = await requireCenter();
-  if (center.status === "pending_review") redirect("/centro/en-revision");
-  if (center.status === "rejected" || center.status === "suspended") {
-    redirect("/centro/rechazado");
-  }
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return notFound();
 
-  const request = await getCenterListaById(center.centerId, id);
-  if (!request) notFound();
+  const center = session.user.center;
+  if (!center) return notFound();
 
-  const shareMessage = "Ayuda al centro en VeneMed:";
+  const request = await getCenterListaById(center.centerId, params.id);
+  if (!request) return notFound();
 
   return (
-    <>
-      {/* top-right close → dashboard */}
-      <header className="flex h-14 items-center justify-end px-4">
-        <Link
-          href="/centro"
-          aria-label="Cerrar"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-700 hover:bg-neutral-100"
-        >
-          <CloseIcon />
-        </Link>
-      </header>
+    <div className="mx-auto max-w-2xl px-4 py-8">
+      {/* Close-to-dashboard header */}
+      <Link
+        href="/centro/lista"
+        className="mb-6 inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+      >
+        ← Volver al dashboard
+      </Link>
 
-      <main className="flex flex-1 flex-col gap-5 px-4 pb-28 pt-2">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <span className="flex h-24 w-24 items-center justify-center rounded-full bg-success-tint text-success">
-            <CheckIcon />
-          </span>
-          <h1 className="text-2xl font-bold text-neutral-900">
-            ¡Lista publicada!
-          </h1>
-          <p className="max-w-[320px] text-sm text-neutral-500">
-            Ya es visible para los donantes. Compártela para que la ayuda llegue
-            más rápido.
-          </p>
+      {/* Success heading */}
+      <div className="mb-8 text-center">
+        <h1 className="text-2xl font-bold text-green-600">¡Lista publicada!</h1>
+        <p className="mt-2 text-gray-600">
+          Ya es visible para los voluntarios. Puedes compartir el enlace para que
+          donen los insumos.
+        </p>
+      </div>
+
+      {/* Share section */}
+      <div className="mb-8">
+        <h2 className="mb-4 text-lg font-semibold">Compartir</h2>
+        <PublishedShare listaId={request.id} />
+      </div>
+
+      {/* Sticky footer CTAs */}
+      <div className="fixed inset-x-0 bottom-0 border-t bg-white p-4">
+        <div className="mx-auto flex max-w-2xl gap-4">
+          <Link
+            href={`/lista/${request.id}`}
+            className="flex-1 rounded-lg bg-green-600 px-4 py-2 text-center text-white hover:bg-green-700"
+          >
+            Ver en la lista
+          </Link>
+          <Link
+            href="/centro/lista"
+            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-center text-gray-700 hover:bg-gray-50"
+          >
+            Ir al dashboard
+          </Link>
         </div>
-
-        {/* preview card (reuses the dashboard card) */}
-        <CenterRequestCard request={request} />
-
-        {/* share */}
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-neutral-900">
-            Compartir lista
-          </h2>
-          <PublishedShare
-            requestId={request.id}
-            message={shareMessage}
-            path={`/listas/${request.id}`}
-          />
-        </section>
-      </main>
-
-      {/* sticky footer: ver en la lista + ir al panel */}
-      <footer className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-neutral-100 bg-background px-4 py-3">
-        <Button href={`/listas/${request.id}`} fullWidth>
-          Ver en la lista
-        </Button>
-        <Button href="/centro" variant="outline" fullWidth>
-          Ir al panel
-        </Button>
-      </footer>
-    </>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      width="44"
-      height="44"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
+      </div>
+    </div>
   );
 }
