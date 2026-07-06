@@ -70,25 +70,24 @@ export default async function CenterDashboardPage() {
   const noAceptados = lista.items.filter((it) => it.bucket === "excess").length;
   const updatedAgo = formatUpdatedAgo(lista.updatedAt);
   const stale = isListaStale(lista.updatedAt);
+  // Figma vista Operador (209:4338) sits on white (surface); responsable
+  // dashboards keep the #f7f8fa page background (layout default).
+  const isOperador = center.role === "center_member";
+  const pageBg = isOperador ? "bg-surface" : "bg-background";
 
   return (
     <>
       <DashboardHeader centerName={center.centerName} />
       <ConnectionBanner />
-      {center.role === "center_member" && (
-        <div className="px-4 pt-4">
-          <ModoOperadorBanner />
-        </div>
-      )}
 
-      <main className="flex flex-1 flex-col gap-5 px-4 pb-24 pt-4">
+      <main className={`flex flex-1 flex-col gap-5 px-4 pb-24 pt-4 ${pageBg}`}>
         <div>
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm font-semibold text-neutral-900">
             {insumos} {insumos === 1 ? "insumo" : "insumos"} · {urgentes}{" "}
             {urgentes === 1 ? "urgente" : "urgentes"} · {noAceptados}{" "}
             {noAceptados === 1 ? "no aceptado" : "no aceptados"}
           </p>
-          <p className="text-sm text-neutral-400">Actualizada {updatedAgo}</p>
+          <p className="text-sm text-neutral-500">Actualizada {updatedAgo}</p>
         </div>
 
         {lista.status === "paused" && (
@@ -105,10 +104,14 @@ export default async function CenterDashboardPage() {
 
         {stale && <FreshnessCard updatedAgo={updatedAgo} />}
 
+        {isOperador && <ModoOperadorBanner />}
+
         <ListaSections items={lista.items} />
       </main>
 
-      <footer className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-neutral-100 bg-background px-4 py-3">
+      <footer
+        className={`sticky bottom-0 z-20 flex flex-col gap-2 border-t border-neutral-100 px-4 py-3 ${pageBg}`}
+      >
         <Button href={EDITOR_HREF} fullWidth>
           Editar lista
         </Button>
