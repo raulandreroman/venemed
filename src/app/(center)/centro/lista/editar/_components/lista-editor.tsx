@@ -255,17 +255,18 @@ export function ListaEditor({
                 </div>
               ) : (
                 <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    fullWidth
-                    onClick={enterUrgentMode}
-                    disabled={needItems.length === 0}
-                    className="text-accent"
-                  >
-                    <WarningIcon />
-                    {hasUrgent ? "Editar urgentes" : "Marcar como urgente"}
-                  </Button>
+                  {needItems.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      fullWidth
+                      onClick={enterUrgentMode}
+                      className="text-accent"
+                    >
+                      <WarningIcon />
+                      {hasUrgent ? "Editar urgentes" : "Marcar como urgente"}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
