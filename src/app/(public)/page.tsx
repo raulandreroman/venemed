@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Button, Logo, RequestCard } from "@/components/ui";
 import { getActiveListas, getLandingStats } from "@/db/queries";
+import { LANDING_STATS_ENABLED } from "@/lib/flags";
 import { formatRelativeTime } from "@/lib/format";
 
 // Surge-facing read path: ISR, regenerated at most once per minute.
@@ -35,11 +36,11 @@ const STEPS = [
 
 export default async function LandingPage() {
   const [stats, requests] = await Promise.all([
-    getLandingStats(),
+    LANDING_STATS_ENABLED ? getLandingStats() : null,
     getActiveListas(),
   ]);
   const featured = requests.slice(0, 3);
-  const lastUpdated = stats.lastUpdated
+  const lastUpdated = stats?.lastUpdated
     ? formatRelativeTime(stats.lastUpdated)
     : "—";
 
@@ -73,14 +74,16 @@ export default async function LandingPage() {
         </Button>
       </section>
 
-      {/* Live stats */}
-      <section className="flex items-center justify-between border-y border-neutral-300 bg-surface px-6 py-4">
-        <Stat value={String(stats.activeRequests)} label="listas" />
-        <div className="h-8 w-px bg-neutral-300" />
-        <Stat value={String(stats.approvedCenters)} label="centros" />
-        <div className="h-8 w-px bg-neutral-300" />
-        <Stat value={lastUpdated} label="actualizado" />
-      </section>
+      {/* Live stats (flag-gated, off by default) */}
+      {stats && (
+        <section className="flex items-center justify-between border-y border-neutral-300 bg-surface px-6 py-4">
+          <Stat value={String(stats.activeRequests)} label="listas" />
+          <div className="h-8 w-px bg-neutral-300" />
+          <Stat value={String(stats.approvedCenters)} label="centros" />
+          <div className="h-8 w-px bg-neutral-300" />
+          <Stat value={lastUpdated} label="actualizado" />
+        </section>
+      )}
 
       {/* Cómo funciona */}
       <section className="flex flex-col gap-4 bg-neutral-50 px-6 py-6">
