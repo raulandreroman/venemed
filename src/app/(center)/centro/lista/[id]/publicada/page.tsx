@@ -5,7 +5,6 @@ import { Button } from "@/components/ui";
 import { getCenterListaById } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 
-import { CenterRequestCard } from "../../../_components/center-request-card";
 import { PublishedShare } from "./_components/published-share";
 
 /**
@@ -57,9 +56,6 @@ export default async function PublicadaPage({
             más rápido.
           </p>
         </div>
-
-        {/* preview card (reuses the dashboard card) */}
-        <CenterRequestCard request={request} />
 
         {/* share */}
         <section className="flex flex-col gap-3">
