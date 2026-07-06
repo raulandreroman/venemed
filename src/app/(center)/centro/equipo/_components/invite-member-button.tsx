@@ -48,7 +48,10 @@ export function InviteMemberButton({
     setError(null);
     setUrl("");
     setCopyFeedback(null);
-  }, [pending]);
+    // Keep the team list fresh so a just-created pending invitation shows up.
+    // This ran on the removed "Listo" button; now every dismiss refreshes.
+    router.refresh();
+  }, [pending, router]);
 
   useEffect(() => {
     if (!open) return;
@@ -110,11 +113,6 @@ export function InviteMemberButton({
     }
     await onCopy();
   }, [url, onCopy]);
-
-  const onDone = useCallback(() => {
-    close();
-    router.refresh();
-  }, [close, router]);
 
   return (
     <>
@@ -249,26 +247,10 @@ export function InviteMemberButton({
                 <Button type="button" fullWidth onClick={() => void onShare()}>
                   Compartir enlace
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  fullWidth
-                  onClick={() => void onCopy()}
-                >
-                  Copiar enlace
-                </Button>
 
                 <p className="text-center text-xs text-neutral-400">
                   Enlace de un solo uso · vence en 24 h
                 </p>
-
-                <button
-                  type="button"
-                  onClick={onDone}
-                  className="text-sm font-semibold text-accent"
-                >
-                  Listo
-                </button>
               </>
             )}
           </div>

@@ -91,7 +91,9 @@ test.describe("center team invitations", () => {
     await expect(urlField).toBeVisible();
     const inviteUrl = (await urlField.textContent())?.trim();
     expect(inviteUrl).toBeTruthy();
-    await page.getByRole("button", { name: "Listo" }).click();
+    // Dismiss the sheet — the "Listo" button was removed; Escape closes it
+    // (and still triggers the team-list refresh via close()).
+    await page.keyboard.press("Escape");
 
     // --- Invitee opens the link in a separate browser context ----------
     const inviteeContext = await browser.newContext();
