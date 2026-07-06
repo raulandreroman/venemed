@@ -7,14 +7,13 @@ import { db } from "@/db";
 import { center, moderationEvent } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { sendCenterApprovedEmail } from "@/lib/email/send-center-approved";
+import { REASON_MAX } from "./types";
 import type { ModerationResult } from "./types";
 
 // --- helpers (module-private; not exported, so this file stays "use server"-safe) ---
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const REASON_MAX = 400;
 
 const GENERIC_ERROR =
   "No se pudo guardar la decisión. Inténtalo de nuevo.";
@@ -168,7 +167,7 @@ export async function rejectCenter(
 /**
  * Suspend an (approved) center. Mirrors reject; rejection_reason is reused as
  * the "needs attention" message (suspended → /centro/rechazado in
- * ROUTE_BY_STATUS). Wired to UI in the A5 fast-follow.
+ * ROUTE_BY_STATUS). Wired to the A5 suspend sheet on the review page.
  */
 export async function suspendCenter(
   centerId: string,

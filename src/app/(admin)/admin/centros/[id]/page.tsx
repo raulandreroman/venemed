@@ -13,6 +13,7 @@ import {
   centerTypeLabel,
 } from "../../../_components/labels";
 import { ReviewActions } from "./review-actions";
+import { SuspendActions } from "./suspend-actions";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -145,8 +146,14 @@ export default async function CenterReviewPage({ params }: PageProps) {
         </Section>
       </main>
 
-      {c.status === "pending_review" && (
+      {/* suspended: Aprobar re-approves (guard allows it) and Rechazar converts
+          to rejected — same bar as pending review. */}
+      {(c.status === "pending_review" || c.status === "suspended") && (
         <ReviewActions centerId={c.id} centerName={c.name} city={c.city} />
+      )}
+
+      {c.status === "approved" && (
+        <SuspendActions centerId={c.id} centerName={c.name} city={c.city} />
       )}
     </>
   );
