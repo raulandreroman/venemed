@@ -43,7 +43,7 @@ function escapeLike(term: string): string {
 
 // ---- shared types ----------------------------------------------------------
 
-export type ListaSort = "recent"; // Reciente
+export type ListaSort = "recent" | "alphabetical"; // Reciente | Alfabético
 
 export type ListaFilters = {
   search?: string; // matches center name, city, or item name
@@ -193,12 +193,16 @@ async function queryActiveListas(
           : undefined,
       ),
     )
-    // Reciente: fresh-first, but sink listas untouched > 7 days to the bottom
-    // (§4.2 D5). SQL-side so `now()` is evaluated at query time, not frozen by
-    // unstable_cache's cached closure.
+    // Alfabético: center name A→Z. Reciente (default): fresh-first, but sink
+    // listas untouched > 7 days to the bottom (§4.2 D5). SQL-side so `now()` is
+    // evaluated at query time, not frozen by unstable_cache's cached closure.
     .orderBy(
-      sql`(${lista.updatedAt} < now() - interval '7 days')`,
-      desc(lista.updatedAt),
+      ...(filters.sort === "alphabetical"
+        ? [asc(center.name)]
+        : [
+            sql`(${lista.updatedAt} < now() - interval '7 days')`,
+            desc(lista.updatedAt),
+          ]),
     );
 
   const ids = rows.map((r) => r.id);
@@ -265,7 +269,7 @@ export function getActiveListas(
     city: filters.city || undefined,
     type: filters.type || undefined,
     category: filters.category || undefined,
-    sort: "recent",
+    sort: filters.sort === "alphabetical" ? "alphabetical" : "recent",
   };
   const key = JSON.stringify(normalized);
   return unstable_cache(

@@ -3,16 +3,17 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useTransition } from "react";
 
-type Sort = "recent";
+type Sort = "recent" | "alphabetical";
 
 const OPTIONS: { value: Sort; label: string }[] = [
   { value: "recent", label: "Reciente" },
+  { value: "alphabetical", label: "Alfabético" },
 ];
 
 /**
- * Sort control (Figma 30:15753 "Ordenar por"). Only "Reciente" survives the
- * lista pivot — urgency was time-window-driven (expires_at asc) and that
- * machinery is retired (lista-model-v2 §4).
+ * Sort control (Figma 30:15753 "Ordenar por"). Two options: "Reciente"
+ * (fresh-first, the default — paramless canonical URL) and "Alfabético"
+ * (center name A→Z, via ?sort=alphabetical).
  */
 export function SortToggle() {
   const router = useRouter();
@@ -20,16 +21,22 @@ export function SortToggle() {
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
-  const current: Sort = "recent";
+  const current: Sort =
+    searchParams.get("sort") === "alphabetical" ? "alphabetical" : "recent";
 
-  const select = useCallback(() => {
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete("sort");
-    const qs = next.toString();
-    startTransition(() => {
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    });
-  }, [router, pathname, searchParams]);
+  const select = useCallback(
+    (value: Sort) => {
+      const next = new URLSearchParams(searchParams.toString());
+      // "recent" is the canonical, paramless URL; any other value sets ?sort=.
+      if (value === "recent") next.delete("sort");
+      else next.set("sort", value);
+      const qs = next.toString();
+      startTransition(() => {
+        router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      });
+    },
+    [router, pathname, searchParams],
+  );
 
   return (
     <div className="flex items-center justify-between">
@@ -48,7 +55,7 @@ export function SortToggle() {
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={select}
+              onClick={() => select(opt.value)}
               className={`rounded-full px-3 py-1 text-[13px] font-semibold transition-colors ${
                 active
                   ? "bg-surface text-neutral-900 shadow-sm"

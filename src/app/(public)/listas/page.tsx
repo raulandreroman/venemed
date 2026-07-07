@@ -69,7 +69,7 @@ export default async function SolicitudesPage({
     city: sp.city,
     type,
     category: sp.category,
-    sort: "recent",
+    sort: sp.sort === "alphabetical" ? "alphabetical" : "recent",
   };
 
   // Two cached calls: facets from the full active feed (so chips never
