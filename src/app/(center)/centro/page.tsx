@@ -30,13 +30,17 @@ export default async function CenterDashboardPage() {
   }
   // status === "approved" → render dashboard
 
+  // Only the Responsable (center_admin) can invite — the equipo page is
+  // requireResponsable-gated, so an Operador shortcut would be a dead link.
+  const canInvite = center.role === "center_admin";
+
   let lista;
   try {
     lista = await getCenterDashboardLista(center.centerId);
   } catch {
     return (
       <>
-        <DashboardHeader centerName={center.centerName} />
+        <DashboardHeader centerName={center.centerName} canInvite={canInvite} />
         <ConnectionBanner />
         {center.role === "center_member" && (
           <div className="px-4 pt-4">
@@ -51,7 +55,7 @@ export default async function CenterDashboardPage() {
   if (!lista) {
     return (
       <>
-        <DashboardHeader centerName={center.centerName} />
+        <DashboardHeader centerName={center.centerName} canInvite={canInvite} />
         <ConnectionBanner />
         {center.role === "center_member" && (
           <div className="px-4 pt-4">
@@ -77,7 +81,7 @@ export default async function CenterDashboardPage() {
 
   return (
     <>
-      <DashboardHeader centerName={center.centerName} />
+      <DashboardHeader centerName={center.centerName} canInvite={canInvite} />
       <ConnectionBanner />
 
       <main className={`flex flex-1 flex-col gap-5 px-4 pb-24 pt-4 ${pageBg}`}>

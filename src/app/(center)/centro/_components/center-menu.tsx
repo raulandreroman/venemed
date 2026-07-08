@@ -13,9 +13,10 @@ import { signOut } from "../../actions/auth";
  *
  * Rows:
  *  - "Ajustes" → /centro/perfil (the center profile, slice 4)
+ *  - "Invitar miembros" → /centro/equipo (Responsable-only; gated by `canInvite`)
  *  - "Cerrar sesión" → posts the existing signOut server action
  */
-export function CenterMenu() {
+export function CenterMenu({ canInvite }: { canInvite: boolean }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -81,6 +82,24 @@ export function CenterMenu() {
             </Link>
 
             <div className="h-px bg-neutral-100" />
+
+            {canInvite && (
+              <>
+                <Link
+                  role="menuitem"
+                  href="/centro/equipo"
+                  onClick={close}
+                  className="flex items-center gap-3 px-4 py-3.5 hover:bg-neutral-100"
+                >
+                  <span className="flex-1 text-[15px] font-medium text-neutral-900">
+                    Invitar miembros
+                  </span>
+                  <ChevronRight className="text-neutral-300" />
+                </Link>
+
+                <div className="h-px bg-neutral-100" />
+              </>
+            )}
 
             <form action={signOut} role="menuitem">
               <button
