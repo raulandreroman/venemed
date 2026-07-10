@@ -20,14 +20,35 @@ function redact(text: string): string {
 }
 
 /**
+ * Errors thrown by JS that an iOS in-app browser / WebView wrapper (Instagram,
+ * password managers, native app shells) injects into the page — not our code.
+ * They surface as `undefined is not an object (evaluating
+ * 'window.webkit.messageHandlers')` from `sendDataToNative`/`sendPageHideMessage`
+ * with `app:///` `[Line 1]` frames, and are pure noise. Drop them before send.
+ */
+function isInjectedNativeBridgeError(event: ErrorEvent): boolean {
+  for (const value of event.exception?.values ?? []) {
+    if (value.value?.includes("window.webkit.messageHandlers")) return true;
+    for (const frame of value.stacktrace?.frames ?? []) {
+      const fn = frame.function ?? "";
+      if (fn === "sendDataToNative" || fn === "sendPageHideMessage") return true;
+    }
+  }
+  return false;
+}
+
+/**
  * beforeSend hook — strips identifying data from every event before it leaves
  * the app. Given the threat model (state persecution), we do NOT want Sentry to
  * become a store of user IPs, phone numbers, or request bodies:
+ *  - drop the whole event if it's third-party in-app-browser noise
  *  - drop `user` entirely (removes IP even if something set it)
  *  - drop request headers, cookies, and bodies
  *  - redact phone-shaped strings from message / exception / breadcrumbs
  */
-export function scrubEvent(event: ErrorEvent): ErrorEvent {
+export function scrubEvent(event: ErrorEvent): ErrorEvent | null {
+  if (isInjectedNativeBridgeError(event)) return null;
+
   delete event.user;
 
   if (event.request) {
@@ -65,5 +86,7 @@ export const baseSentryOptions = {
   tracesSampleRate: 0,
   // Keep noise low; only report in real deployments.
   environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
+  // Third-party in-app-browser / WebView noise (see isInjectedNativeBridgeError).
+  ignoreErrors: [/window\.webkit\.messageHandlers/],
   beforeSend: scrubEvent,
 } satisfies BrowserOptions;
