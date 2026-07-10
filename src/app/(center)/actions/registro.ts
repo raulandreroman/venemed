@@ -9,6 +9,7 @@ import {
   validateRegistro,
   type CreateCenterInput,
 } from "@/lib/registro/validation";
+import { sendCenterPendingEmail } from "@/lib/email/send-center-pending";
 import { createClient } from "@/lib/supabase/server";
 
 // NOTE: a "use server" module may export ONLY async functions. Do not re-export
@@ -56,6 +57,7 @@ export async function createCenterForCurrentUser(
 
   // (4) Transaction: upsert app_user, insert center (pending_review), insert
   // membership (center_admin) — all-or-nothing.
+  let newCenterId: string | undefined;
   try {
     await db.transaction(async (tx) => {
       await tx
@@ -99,6 +101,8 @@ export async function createCenterForCurrentUser(
         centerId: inserted.id,
         role: "center_admin",
       });
+
+      newCenterId = inserted.id;
     });
   } catch (err) {
     // Unique-violation on membership.user_id: a concurrent request already
@@ -116,7 +120,18 @@ export async function createCenterForCurrentUser(
     throw err;
   }
 
-  // (5) Redirect AFTER the transaction commits (redirect throws).
+  // (5) Best-effort: notify moderators a new center is awaiting review. Runs
+  // after commit, before redirect; never throws (own try/catch), so a send
+  // failure can't fail the registration.
+  if (newCenterId) {
+    await sendCenterPendingEmail({
+      centerId: newCenterId,
+      centerName: input.name.trim(),
+      location: `${input.city.trim()}, ${input.state}`,
+    });
+  }
+
+  // (6) Redirect AFTER the transaction commits (redirect throws).
   redirect("/centro/en-revision");
 }
 
