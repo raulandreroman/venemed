@@ -1,5 +1,5 @@
 {
-  "id": "1e764bad-c9a5-4c61-92cf-b817948885a7",
+  "id": "84f8d97f-6253-4bbf-ad46-617ad206611a",
   "prevId": "f2bd14b0-aaa2-47ac-8322-ea2dc601c49b",
   "version": "7",
   "dialect": "postgresql",
@@ -433,6 +433,24 @@
           "primaryKey": false,
           "notNull": false
         },
+        "reception_contact_name": {
+          "name": "reception_contact_name",
+          "type": "varchar(80)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reception_contact_phone": {
+          "name": "reception_contact_phone",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reception_landmark": {
+          "name": "reception_landmark",
+          "type": "varchar(120)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "published_at": {
           "name": "published_at",
           "type": "timestamp with time zone",
@@ -581,6 +599,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'need'"
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "is_urgent": {
           "name": "is_urgent",

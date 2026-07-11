@@ -1,1 +1,0 @@
-ALTER TABLE "lista_item" ADD COLUMN "quantity" integer;
