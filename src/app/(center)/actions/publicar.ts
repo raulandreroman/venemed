@@ -9,8 +9,17 @@ import { center, lista, listaItem, supply, supplyCategory } from "@/db/schema";
 import { requireCenter } from "@/lib/auth/require-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { categoryLabel } from "@/lib/format";
+<<<<<<< HEAD
 import { isValidQuantity, validatePublishLista } from "@/lib/listas/validation";
+=======
+import {
+  RECEPTION_LANDMARK_MAX,
+  RECEPTION_NAME_MAX,
+  validatePublishLista,
+} from "@/lib/listas/validation";
+>>>>>>> feat/insight-reception-contact
 import type { PublishListaInput } from "@/lib/listas/validation";
+import { normalizeVePhone } from "@/lib/registro/validation";
 
 // NOTE: a "use server" module may export ONLY async functions (gotcha #1).
 // `PublishListaInput` is imported via `import type` above — never re-exported.
@@ -88,6 +97,13 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
 
   const deliveryInstructions = input.deliveryInstructions?.trim() || null;
   const excessReason = input.excessReason?.trim() || null;
+  // Reception contact (field-insight §3) — trim + length-cap the strings,
+  // normalize the phone to E.164. All optional; empty → null.
+  const receptionContactName =
+    input.receptionContactName?.trim().slice(0, RECEPTION_NAME_MAX) || null;
+  const receptionLandmark =
+    input.receptionLandmark?.trim().slice(0, RECEPTION_LANDMARK_MAX) || null;
+  const receptionContactPhone = normalizeVePhone(input.receptionContactPhone);
 
   const itemValues = (targetListaId: string) =>
     input.items.map((it) => ({
@@ -132,6 +148,9 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
         .set({
           deliveryInstructions,
           excessReason,
+          receptionContactName,
+          receptionContactPhone,
+          receptionLandmark,
           city: c?.city ?? null,
           categories,
           updatedAt: sql`now()`,
@@ -152,6 +171,9 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
             status: "active",
             deliveryInstructions,
             excessReason,
+            receptionContactName,
+            receptionContactPhone,
+            receptionLandmark,
             publishedAt: sql`now()`,
             city: c?.city ?? null,
             categories,

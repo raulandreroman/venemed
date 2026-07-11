@@ -219,6 +219,12 @@ export const lista = pgTable(
     deliveryInstructions: varchar("delivery_instructions", { length: 120 }),
     // list-level "Razón (opcional)" for the excess bucket (aviso-exceso, folded in).
     excessReason: varchar("excess_reason", { length: 40 }),
+    // reception contact — who receives donations at the center (field-insight §3).
+    // Optional, opt-in; the phone is published to the anonymous donor surface, so
+    // the editor helper copy flags it as "visible públicamente".
+    receptionContactName: varchar("reception_contact_name", { length: 80 }),
+    receptionContactPhone: varchar("reception_contact_phone", { length: 20 }),
+    receptionLandmark: varchar("reception_landmark", { length: 120 }),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     closedReason: closedReason("closed_reason"),

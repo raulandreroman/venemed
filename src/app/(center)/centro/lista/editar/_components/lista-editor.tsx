@@ -8,8 +8,11 @@ import type { CenterEditableLista } from "@/db/queries";
 import {
   EXCESS_REASON_MAX,
   INSTRUCTIONS_MAX,
+  RECEPTION_LANDMARK_MAX,
+  RECEPTION_NAME_MAX,
   type PublishListaInput,
 } from "@/lib/listas/validation";
+import { vePhoneToNational } from "@/lib/registro/validation";
 
 import { InsumoSelector } from "./insumo-selector";
 
@@ -89,6 +92,17 @@ export function ListaEditor({
   const [excessItems, setExcessItems] = useState<SelectedItem[]>(initialExcess);
   const [nota, setNota] = useState(initial?.deliveryInstructions ?? "");
   const [excessReason, setExcessReason] = useState(initial?.excessReason ?? "");
+  // Reception contact (field-insight §3) — optional, opt-in. Prefill from the
+  // center's current lista; the phone shows as national digits (E.164 stored).
+  const [receptionName, setReceptionName] = useState(
+    initial?.receptionContactName ?? "",
+  );
+  const [receptionPhone, setReceptionPhone] = useState(
+    vePhoneToNational(initial?.receptionContactPhone),
+  );
+  const [receptionLandmark, setReceptionLandmark] = useState(
+    initial?.receptionLandmark ?? "",
+  );
   const [excessView, setExcessView] = useState<"intro" | "form">(
     initialStep === 2 || hadInitialExcess ? "form" : "intro",
   );
@@ -211,6 +225,9 @@ export function ListaEditor({
       const input: PublishListaInput = {
         deliveryInstructions: nota.trim() || undefined,
         excessReason: includeExcess ? excessReason.trim() || undefined : undefined,
+        receptionContactName: receptionName.trim() || undefined,
+        receptionContactPhone: receptionPhone.trim() || undefined,
+        receptionLandmark: receptionLandmark.trim() || undefined,
         items,
         idempotencyKey: idempotencyKey.current,
       };
@@ -222,7 +239,16 @@ export function ListaEditor({
         setPending(false);
       }
     },
-    [hadInitialExcess, needItems, excessItems, nota, excessReason],
+    [
+      hadInitialExcess,
+      needItems,
+      excessItems,
+      nota,
+      excessReason,
+      receptionName,
+      receptionPhone,
+      receptionLandmark,
+    ],
   );
 
   if (step === 1) {
@@ -321,6 +347,74 @@ export function ListaEditor({
             <p className="mt-1.5 text-right text-xs text-neutral-400">
               {nota.length} / {INSTRUCTIONS_MAX}
             </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-bold text-neutral-900">
+              Recepción de donaciones (opcional)
+            </h2>
+            <p className="mt-1 text-sm text-neutral-500">
+              Para que el donante sepa a quién buscar al llegar.
+            </p>
+
+            <div className="mt-3 flex flex-col gap-3">
+              <div>
+                <label
+                  htmlFor="reception-name"
+                  className="text-sm font-medium text-neutral-700"
+                >
+                  Quién recibe
+                </label>
+                <input
+                  id="reception-name"
+                  type="text"
+                  value={receptionName}
+                  maxLength={RECEPTION_NAME_MAX}
+                  onChange={(e) => setReceptionName(e.target.value)}
+                  placeholder="Ej: Roraima Colina"
+                  className="mt-1.5 h-[52px] w-full rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reception-phone"
+                  className="text-sm font-medium text-neutral-700"
+                >
+                  Teléfono de quien recibe
+                </label>
+                <input
+                  id="reception-phone"
+                  type="tel"
+                  inputMode="tel"
+                  value={receptionPhone}
+                  onChange={(e) => setReceptionPhone(e.target.value)}
+                  placeholder="Ej: 412 555 0034"
+                  className="mt-1.5 h-[52px] w-full rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
+                />
+                <p className="mt-1.5 text-xs text-neutral-400">
+                  Será visible públicamente para los donantes.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reception-landmark"
+                  className="text-sm font-medium text-neutral-700"
+                >
+                  Punto de referencia (opcional)
+                </label>
+                <input
+                  id="reception-landmark"
+                  type="text"
+                  value={receptionLandmark}
+                  maxLength={RECEPTION_LANDMARK_MAX}
+                  onChange={(e) => setReceptionLandmark(e.target.value)}
+                  placeholder="Ej: Misma calle del café Tributo."
+                  className="mt-1.5 h-[52px] w-full rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
+                />
+              </div>
+            </div>
           </section>
 
           {error && (

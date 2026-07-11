@@ -3,6 +3,7 @@ import type { ListaDetailData } from "@/db/queries";
 import {
   formatPublishedAgo,
   formatStalenessBanner,
+  formatVePhone,
 } from "@/lib/format";
 import { ShareCtaButton } from "./share-cta-button";
 
@@ -256,7 +257,11 @@ function AddressCard({
   className?: string;
 }) {
   const { center } = req;
-  if (!center.addressLine && !center.addressReference) return null;
+  const landmark = req.receptionLandmark?.trim();
+  const receptionName = req.receptionContactName?.trim();
+  const receptionPhone = req.receptionContactPhone?.trim();
+  const hasReception = !!landmark || !!receptionName || !!receptionPhone;
+  if (!center.addressLine && !center.addressReference && !hasReception) return null;
   return (
     <section className={`rounded-2xl bg-neutral-100 p-4 ${className}`}>
       <div className="flex items-center gap-1.5 text-accent">
@@ -268,6 +273,26 @@ function AddressCard({
       )}
       {center.addressReference && (
         <p className="mt-1 text-sm text-neutral-500">{center.addressReference}</p>
+      )}
+      {landmark && (
+        <p className="mt-1 text-sm text-neutral-500">
+          Punto de referencia: {landmark}
+        </p>
+      )}
+      {(receptionName || receptionPhone) && (
+        <p className="mt-1 text-sm text-neutral-500">
+          Recibe:{" "}
+          {receptionName}
+          {receptionName && receptionPhone && " · "}
+          {receptionPhone && (
+            <a
+              href={`tel:${receptionPhone}`}
+              className="text-accent hover:underline"
+            >
+              {formatVePhone(receptionPhone)}
+            </a>
+          )}
+        </p>
       )}
       <MapLink query={mapQuery(center.addressLine, center.city)} label="Como llegar" />
     </section>
