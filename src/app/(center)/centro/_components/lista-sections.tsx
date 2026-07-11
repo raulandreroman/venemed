@@ -103,7 +103,16 @@ function Section({
             <span className={`text-[15px] font-medium ${rowTextClassName}`}>
               {item.name}
             </span>
-            {renderTrailing?.(item)}
+            <div className="flex shrink-0 items-center gap-2">
+              {item.quantity != null && (
+                <span
+                  className={`text-sm font-medium tabular-nums ${rowTextClassName} opacity-70`}
+                >
+                  × {item.quantity}
+                </span>
+              )}
+              {renderTrailing?.(item)}
+            </div>
           </li>
         ))}
       </ul>

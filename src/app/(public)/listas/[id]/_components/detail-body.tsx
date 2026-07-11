@@ -97,6 +97,7 @@ function ActiveDetailBody({ req }: { req: ListaDetailData }) {
                 <ItemRow
                   key={item.id}
                   name={item.name}
+                  quantity={item.quantity}
                   rowClassName="bg-error/10"
                   textClassName="text-error"
                 />
@@ -108,7 +109,7 @@ function ActiveDetailBody({ req }: { req: ListaDetailData }) {
         {necesitamos.length > 0 && (
           <ul className="mt-3 flex flex-col gap-2">
             {necesitamos.map((item) => (
-              <ItemRow key={item.id} name={item.name} />
+              <ItemRow key={item.id} name={item.name} quantity={item.quantity} />
             ))}
           </ul>
         )}
@@ -284,16 +285,27 @@ function StalenessBanner({ text }: { text: string }) {
 
 function ItemRow({
   name,
+  quantity = null,
   rowClassName = "bg-neutral-100",
   textClassName = "text-neutral-900",
 }: {
   name: string;
+  quantity?: number | null;
   rowClassName?: string;
   textClassName?: string;
 }) {
   return (
-    <li className={`rounded-xl px-4 py-3 ${rowClassName}`}>
+    <li
+      className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 ${rowClassName}`}
+    >
       <p className={`text-[15px] font-semibold ${textClassName}`}>{name}</p>
+      {quantity != null && (
+        <span
+          className={`shrink-0 text-sm font-medium tabular-nums ${textClassName} opacity-70`}
+        >
+          × {quantity}
+        </span>
+      )}
     </li>
   );
 }
