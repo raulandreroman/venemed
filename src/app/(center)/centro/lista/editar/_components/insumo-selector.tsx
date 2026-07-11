@@ -3,8 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui";
+import {
+  CUSTOM_CATEGORY_OPTIONS,
+  DEFAULT_CUSTOM_CATEGORY,
+} from "@/lib/listas/validation";
 
 import type { SelectedItem } from "./lista-editor";
+
+/** A free-text custom insumo held in the selector's working state, with its
+ * picked home category (defaults to `general`/"Otros"). */
+type Custom = { name: string; category: string };
 
 type Supply = { id: string; name: string };
 
@@ -38,7 +46,7 @@ export function InsumoSelector({
 
   // Local working state — initialized from `selected` each time the sheet opens.
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [customs, setCustoms] = useState<string[]>([]);
+  const [customs, setCustoms] = useState<Custom[]>([]);
   const [search, setSearch] = useState("");
 
   // Seed working state when the sheet opens. State only ever mutates from an
@@ -56,7 +64,14 @@ export function InsumoSelector({
               .map((it) => it.supplyId as string),
           ),
         );
-        setCustoms(selected.filter((it) => !it.supplyId).map((it) => it.name));
+        setCustoms(
+          selected
+            .filter((it) => !it.supplyId)
+            .map((it) => ({
+              name: it.name,
+              category: it.category ?? DEFAULT_CUSTOM_CATEGORY,
+            })),
+        );
         setSearch("");
       });
       return () => cancelAnimationFrame(raf);
@@ -121,20 +136,27 @@ export function InsumoSelector({
     });
   }, []);
 
-  /** Add a free-text custom insumo (from the search box) and clear the search. */
+  /** Add a free-text custom insumo (from the search box) and clear the search.
+   * New customs default to the `general` ("Otros") category until picked. */
   const addCustomNamed = useCallback((raw: string) => {
     const name = raw.trim();
     if (!name) return;
     setCustoms((prev) =>
-      prev.some((c) => c.toLowerCase() === name.toLowerCase())
+      prev.some((c) => c.name.toLowerCase() === name.toLowerCase())
         ? prev
-        : [...prev, name],
+        : [...prev, { name, category: DEFAULT_CUSTOM_CATEGORY }],
     );
     setSearch("");
   }, []);
 
   const removeCustom = useCallback((name: string) => {
-    setCustoms((prev) => prev.filter((c) => c !== name));
+    setCustoms((prev) => prev.filter((c) => c.name !== name));
+  }, []);
+
+  const setCustomCategory = useCallback((name: string, category: string) => {
+    setCustoms((prev) =>
+      prev.map((c) => (c.name === name ? { ...c, category } : c)),
+    );
   }, []);
 
   const query = search.trim();
@@ -148,7 +170,7 @@ export function InsumoSelector({
   const canCreateFromSearch =
     query.length > 0 &&
     !supplies.some((s) => s.name.toLowerCase() === query.toLowerCase()) &&
-    !customs.some((c) => c.toLowerCase() === query.toLowerCase());
+    !customs.some((c) => c.name.toLowerCase() === query.toLowerCase());
 
   const total = checked.size + customs.length;
 
@@ -159,9 +181,10 @@ export function InsumoSelector({
       supplyId: id,
       name: byId.get(id) ?? "Insumo",
     }));
-    const fromCustom: SelectedItem[] = customs.map((name) => ({
-      key: `custom:${name.toLowerCase()}`,
-      name,
+    const fromCustom: SelectedItem[] = customs.map((c) => ({
+      key: `custom:${c.name.toLowerCase()}`,
+      name: c.name,
+      category: c.category,
     }));
     onConfirm([...fromCatalog, ...fromCustom]);
     onClose();
@@ -243,20 +266,48 @@ export function InsumoSelector({
           )}
 
           {/* Selected custom (free-text) insumos render as checked rows at the
-              top — tapping one removes it. */}
+              top — tapping the row removes it. Each carries an inline category
+              picker (customs only; catalog rows never show it). */}
           {customs.length > 0 && (
             <ul>
-              {customs.map((name) => (
-                <li key={name} className="border-b border-neutral-100">
+              {customs.map((c) => (
+                <li key={c.name} className="border-b border-neutral-100 py-1">
                   <button
                     type="button"
-                    onClick={() => removeCustom(name)}
+                    onClick={() => removeCustom(c.name)}
                     aria-pressed={true}
-                    className="flex w-full items-center justify-between gap-3 py-3 text-left"
+                    className="flex w-full items-center justify-between gap-3 py-2 text-left"
                   >
-                    <span className="text-[15px] text-neutral-900">{name}</span>
+                    <span className="text-[15px] text-neutral-900">{c.name}</span>
                     <Checkbox checked={true} />
                   </button>
+                  <div className="pb-2">
+                    <p className="pb-1.5 text-xs text-neutral-500">
+                      ¿En qué categoría va?
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CUSTOM_CATEGORY_OPTIONS.map((opt) => {
+                        const active = c.category === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() =>
+                              setCustomCategory(c.name, opt.value)
+                            }
+                            className={`shrink-0 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors ${
+                              active
+                                ? "border-accent bg-accent text-accent-on"
+                                : "border-neutral-300 bg-surface text-neutral-700 hover:border-neutral-400"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>

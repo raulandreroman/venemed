@@ -16,6 +16,8 @@ import {
 } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
+import { categoryValueFromLabel } from "@/lib/format";
+
 import { db } from "./index";
 import {
   appUser,
@@ -275,6 +277,35 @@ export function getActiveListas(
   )();
 }
 
+// ---- 4.1b getActiveListaCategories -----------------------------------------
+
+/**
+ * Distinct supply categories (English enum values) present across the active
+ * donor feed — mirrors how `cities` is derived from `lista.city`, but reads the
+ * denormalized `lista.categories[]` array (unnested). Powers the donor category
+ * chip row so a chip only appears when ≥1 active lista carries that category.
+ * Cached under the same "active-listas" tag so it invalidates on publish/edit.
+ */
+async function queryActiveListaCategories(): Promise<string[]> {
+  const rows = (await db.execute(sql`
+    SELECT DISTINCT unnest(${lista.categories}) AS category
+    FROM ${lista}
+    INNER JOIN ${center} ON ${center.id} = ${lista.centerId}
+    WHERE ${lista.status} = 'active' AND ${center.status} = 'approved'
+  `)) as unknown as { category: string | null }[];
+  return rows
+    .map((r) => r.category)
+    .filter((c): c is string => Boolean(c));
+}
+
+export function getActiveListaCategories(): Promise<string[]> {
+  return unstable_cache(
+    queryActiveListaCategories,
+    ["active-lista-categories"],
+    { revalidate: 60, tags: ["active-listas"] },
+  )();
+}
+
 // ---- 4.2 getListaById --------------------------------------------------------
 
 async function queryListaById(id: string): Promise<ListaDetailData | null> {
@@ -494,6 +525,9 @@ export type CenterEditableItem = {
   name: string;
   bucket: "need" | "excess";
   isUrgent: boolean;
+  /** For customs only: the picked home category (enum value), reverse-mapped
+   * from the stored Spanish label so an edit round-trips it. */
+  category?: string;
 };
 
 export type CenterEditableLista = {
@@ -529,6 +563,7 @@ export async function getCenterListaForEdit(
     .select({
       supplyId: listaItem.supplyId,
       name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
+      category: listaItem.category,
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
     })
@@ -543,6 +578,9 @@ export async function getCenterListaForEdit(
     name: r.name,
     bucket: r.bucket,
     isUrgent: r.isUrgent,
+    // Customs carry their picked category (reverse-mapped from the label);
+    // catalog items re-derive it from the supply at publish, so leave undefined.
+    category: r.supplyId ? undefined : categoryValueFromLabel(r.category),
   }));
 
   return {

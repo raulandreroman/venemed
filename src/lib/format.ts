@@ -94,9 +94,9 @@ export function formatClock(date: Date | string | null): string {
 }
 
 /**
- * supply_category enum (== area, 1:1) -> Spanish label. Drives the area chips,
- * the "Sugeridos · {área}" selector header, the card meta, and donor chips.
- * `general` is dormant (center-workspace §5.6) but kept so legacy rows render.
+ * supply_category enum -> Spanish label. Drives the donor category chip row,
+ * the card meta, and the item category labels. `general` ("Otros") is the home
+ * for free-text customs (field-insight-whatsapp §2).
  */
 export function categoryLabel(value: string): string {
   const map: Record<string, string> = {
@@ -106,9 +106,40 @@ export function categoryLabel(value: string): string {
     inpatient: "Hospitalización",
     pediatrics: "Refugio infantil",
     geriatrics: "Adultos mayores",
-    general: "General",
+    // Non-medical categories (field-insight-whatsapp §2).
+    food: "Alimentos",
+    water: "Agua",
+    hygiene: "Higiene",
+    bedding: "Camas y cobijas",
+    // `general` is the catch-all home for free-text customs → "Otros".
+    general: "Otros",
   };
   return map[value] ?? capitalize(value);
+}
+
+/**
+ * Inverse of `categoryLabel`: Spanish label -> `supply_category` enum value.
+ * Used to restore a free-text custom item's picked category on EDIT (the DB
+ * stores the Spanish label on `lista_item.category`). Falls back to `general`
+ * for unknown/legacy labels. Includes the legacy "General" label (customs
+ * written before this label became "Otros").
+ */
+export function categoryValueFromLabel(label: string): string {
+  const map: Record<string, string> = {
+    Quirófano: "surgical",
+    Emergencias: "emergency",
+    Farmacia: "pharmacy",
+    Hospitalización: "inpatient",
+    "Refugio infantil": "pediatrics",
+    "Adultos mayores": "geriatrics",
+    Alimentos: "food",
+    Agua: "water",
+    Higiene: "hygiene",
+    "Camas y cobijas": "bedding",
+    Otros: "general",
+    General: "general",
+  };
+  return map[label] ?? "general";
 }
 
 /** center.type enum -> Spanish label. */

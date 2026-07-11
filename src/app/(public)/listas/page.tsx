@@ -1,21 +1,42 @@
 import type { Metadata } from "next";
 
-import { getActiveListas, type ListaFilters } from "@/db/queries";
+import {
+  getActiveListas,
+  getActiveListaCategories,
+  type ListaFilters,
+} from "@/db/queries";
 import { centerType } from "@/db/schema";
-import { centerTypeLabel } from "@/lib/format";
+import { categoryLabel, centerTypeLabel } from "@/lib/format";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import type { CenterType } from "@/lib/registro/validation";
 import { AppBar, RequestCard } from "@/components/ui";
 
+import { CategoryChips } from "./_components/category-chips";
 import { FilterSelect } from "./_components/filter-select";
 import { SearchBox } from "./_components/search-box";
 import { SortToggle } from "./_components/sort-toggle";
+
+// Canonical chip order: relief (non-medical) first, then clinical — stable
+// regardless of which categories happen to be present in the feed.
+const CATEGORY_ORDER = [
+  "food",
+  "water",
+  "hygiene",
+  "bedding",
+  "pharmacy",
+  "emergency",
+  "surgical",
+  "inpatient",
+  "pediatrics",
+  "geriatrics",
+  "general",
+];
 
 export const revalidate = 60;
 
 const title = "Listas activas · VeneMed";
 const description =
-  "Explora las listas activas de centros de salud verificados en Venezuela. Descubre qué insumos necesitan ahora y comparte la lista para que la ayuda llegue.";
+  "Explora las listas activas de centros verificados en Venezuela. Descubre qué insumos necesitan ahora y comparte la lista para que la ayuda llegue.";
 
 export const metadata: Metadata = {
   title,
@@ -72,14 +93,24 @@ export default async function SolicitudesPage({
     sort: "recent",
   };
 
-  // Two cached calls: facets from the full active feed (so chips never
-  // disappear while filtering) + the filtered list shown to the donor.
-  const [allActive, requests] = await Promise.all([
+  // Three cached calls: facets from the full active feed (so chips never
+  // disappear while filtering), the distinct-category facet, and the filtered
+  // list shown to the donor.
+  const [allActive, activeCategories, requests] = await Promise.all([
     getActiveListas({}),
+    getActiveListaCategories(),
     getActiveListas(filters),
   ]);
 
   const cities = uniqueSorted(allActive.map((r) => r.city));
+  const categoryOptions = activeCategories
+    .slice()
+    .sort((a, b) => {
+      const ia = CATEGORY_ORDER.indexOf(a);
+      const ib = CATEGORY_ORDER.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    })
+    .map((c) => ({ value: c, label: categoryLabel(c) }));
   const types = CENTER_TYPE_ENABLED
     ? uniqueSorted(
         allActive
@@ -99,6 +130,10 @@ export default async function SolicitudesPage({
       {/* Filtros */}
       <section className="flex flex-col gap-3 border-b border-neutral-100 bg-surface p-6">
         <SearchBox />
+
+        {categoryOptions.length > 0 && (
+          <CategoryChips options={categoryOptions} />
+        )}
 
         {(cities.length > 0 || types.length > 0) && (
           <div className="flex gap-2">
