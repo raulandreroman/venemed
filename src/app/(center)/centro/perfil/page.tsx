@@ -8,12 +8,11 @@ import { SignOutButton } from "@/app/(center)/_components/sign-out-button";
 import { getCenterActiveListas, getCenterProfile } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
+import { centerTypeLabel, formatRelativeTime } from "@/lib/format";
 import {
-  centerTypeLabel,
-  formatRelativeTime,
-  formatVePhone,
-} from "@/lib/format";
-import type { CenterType } from "@/lib/registro/validation";
+  vePhoneToNational,
+  type CenterType,
+} from "@/lib/registro/validation";
 
 import { LockedRow } from "./_components/locked-row";
 import { ReceptionToggle } from "./_components/reception-toggle";
@@ -69,9 +68,8 @@ export default async function CenterProfilePage() {
     responsibleName: profile.responsibleName ?? "",
     cargo: profile.cargo ?? "",
     email: profile.responsibleEmail ?? "",
-    whatsappPhone: profile.whatsappPhone
-      ? formatVePhone(profile.whatsappPhone)
-      : "",
+    // National digits — the inline editor's +58 field edits this directly.
+    whatsappPhone: vePhoneToNational(profile.whatsappPhone),
   };
 
   const isOperador = current.role === "center_member";
