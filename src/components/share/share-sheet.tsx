@@ -123,23 +123,19 @@ export function ShareSheet({
     setTimeout(() => setCopied(null), 2000);
   }, []);
 
-  // 1 · WhatsApp text — copy to clipboard; fall back to a text-only native share.
-  const onWhatsAppText = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(shareText);
-      flashCopied("whatsapp");
-      recordShare(listaId, "whatsapp").catch(() => {});
-    } catch {
-      // Clipboard unavailable (insecure context) — try the native sheet.
-      if (typeof navigator !== "undefined" && navigator.share) {
-        try {
-          await navigator.share({ text: shareText });
-          recordShare(listaId, "whatsapp").catch(() => {});
-        } catch {
-          // cancelled / unsupported — no-op.
-        }
-      }
-    }
+  // 1 · WhatsApp text — deep-link into WhatsApp with the text prefilled
+  // (wa.me opens the chat picker on mobile, WhatsApp Web on desktop). Also
+  // copy to clipboard as a courtesy when available (secure context only —
+  // gotcha #5) so the center can paste it elsewhere too.
+  const onWhatsAppText = useCallback(() => {
+    navigator.clipboard?.writeText(shareText).catch(() => {});
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(shareText)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+    flashCopied("whatsapp");
+    recordShare(listaId, "whatsapp").catch(() => {});
   }, [shareText, listaId, flashCopied]);
 
   // 2 · Story image — reuse the native file-share flow (attaches the per-lista
@@ -224,8 +220,8 @@ export function ShareSheet({
             label="Texto para WhatsApp"
             description={
               copied === "whatsapp"
-                ? "Copiado"
-                : "Lista formateada para difundir"
+                ? "Abriendo WhatsApp…"
+                : "Abre WhatsApp con la lista formateada"
             }
             confirmed={copied === "whatsapp"}
             onClick={onWhatsAppText}
