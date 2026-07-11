@@ -103,9 +103,59 @@ Pañales para adulto · Suplementos nutricionales (Ensure) · Andaderas · Basto
 
 **Provenance**: drafted from the field WhatsApp templates + standard relief-kit lists (WHO IEHK, UNICEF hygiene kit, Sphere) — then checked against prod's actual free-text customs (Jul 2026: Comida ×2, Agua, Agua Mineral, Colchonetas, Sábanas, Productos de Limpieza, ibuprofeno, Formol). Every prod custom except Formol maps into the draft — centers were already forcing non-medical needs through free text. Before the prod migration: medical half → clinical review; non-medical half → Venus (she offered exactly this).
 
+## 4. Sharing — options sheet + WhatsApp text
+
+The quantity/reception data above only pays off if it reaches the WhatsApp groups where coordination happens. This section turns the bare `navigator.share`/copy-link affordance into a **share bottom-sheet** with three options, reused by every share entry point.
+
+### 4a. The sheet ("Compartir · sheet de opciones")
+
+`src/components/share/share-sheet.tsx` — a shared client component (the panel only; each caller keeps its own trigger button + open state). Chrome mirrors the `InsumoSelector` recipe: neutral scrim, `max-w-[390px] rounded-t-[24px]` panel, drag handle, Escape + body-scroll-lock + focus-trap. Title **"Compartir esta lista"**, caption **"Llega a los donantes donde ya se organizan."** Three option rows (40px white rounded-xl bordered icon tile + label + description + chevron; first row on `accent-subtle`), inline SVG line icons only (no emojis):
+
+1. **Texto para WhatsApp** — "Lista formateada para difundir". Copies the prebuilt text to the clipboard (fallback: text-only `navigator.share` when clipboard is unavailable); flips the row to a **"Copiado"** state for 2 s. `recordShare(listaId, "whatsapp")`.
+2. **Imagen** — "Tarjeta para estados o historias". Reuses `shareWithOptionalImage` (native share with the `/listas/[id]/story-image` PNG attached); fallback opens the story-image URL in a new tab. `recordShare(listaId, "unknown")` (no image-specific channel in the enum).
+3. **Copiar enlace** — description shows the short URL (host + path). Copies the link, **"Copiado"** state. `recordShare(listaId, "copy_link")`.
+
+The absolute URL is resolved client-side (`window.location.origin`) at open time — matching how the rest of the share surfaces resolve URLs — and the WhatsApp text is built from it.
+
+### 4b. WhatsApp text template
+
+`buildListaShareText(...)` in `src/lib/listas/share-text.ts` (pure, non-`"use server"`) renders — omitting any block with no data, blank line between blocks, WhatsApp `*bold*`/`_italic_` markup:
+
+```
+*LISTA DE INSUMOS*
+*{Center name}* — {city}          ← " — {city}" dropped when city null
+
+*URGENTE:*
+• {item} × {quantity}             ← "× N" only when quantity set
+
+*Necesitamos:*
+• {item} …
+
+*No aceptamos:* {excess items, comma-joined, lowercase}
+
+*Dirección:* {addressLine} · {city}
+Punto de referencia: {landmark}   ← only when set
+*Recibe:* {name} · {formatVePhone(phone)}   ← only when set
+
+Lista completa y actualizada:
+{absolute URL to /listas/[id]}
+_Actualizada {formatUpdatedAgo(updated_at)}_
+```
+
+Item ordering: urgent-need → non-urgent-need → excess (the donor-surface derivation), via the shared `partitionShareItems(items)` helper. Formatters (`formatVePhone`, `formatUpdatedAgo`) come from `src/lib/format.ts`.
+
+### 4c. Wiring (three entry points)
+
+Each server page assembles a `ShareSheetData` payload (center name + city + partitioned items + address + reception + `updatedAt`) and passes it down; the client trigger renders `<ShareSheet>`:
+
+- **Donor detail** — `detail-body.tsx` `DetailFooter` builds the payload from `getListaById` (all fields already fetched) → `ShareCtaButton`.
+- **Center dashboard** — `centro/page.tsx` builds it from `getCenterDashboardLista` (extended to select `center.addressLine` + the reception columns) + `requireCenter().centerName` → `ShareListaButton`.
+- **Publicada confirm** — `publicada/page.tsx` builds it from `getCenterListaById` (extended to select `updatedAt` + reception columns) → `PublishedShare` (now opens the same sheet).
+
 ## Impact map (when implemented)
 
 - `schema.ts` + migration: `lista_item.quantity`, 3 lista reception columns, 4 enum values.
 - `publishLista` / editor action validation (custom-item category, reception fields); `lista-editor.tsx`; `insumo-selector.tsx` (category chips on custom rows).
 - Donor `listas/page.tsx` (category chip row + distinct-categories query), `detail-body.tsx` (qty + Dirección lines), dashboard `lista-sections.tsx` (qty).
 - `format.ts` labels; seed + prod catalog data migration; landing/`listas` copy.
+- **Sharing (§4)**: `lib/listas/share-text.ts` (`buildListaShareText` + `partitionShareItems`); `components/share/share-sheet.tsx`; `share-cta-button.tsx` / `share-lista-button.tsx` / `published-share.tsx` (open the sheet); `queries.ts` (`getCenterDashboardLista` + `getCenterListaById` select address/reception/`updatedAt`).

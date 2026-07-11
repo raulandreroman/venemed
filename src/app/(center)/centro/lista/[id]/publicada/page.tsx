@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui";
 import { getCenterListaById } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
+import { partitionShareItems } from "@/lib/listas/share-text";
 
 import { PublishedShare } from "./_components/published-share";
 
@@ -27,8 +28,6 @@ export default async function PublicadaPage({
 
   const request = await getCenterListaById(center.centerId, id);
   if (!request) notFound();
-
-  const shareMessage = "Ayuda al centro en VeneMed:";
 
   return (
     <>
@@ -63,9 +62,18 @@ export default async function PublicadaPage({
             Compartir lista
           </h2>
           <PublishedShare
-            requestId={request.id}
-            message={shareMessage}
+            listaId={request.id}
             path={`/listas/${request.id}`}
+            data={{
+              centerName: center.centerName,
+              city: request.city,
+              ...partitionShareItems(request.items),
+              addressLine: request.center.addressLine,
+              landmark: request.receptionLandmark,
+              receptionContactName: request.receptionContactName,
+              receptionContactPhone: request.receptionContactPhone,
+              updatedAt: request.updatedAt,
+            }}
           />
         </section>
       </main>

@@ -144,6 +144,11 @@ export type CenterListaCardData = {
  */
 export type CenterListaDetailData = CenterListaCardData & {
   deliveryInstructions: string | null;
+  updatedAt: Date; // freshness stamp for the share text (field-insight §4)
+  // reception contact (field-insight §3) — feeds the WhatsApp share text.
+  receptionContactName: string | null;
+  receptionContactPhone: string | null;
+  receptionLandmark: string | null;
   center: {
     addressLine: string | null;
     addressReference: string | null;
@@ -487,6 +492,12 @@ export type CenterDashboardLista = {
   status: "active" | "paused";
   city: string | null;
   updatedAt: Date;
+  // Address + reception contact — powers the WhatsApp share text (field-insight
+  // §4). Address is inherited from the center; reception lives on the lista.
+  addressLine: string | null;
+  receptionContactName: string | null;
+  receptionContactPhone: string | null;
+  receptionLandmark: string | null;
   items: CenterListaItem[];
 };
 
@@ -506,8 +517,13 @@ export async function getCenterDashboardLista(
       status: lista.status,
       city: lista.city,
       updatedAt: lista.updatedAt,
+      addressLine: center.addressLine,
+      receptionContactName: lista.receptionContactName,
+      receptionContactPhone: lista.receptionContactPhone,
+      receptionLandmark: lista.receptionLandmark,
     })
     .from(lista)
+    .innerJoin(center, eq(center.id, lista.centerId))
     .where(
       and(eq(lista.centerId, centerId), inArray(lista.status, ["active", "paused"])),
     )
@@ -536,6 +552,10 @@ export async function getCenterDashboardLista(
     status: row.status as "active" | "paused",
     city: row.city,
     updatedAt: row.updatedAt,
+    addressLine: row.addressLine,
+    receptionContactName: row.receptionContactName,
+    receptionContactPhone: row.receptionContactPhone,
+    receptionLandmark: row.receptionLandmark,
     items,
   };
 }
@@ -647,7 +667,11 @@ export async function getCenterListaById(
       shareCount: lista.shareCount,
       closedReason: lista.closedReason,
       createdAt: lista.createdAt,
+      updatedAt: lista.updatedAt,
       deliveryInstructions: lista.deliveryInstructions,
+      receptionContactName: lista.receptionContactName,
+      receptionContactPhone: lista.receptionContactPhone,
+      receptionLandmark: lista.receptionLandmark,
       addressLine: center.addressLine,
       addressReference: center.addressReference,
       regularScheduleText: center.regularScheduleText,

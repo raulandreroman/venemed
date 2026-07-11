@@ -1,3 +1,4 @@
+import type { ShareSheetData } from "@/components/share/share-sheet";
 import { Button, Tag } from "@/components/ui";
 import type { ListaDetailData } from "@/db/queries";
 import {
@@ -5,6 +6,7 @@ import {
   formatStalenessBanner,
   formatVePhone,
 } from "@/lib/format";
+import { partitionShareItems } from "@/lib/listas/share-text";
 import { ShareCtaButton } from "./share-cta-button";
 
 // AppBar titles differ by state (Figma "Perfil Centro" frames).
@@ -45,11 +47,26 @@ export function DetailFooter({ req }: { req: ListaDetailData }) {
   }
   return (
     <ShareCtaButton
-      requestId={req.id}
-      message={shareMessage(req)}
+      listaId={req.id}
       path={`/listas/${req.id}`}
+      data={shareSheetData(req)}
     />
   );
+}
+
+/** Assemble the WhatsApp/share payload from the donor detail data (all fields
+ * already fetched by getListaById). */
+function shareSheetData(req: ListaDetailData): ShareSheetData {
+  return {
+    centerName: req.centerName,
+    city: req.city,
+    ...partitionShareItems(req.items),
+    addressLine: req.center.addressLine,
+    landmark: req.receptionLandmark,
+    receptionContactName: req.receptionContactName,
+    receptionContactPhone: req.receptionContactPhone,
+    updatedAt: req.updatedAt,
+  };
 }
 
 // ---- active (Figma 210:14154) ----------------------------------------------
@@ -457,8 +474,4 @@ function BangIcon({ className = "" }: { className?: string }) {
 
 function mapQuery(addressLine: string | null, city: string): string {
   return [addressLine, city].filter(Boolean).join(", ") || city;
-}
-
-function shareMessage(req: ListaDetailData): string {
-  return `Ayuda a ${req.centerName}${req.city ? ` (${req.city})` : ""} en VeneMed:`;
 }
