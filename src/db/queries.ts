@@ -88,6 +88,11 @@ export type ListaDetailData = ListaBase & {
   status: "active" | "paused" | "closed" | "draft";
   deliveryInstructions: string | null; // per-lista drop-off note
   excessReason: string | null; // "No aceptamos" caption
+  // reception contact (field-insight §3) — who to look for on arrival. The phone
+  // is published to the anonymous donor surface (opt-in in the editor).
+  receptionContactName: string | null;
+  receptionContactPhone: string | null; // E.164
+  receptionLandmark: string | null;
   closedAt: Date | null;
   closedReason: "fulfilled" | "cancelled" | null;
   shareCount: number;
@@ -286,6 +291,9 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       city: lista.city,
       deliveryInstructions: lista.deliveryInstructions,
       excessReason: lista.excessReason,
+      receptionContactName: lista.receptionContactName,
+      receptionContactPhone: lista.receptionContactPhone,
+      receptionLandmark: lista.receptionLandmark,
       categories: lista.categories,
       publishedAt: lista.publishedAt,
       updatedAt: lista.updatedAt,
@@ -334,6 +342,9 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
     city: r.city,
     deliveryInstructions: r.deliveryInstructions,
     excessReason: r.excessReason,
+    receptionContactName: r.receptionContactName,
+    receptionContactPhone: r.receptionContactPhone,
+    receptionLandmark: r.receptionLandmark,
     status: r.status,
     centerName: r.centerName,
     centerDescription: r.centerDescription,
@@ -500,6 +511,9 @@ export type CenterEditableLista = {
   id: string;
   deliveryInstructions: string | null;
   excessReason: string | null;
+  receptionContactName: string | null;
+  receptionContactPhone: string | null; // E.164
+  receptionLandmark: string | null;
   items: CenterEditableItem[];
 };
 
@@ -516,6 +530,9 @@ export async function getCenterListaForEdit(
       id: lista.id,
       deliveryInstructions: lista.deliveryInstructions,
       excessReason: lista.excessReason,
+      receptionContactName: lista.receptionContactName,
+      receptionContactPhone: lista.receptionContactPhone,
+      receptionLandmark: lista.receptionLandmark,
     })
     .from(lista)
     .where(
@@ -549,6 +566,9 @@ export async function getCenterListaForEdit(
     id: row.id,
     deliveryInstructions: row.deliveryInstructions,
     excessReason: row.excessReason,
+    receptionContactName: row.receptionContactName,
+    receptionContactPhone: row.receptionContactPhone,
+    receptionLandmark: row.receptionLandmark,
     items,
   };
 }
