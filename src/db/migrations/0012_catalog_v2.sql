@@ -4,17 +4,36 @@
 -- value in the same transaction that added it, so 0011 (ADD VALUE) and this
 -- file (data) MUST stay separate migrations.
 --
--- (a) Fix the categories of the existing prod rows (matched by exact name).
+-- (a) Converge legacy near-dupes onto the Catalog v2 canonical names.
+--
+-- Prod (Jul 2026) holds 6 legacy supply rows; two are near-duplicates of Catalog
+-- v2 items — the same real-world insumo under a slightly different name:
+--   'Guantes quirúrgicos'      → v2 'Guantes quirúrgicos estériles' (surgical)
+--   'Jeringas 5 ml estériles'  → v2 'Jeringas estériles'            (emergency)
+-- Without this, the v2 INSERT (c) would add the v2 spelling alongside the legacy
+-- row and donors/centers would see both variants. Rename here — BEFORE the unique
+-- index and the INSERTs — so each renamed row then matches its v2 INSERT and that
+-- INSERT no-ops via ON CONFLICT, leaving ONE row per item. lista_item references
+-- supply by supply_id, so the rename carries existing references over untouched.
+-- Canonical = the v2 name (shorter, size-agnostic); neither legacy name was
+-- strictly more precise ('5 ml' merely narrows syringes to a single size).
+-- Collision-safe: only 6 legacy rows exist and neither canonical name is already
+-- among them, so no rename can duplicate an existing row before the index lands.
+-- Idempotent: on a re-run (rows already renamed) these UPDATEs match 0 rows — a
+-- harmless no-op — as do the name-matched category fixes and the ON CONFLICT INSERT.
+UPDATE "supply" SET "name" = 'Guantes quirúrgicos estériles' WHERE "name" = 'Guantes quirúrgicos';--> statement-breakpoint
+UPDATE "supply" SET "name" = 'Jeringas estériles' WHERE "name" = 'Jeringas 5 ml estériles';--> statement-breakpoint
+-- (b) Fix the categories of the existing prod rows (matched by canonical name).
 UPDATE "supply" SET "category" = 'pharmacy'  WHERE "name" = 'Acetaminofén 500 mg';--> statement-breakpoint
-UPDATE "supply" SET "category" = 'emergency' WHERE "name" = 'Jeringas 5 ml estériles';--> statement-breakpoint
+UPDATE "supply" SET "category" = 'emergency' WHERE "name" = 'Jeringas estériles';--> statement-breakpoint
 UPDATE "supply" SET "category" = 'emergency' WHERE "name" = 'Suero fisiológico 500 ml';--> statement-breakpoint
 UPDATE "supply" SET "category" = 'emergency' WHERE "name" = 'Gasas estériles';--> statement-breakpoint
 UPDATE "supply" SET "category" = 'pharmacy'  WHERE "name" = 'Alcohol isopropílico';--> statement-breakpoint
-UPDATE "supply" SET "category" = 'surgical'  WHERE "name" = 'Guantes quirúrgicos';--> statement-breakpoint
--- (b) Case-insensitive uniqueness on the catalog name → the INSERT below can
+UPDATE "supply" SET "category" = 'surgical'  WHERE "name" = 'Guantes quirúrgicos estériles';--> statement-breakpoint
+-- (c) Case-insensitive uniqueness on the catalog name → the INSERT below can
 -- ON CONFLICT DO NOTHING (idempotent re-runs; no dupes across dev/prod).
 CREATE UNIQUE INDEX IF NOT EXISTS "supply_lower_name_key" ON "supply" (lower("name"));--> statement-breakpoint
--- (c) Full Catalog v2 (~85 items). Generated from src/db/catalog.ts (the single
+-- (d) Full Catalog v2 (~85 items). Generated from src/db/catalog.ts (the single
 -- source of truth, also consumed by the dev seed). ON CONFLICT DO NOTHING so
 -- rows already present (the fixed prod rows above) are left untouched.
 INSERT INTO "supply" ("name", "category") VALUES
