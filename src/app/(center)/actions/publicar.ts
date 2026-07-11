@@ -9,7 +9,7 @@ import { center, lista, listaItem, supply, supplyCategory } from "@/db/schema";
 import { requireCenter } from "@/lib/auth/require-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { categoryLabel } from "@/lib/format";
-import { validatePublishLista } from "@/lib/listas/validation";
+import { isValidQuantity, validatePublishLista } from "@/lib/listas/validation";
 import type { PublishListaInput } from "@/lib/listas/validation";
 
 // NOTE: a "use server" module may export ONLY async functions (gotcha #1).
@@ -97,6 +97,11 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
       bucket: it.bucket,
       // excess items are never urgent — coerce regardless of client input.
       isUrgent: it.bucket === "need" ? !!it.isUrgent : false,
+      // Optional quantity, need-bucket only; excess is always null (§1).
+      quantity:
+        it.bucket === "need" && isValidQuantity(it.quantity)
+          ? it.quantity
+          : null,
       // lista_item.category is the Spanish label; catalog items use their
       // supply's category, customs use their picked category (default general).
       category: categoryLabel(

@@ -61,6 +61,7 @@ export type ListaItemData = {
   category: string; // lista_item.category (already Spanish)
   bucket: "need" | "excess";
   isUrgent: boolean;
+  quantity: number | null; // optional "× N" (need bucket only); null = unset
 };
 
 /** Fields shared by the donor card and detail shapes (lista-model-v2 §6). */
@@ -213,6 +214,7 @@ async function queryActiveListas(
           category: listaItem.category,
           bucket: listaItem.bucket,
           isUrgent: listaItem.isUrgent,
+          quantity: listaItem.quantity,
         })
         .from(listaItem)
         .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -229,6 +231,7 @@ async function queryActiveListas(
       category: it.category,
       bucket: it.bucket,
       isUrgent: it.isUrgent,
+      quantity: it.quantity,
     });
     itemsByLista.set(it.listaId, list);
   }
@@ -353,6 +356,7 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       category: listaItem.category,
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
+      quantity: listaItem.quantity,
       isFulfilled: listaItem.isFulfilled,
     })
     .from(listaItem)
@@ -457,6 +461,7 @@ export type CenterListaItem = {
   category: string;
   bucket: "need" | "excess";
   isUrgent: boolean;
+  quantity: number | null;
 };
 
 export type CenterDashboardLista = {
@@ -500,6 +505,7 @@ export async function getCenterDashboardLista(
       category: listaItem.category,
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
+      quantity: listaItem.quantity,
     })
     .from(listaItem)
     .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -528,6 +534,7 @@ export type CenterEditableItem = {
   /** For customs only: the picked home category (enum value), reverse-mapped
    * from the stored Spanish label so an edit round-trips it. */
   category?: string;
+  quantity: number | null;
 };
 
 export type CenterEditableLista = {
@@ -566,6 +573,7 @@ export async function getCenterListaForEdit(
       category: listaItem.category,
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
+      quantity: listaItem.quantity,
     })
     .from(listaItem)
     .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -581,6 +589,7 @@ export async function getCenterListaForEdit(
     // Customs carry their picked category (reverse-mapped from the label);
     // catalog items re-derive it from the supply at publish, so leave undefined.
     category: r.supplyId ? undefined : categoryValueFromLabel(r.category),
+    quantity: r.quantity,
   }));
 
   return {
@@ -631,6 +640,7 @@ export async function getCenterListaById(
       category: listaItem.category,
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
+      quantity: listaItem.quantity,
     })
     .from(listaItem)
     .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -805,6 +815,7 @@ export async function getCenterListasClosedSince(
           category: listaItem.category,
           bucket: listaItem.bucket,
           isUrgent: listaItem.isUrgent,
+          quantity: listaItem.quantity,
         })
         .from(listaItem)
         .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -821,6 +832,7 @@ export async function getCenterListasClosedSince(
       category: it.category,
       bucket: it.bucket,
       isUrgent: it.isUrgent,
+      quantity: it.quantity,
     });
     itemsByLista.set(it.listaId, list);
   }

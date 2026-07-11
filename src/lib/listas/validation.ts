@@ -40,7 +40,24 @@ export type PublishListaItemInput = {
   bucket: "need" | "excess";
   isUrgent?: boolean;
   category?: string;
+  /** Optional positive quantity, need-bucket only (unit implied by the name).
+   * Ignored/nulled for excess. */
+  quantity?: number;
 };
+
+/** Max quantity — a sane upper bound so a stray keystroke can't store an absurd
+ * value on a public surface. */
+export const QUANTITY_MAX = 1_000_000;
+
+/** True when q is a usable quantity: a positive integer within bounds. */
+export function isValidQuantity(q: unknown): q is number {
+  return (
+    typeof q === "number" &&
+    Number.isInteger(q) &&
+    q > 0 &&
+    q <= QUANTITY_MAX
+  );
+}
 
 export type PublishListaInput = {
   deliveryInstructions?: string;
@@ -76,8 +93,12 @@ export function validatePublishLista(
       const hasSupply = !!it.supplyId;
       const hasCustom = !!it.customName?.trim();
       const validBucket = it.bucket === "need" || it.bucket === "excess";
+      // quantity is optional; when present it must be a positive int (excess
+      // items carry none — the action nulls them regardless).
+      const validQuantity =
+        it.quantity == null || isValidQuantity(it.quantity);
       // exactly one of supplyId/customName
-      return hasSupply !== hasCustom && validBucket;
+      return hasSupply !== hasCustom && validBucket && validQuantity;
     });
     if (!allValid) errors.items = "Hay un insumo inválido.";
   }

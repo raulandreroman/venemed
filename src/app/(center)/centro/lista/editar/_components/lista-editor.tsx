@@ -25,6 +25,8 @@ export type SelectedItem = {
   /** For customs only: the picked home category (supply_category enum value).
    * Catalog items derive their category from the supply and ignore this. */
   category?: string;
+  /** Optional display-only quantity ("× N"); need-bucket only. null/undefined = unset. */
+  quantity?: number | null;
 };
 
 type Supply = { id: string; name: string };
@@ -67,6 +69,7 @@ export function ListaEditor({
       name: it.name,
       isUrgent: it.isUrgent,
       category: it.category,
+      quantity: it.quantity,
     }));
   const initialExcess = (initial?.items ?? [])
     .filter((it) => it.bucket === "excess")
@@ -106,6 +109,12 @@ export function ListaEditor({
     setNeedItems((prev) => prev.filter((it) => it.key !== key));
   }, []);
 
+  const setNeedQuantity = useCallback((key: string, quantity: number | null) => {
+    setNeedItems((prev) =>
+      prev.map((it) => (it.key === key ? { ...it, quantity } : it)),
+    );
+  }, []);
+
   const removeExcessItem = useCallback((key: string) => {
     setExcessItems((prev) => prev.filter((it) => it.key !== key));
   }, []);
@@ -121,11 +130,15 @@ export function ListaEditor({
     (items: SelectedItem[]) => {
       if (selectorTarget === "need") {
         setNeedItems((prev) => {
-          const urgentByKey = new Map(prev.map((it) => [it.key, !!it.isUrgent]));
-          return items.map((it) => ({
-            ...it,
-            isUrgent: urgentByKey.get(it.key) ?? false,
-          }));
+          const priorByKey = new Map(prev.map((it) => [it.key, it]));
+          return items.map((it) => {
+            const prior = priorByKey.get(it.key);
+            return {
+              ...it,
+              isUrgent: prior?.isUrgent ?? false,
+              quantity: prior?.quantity ?? null,
+            };
+          });
         });
       } else if (selectorTarget === "excess") {
         setExcessItems(items);
@@ -184,6 +197,7 @@ export function ListaEditor({
             : { customName: it.name, category: it.category }),
           bucket: "need" as const,
           isUrgent: !!it.isUrgent,
+          ...(it.quantity != null ? { quantity: it.quantity } : {}),
         })),
         ...(includeExcess
           ? excessItems.map((it) => ({
@@ -241,6 +255,7 @@ export function ListaEditor({
                       draftChecked={urgentDraft.has(it.key)}
                       onToggleDraft={() => toggleUrgentDraft(it.key)}
                       onRemove={() => removeNeedItem(it.key)}
+                      onSetQuantity={(q) => setNeedQuantity(it.key, q)}
                     />
                   </li>
                 ))}
@@ -485,12 +500,14 @@ function NeedRow({
   draftChecked,
   onToggleDraft,
   onRemove,
+  onSetQuantity,
 }: {
   item: SelectedItem;
   editing: boolean;
   draftChecked: boolean;
   onToggleDraft: () => void;
   onRemove: () => void;
+  onSetQuantity: (quantity: number | null) => void;
 }) {
   const bg = editing
     ? "bg-accent-subtle"
@@ -544,6 +561,11 @@ function NeedRow({
         {item.name}
       </span>
       <div className="flex shrink-0 items-center gap-2">
+        <QuantityControl
+          name={item.name}
+          quantity={item.quantity ?? null}
+          onSet={onSetQuantity}
+        />
         {item.isUrgent && <Tag variant="urgent">Urgente</Tag>}
         <button
           type="button"
@@ -555,6 +577,85 @@ function NeedRow({
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Optional per-item quantity affordance (field-insight-whatsapp §1). Shows a
+ * filled "× N" pill when set, a ghost "+ Cantidad" when unset; tapping either
+ * reveals an inline numeric input. Commits a positive int on Enter/blur; an
+ * empty or invalid value clears the quantity (null). Display-only — the unit is
+ * implied by the item name, so there's no unit field.
+ */
+function QuantityControl({
+  name,
+  quantity,
+  onSet,
+}: {
+  name: string;
+  quantity: number | null;
+  onSet: (quantity: number | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const start = () => {
+    setDraft(quantity != null ? String(quantity) : "");
+    setOpen(true);
+  };
+
+  const commit = () => {
+    const n = Number.parseInt(draft, 10);
+    onSet(Number.isInteger(n) && n > 0 ? n : null);
+    setOpen(false);
+  };
+
+  if (open) {
+    return (
+      <input
+        type="number"
+        inputMode="numeric"
+        min={1}
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+          } else if (e.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+        aria-label={`Cantidad de ${name}`}
+        placeholder="Cant."
+        className="h-8 w-20 rounded-md border-[1.5px] border-accent bg-surface px-2 text-sm tabular-nums text-neutral-900 outline-none focus:ring-2 focus:ring-accent/30"
+      />
+    );
+  }
+
+  if (quantity != null) {
+    return (
+      <button
+        type="button"
+        onClick={start}
+        aria-label={`Editar cantidad de ${name}`}
+        className="rounded-full border border-neutral-300 bg-surface px-2.5 py-1 text-sm font-medium tabular-nums text-neutral-700 hover:border-neutral-400"
+      >
+        × {quantity}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={start}
+      className="rounded-full px-2.5 py-1 text-sm font-medium text-accent hover:bg-accent-subtle"
+    >
+      + Cantidad
+    </button>
   );
 }
 
