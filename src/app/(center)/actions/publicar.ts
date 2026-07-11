@@ -9,15 +9,12 @@ import { center, lista, listaItem, supply, supplyCategory } from "@/db/schema";
 import { requireCenter } from "@/lib/auth/require-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { categoryLabel } from "@/lib/format";
-<<<<<<< HEAD
-import { isValidQuantity, validatePublishLista } from "@/lib/listas/validation";
-=======
 import {
   RECEPTION_LANDMARK_MAX,
   RECEPTION_NAME_MAX,
+  isValidQuantity,
   validatePublishLista,
 } from "@/lib/listas/validation";
->>>>>>> feat/insight-reception-contact
 import type { PublishListaInput } from "@/lib/listas/validation";
 import { normalizeVePhone } from "@/lib/registro/validation";
 
