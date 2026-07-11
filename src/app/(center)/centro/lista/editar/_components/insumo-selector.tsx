@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui";
+import { categoryLabel } from "@/lib/format";
 import {
   CUSTOM_CATEGORY_OPTIONS,
   DEFAULT_CUSTOM_CATEGORY,
@@ -14,7 +15,23 @@ import type { SelectedItem } from "./lista-editor";
  * picked home category (defaults to `general`/"Otros"). */
 type Custom = { name: string; category: string };
 
-type Supply = { id: string; name: string };
+type Supply = { id: string; name: string; category: string };
+
+/** Header order in browse mode: relief staples first, clinical after,
+ * catch-all last — mirrors the donor chips' relief-first ordering. */
+const CATALOG_CATEGORY_ORDER = [
+  "food",
+  "water",
+  "hygiene",
+  "bedding",
+  "pharmacy",
+  "emergency",
+  "surgical",
+  "inpatient",
+  "pediatrics",
+  "geriatrics",
+  "general",
+];
 
 /**
  * Insumo selector (Figma 32:5006 "6 · Selector de insumos") as a CONTROLLED
@@ -165,6 +182,22 @@ export function InsumoSelector({
     return q ? supplies.filter((s) => s.name.toLowerCase().includes(q)) : supplies;
   }, [supplies, query]);
 
+  // Browse mode (no search): the 91-item catalog groups under category
+  // headers, relief-first (field-insight §2). Searching flattens the list —
+  // headers only organize browsing, search stays the fast path.
+  const grouped = useMemo(() => {
+    if (query) return null;
+    const byCategory = new Map<string, Supply[]>();
+    for (const s of supplies) {
+      const bucket = byCategory.get(s.category) ?? [];
+      bucket.push(s);
+      byCategory.set(s.category, bucket);
+    }
+    return CATALOG_CATEGORY_ORDER.filter((c) => byCategory.has(c)).map(
+      (c) => ({ category: c, items: byCategory.get(c)! }),
+    );
+  }, [supplies, query]);
+
   // Offer "create as new insumo" when the typed text matches nothing already
   // present (catalog item or an already-added custom).
   const canCreateFromSearch =
@@ -313,35 +346,46 @@ export function InsumoSelector({
             </ul>
           )}
 
-          <p className="pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-            Insumos del catálogo
-          </p>
-
-          <ul>
-            {filtered.map((s) => {
-              const isChecked = checked.has(s.id);
-              return (
-                <li key={s.id} className="border-b border-neutral-100 last:border-0">
-                  <button
-                    type="button"
-                    onClick={() => toggle(s.id)}
-                    aria-pressed={isChecked}
-                    className="flex w-full items-center justify-between gap-3 py-3 text-left"
-                  >
-                    <span className="text-[15px] text-neutral-900">{s.name}</span>
-                    <Checkbox checked={isChecked} />
-                  </button>
-                </li>
-              );
-            })}
-            {filtered.length === 0 && !canCreateFromSearch && (
-              <li className="py-6 text-center text-sm text-neutral-500">
-                {query
-                  ? "Sin coincidencias."
-                  : "No hay insumos en el catálogo."}
-              </li>
-            )}
-          </ul>
+          {grouped ? (
+            grouped.map((g) => (
+              <div key={g.category}>
+                <p className="pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                  {categoryLabel(g.category)}
+                </p>
+                <ul>
+                  {g.items.map((s) => (
+                    <CatalogRow
+                      key={s.id}
+                      supply={s}
+                      checked={checked.has(s.id)}
+                      onToggle={toggle}
+                    />
+                  ))}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <>
+              <p className="pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                Insumos del catálogo
+              </p>
+              <ul>
+                {filtered.map((s) => (
+                  <CatalogRow
+                    key={s.id}
+                    supply={s}
+                    checked={checked.has(s.id)}
+                    onToggle={toggle}
+                  />
+                ))}
+                {filtered.length === 0 && !canCreateFromSearch && (
+                  <li className="py-6 text-center text-sm text-neutral-500">
+                    Sin coincidencias.
+                  </li>
+                )}
+              </ul>
+            </>
+          )}
         </div>
 
         {/* footer */}
@@ -354,6 +398,30 @@ export function InsumoSelector({
         </div>
       </div>
     </div>
+  );
+}
+
+function CatalogRow({
+  supply,
+  checked,
+  onToggle,
+}: {
+  supply: Supply;
+  checked: boolean;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <li className="border-b border-neutral-100 last:border-0">
+      <button
+        type="button"
+        onClick={() => onToggle(supply.id)}
+        aria-pressed={checked}
+        className="flex w-full items-center justify-between gap-3 py-3 text-left"
+      >
+        <span className="text-[15px] text-neutral-900">{supply.name}</span>
+        <Checkbox checked={checked} />
+      </button>
+    </li>
   );
 }
 

@@ -32,7 +32,7 @@ export type SelectedItem = {
   quantity?: number | null;
 };
 
-type Supply = { id: string; name: string };
+type Supply = { id: string; name: string; category: string };
 
 /**
  * Local, dependency-free redirect detection (mirrors edit-center-form). A

@@ -702,16 +702,18 @@ export async function getSuppliesByCategory(
 }
 
 /**
- * The full active catalog (id+name), name-sorted, for the insumo selector. The
- * "área" facet was dropped from authoring, so the selector now searches one flat
- * list and lets the center add any typed string as a custom insumo. Center-facing
- * + uncached (no donor surge tags).
+ * The full active catalog (id+name+category), for the insumo selector. The
+ * selector searches one flat list; when NOT searching it renders the catalog
+ * grouped under category headers (field-insight §2 — at 91 mixed items a flat
+ * alphabetical list is unbrowsable), so each row carries its category. Sorted
+ * name-ASC; the selector re-orders by CATEGORY display order. Center-facing +
+ * uncached (no donor surge tags).
  */
 export async function getActiveSupplies(): Promise<
-  { id: string; name: string }[]
+  { id: string; name: string; category: string }[]
 > {
   return db
-    .select({ id: supply.id, name: supply.name })
+    .select({ id: supply.id, name: supply.name, category: supply.category })
     .from(supply)
     .where(eq(supply.isActive, true))
     .orderBy(asc(supply.name));
