@@ -2,7 +2,7 @@ import "server-only";
 
 import {
   and,
-  arrayContains,
+  arrayOverlaps,
   asc,
   count,
   desc,
@@ -16,7 +16,7 @@ import {
 } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
-import { categoryValueFromLabel } from "@/lib/format";
+import { CATEGORY_GROUPS, categoryValueFromLabel } from "@/lib/format";
 
 import { db } from "./index";
 import {
@@ -51,7 +51,7 @@ export type ListaFilters = {
   search?: string; // matches center name, city, or item name
   city?: string; // lista.city
   type?: string; // center.type enum value
-  category?: string; // a value present in lista.categories[]
+  category?: string; // a donor-facing CATEGORY_GROUPS key (e.g. "medical", "food")
   sort?: ListaSort; // default "recent"
 };
 
@@ -184,7 +184,13 @@ async function queryActiveListas(
           ? eq(center.type, filters.type as typeof center.type.enumValues[number])
           : undefined,
         filters.category
-          ? arrayContains(lista.categories, [filters.category])
+          ? // `filters.category` is a donor-facing GROUP key ("medical" spans
+            // six enum values) — match listas whose categories[] overlaps the
+            // group's members. Unknown keys fall back to a literal match.
+            arrayOverlaps(
+              lista.categories,
+              CATEGORY_GROUPS[filters.category]?.values ?? [filters.category],
+            )
           : undefined,
         searchPattern
           ? or(

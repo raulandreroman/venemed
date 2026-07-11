@@ -6,7 +6,12 @@ import {
   type ListaFilters,
 } from "@/db/queries";
 import { centerType } from "@/db/schema";
-import { categoryLabel, centerTypeLabel } from "@/lib/format";
+import {
+  CATEGORY_GROUPS,
+  CATEGORY_GROUP_ORDER,
+  categoryGroupOf,
+  centerTypeLabel,
+} from "@/lib/format";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import type { CenterType } from "@/lib/registro/validation";
 import { AppBar, RequestCard } from "@/components/ui";
@@ -15,22 +20,6 @@ import { CategoryChips } from "./_components/category-chips";
 import { FilterSelect } from "./_components/filter-select";
 import { SearchBox } from "./_components/search-box";
 import { SortToggle } from "./_components/sort-toggle";
-
-// Canonical chip order: relief (non-medical) first, then clinical — stable
-// regardless of which categories happen to be present in the feed.
-const CATEGORY_ORDER = [
-  "food",
-  "water",
-  "hygiene",
-  "bedding",
-  "pharmacy",
-  "emergency",
-  "surgical",
-  "inpatient",
-  "pediatrics",
-  "geriatrics",
-  "general",
-];
 
 export const revalidate = 60;
 
@@ -103,14 +92,12 @@ export default async function SolicitudesPage({
   ]);
 
   const cities = uniqueSorted(allActive.map((r) => r.city));
-  const categoryOptions = activeCategories
-    .slice()
-    .sort((a, b) => {
-      const ia = CATEGORY_ORDER.indexOf(a);
-      const ib = CATEGORY_ORDER.indexOf(b);
-      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-    })
-    .map((c) => ({ value: c, label: categoryLabel(c) }));
+  // Enum values present in the feed collapse into donor-facing GROUPS (the six
+  // medical departments become one «Medicinas» chip) — field-insight §2.
+  const groupsPresent = new Set(activeCategories.map(categoryGroupOf));
+  const categoryOptions = CATEGORY_GROUP_ORDER.filter((g) =>
+    groupsPresent.has(g),
+  ).map((g) => ({ value: g, label: CATEGORY_GROUPS[g].label }));
   const types = CENTER_TYPE_ENABLED
     ? uniqueSorted(
         allActive

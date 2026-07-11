@@ -104,7 +104,7 @@ export function categoryLabel(value: string): string {
     emergency: "Emergencias",
     pharmacy: "Farmacia",
     inpatient: "Hospitalización",
-    pediatrics: "Refugio infantil",
+    pediatrics: "Pediatría",
     geriatrics: "Adultos mayores",
     // Non-medical categories (field-insight-whatsapp §2).
     food: "Alimentos",
@@ -130,6 +130,9 @@ export function categoryValueFromLabel(label: string): string {
     Emergencias: "emergency",
     Farmacia: "pharmacy",
     Hospitalización: "inpatient",
+    Pediatría: "pediatrics",
+    // Legacy label (pre-Pediatría rename); rows backfilled by migration 0013,
+    // kept for any stragglers.
     "Refugio infantil": "pediatrics",
     "Adultos mayores": "geriatrics",
     Alimentos: "food",
@@ -140,6 +143,53 @@ export function categoryValueFromLabel(label: string): string {
     General: "general",
   };
   return map[label] ?? "general";
+}
+
+/**
+ * Donor-facing category GROUPS (field-insight-whatsapp §2). The enum stays
+ * granular in storage (values can never be dropped — destructive type
+ * recreation); the donor filter groups it to match the field mental model
+ * ("comida, medicinas, kit higiene, camas"): the six medical departments
+ * collapse into one «Medicinas» chip. Keys are what `?category=` carries.
+ */
+export const CATEGORY_GROUPS: Record<
+  string,
+  { label: string; values: string[] }
+> = {
+  food: { label: "Alimentos", values: ["food"] },
+  water: { label: "Agua", values: ["water"] },
+  hygiene: { label: "Higiene", values: ["hygiene"] },
+  bedding: { label: "Camas y cobijas", values: ["bedding"] },
+  medical: {
+    label: "Medicinas",
+    values: [
+      "pharmacy",
+      "emergency",
+      "surgical",
+      "inpatient",
+      "pediatrics",
+      "geriatrics",
+    ],
+  },
+  general: { label: "Otros", values: ["general"] },
+};
+
+/** Chip display order — relief staples first, catch-all last. */
+export const CATEGORY_GROUP_ORDER = [
+  "food",
+  "water",
+  "hygiene",
+  "bedding",
+  "medical",
+  "general",
+] as const;
+
+/** `supply_category` enum value -> its donor-facing group key. */
+export function categoryGroupOf(value: string): string {
+  for (const [key, group] of Object.entries(CATEGORY_GROUPS)) {
+    if (group.values.includes(value)) return key;
+  }
+  return "general";
 }
 
 /** center.type enum -> Spanish label. */
