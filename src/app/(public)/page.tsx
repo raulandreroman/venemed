@@ -66,7 +66,7 @@ export default async function LandingPage() {
           El puente directo entre tu ayuda y los hospitales.
         </h1>
         <p className="text-base leading-6 text-neutral-500">
-          Conectamos centros de salud con donantes para que ninguna ayuda se
+          Conectamos centros con donantes para que ninguna ayuda se
           pierda.
         </p>
         <Button href="/listas" variant="primary" fullWidth>

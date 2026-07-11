@@ -8,6 +8,7 @@ import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
+import { CATALOG } from "./catalog";
 import { appUser, center, membership, lista, listaItem, supply } from "./schema";
 
 config({ path: ".env.local" });
@@ -110,35 +111,11 @@ async function main() {
   await db.delete(center);
   await db.delete(supply);
 
-  // ---- supply catalog ----
+  // ---- supply catalog (single source of truth: src/db/catalog.ts — the same
+  // Catalog v2 the prod data migration 0012 seeds via INSERTs) ----
   const supplies = await db
     .insert(supply)
-    .values([
-      // surgical (Quirófano)
-      { name: "Guantes quirúrgicos", category: "surgical" },
-      { name: "Gasas estériles", category: "surgical" },
-      { name: "Suturas", category: "surgical" },
-      // emergency (Emergencias)
-      { name: "Suero fisiológico 500 ml", category: "emergency" },
-      { name: "Jeringas 5 ml estériles", category: "emergency" },
-      { name: "Solución antiséptica", category: "emergency" },
-      // pharmacy (Farmacia)
-      { name: "Acetaminofén 500 mg", category: "pharmacy" },
-      { name: "Alcohol isopropílico", category: "pharmacy" },
-      { name: "Antibióticos (amoxicilina)", category: "pharmacy" },
-      // inpatient (Hospitalización)
-      { name: "Sábanas clínicas", category: "inpatient" },
-      { name: "Sonda Foley", category: "inpatient" },
-      { name: "Mascarillas N95", category: "inpatient" },
-      // pediatrics (Refugio infantil)
-      { name: "Acetaminofén pediátrico (jarabe)", category: "pediatrics" },
-      { name: "Suero oral", category: "pediatrics" },
-      { name: "Pañales infantiles", category: "pediatrics" },
-      // geriatrics (Adultos mayores)
-      { name: "Pañales para adulto", category: "geriatrics" },
-      { name: "Suplemento nutricional", category: "geriatrics" },
-      { name: "Tensiómetro", category: "geriatrics" },
-    ])
+    .values(CATALOG)
     .returning({ id: supply.id, name: supply.name });
   const supplyId = (name: string) => supplies.find((s) => s.name === name)!.id;
 
@@ -222,7 +199,7 @@ async function main() {
     },
     {
       listaId: listaA.id,
-      supplyId: supplyId("Jeringas 5 ml estériles"),
+      supplyId: supplyId("Jeringas estériles"),
       category: "Pediatría",
       isUrgent: true,
     },

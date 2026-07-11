@@ -64,6 +64,15 @@ export const supplyCategory = pgEnum("supply_category", [
   "pharmacy",
   "inpatient",
   "geriatrics",
+  // Non-medical categories (field-insight-whatsapp §2) — APPENDED to keep enum
+  // positions stable so drizzle emits `ALTER TYPE … ADD VALUE`, never a
+  // destructive recreation. Postgres cannot USE a new enum value in the same
+  // transaction that adds it, so the catalog data migration that references
+  // these lives in a SEPARATE file (migration B).
+  "food",
+  "water",
+  "hygiene",
+  "bedding",
 ]);
 
 export const shareChannel = pgEnum("share_channel", [

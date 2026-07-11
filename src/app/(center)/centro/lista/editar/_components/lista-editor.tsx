@@ -22,6 +22,9 @@ export type SelectedItem = {
   supplyId?: string;
   name: string;
   isUrgent?: boolean;
+  /** For customs only: the picked home category (supply_category enum value).
+   * Catalog items derive their category from the supply and ignore this. */
+  category?: string;
 };
 
 type Supply = { id: string; name: string };
@@ -63,10 +66,16 @@ export function ListaEditor({
       supplyId: it.supplyId,
       name: it.name,
       isUrgent: it.isUrgent,
+      category: it.category,
     }));
   const initialExcess = (initial?.items ?? [])
     .filter((it) => it.bucket === "excess")
-    .map((it) => ({ key: it.key, supplyId: it.supplyId, name: it.name }));
+    .map((it) => ({
+      key: it.key,
+      supplyId: it.supplyId,
+      name: it.name,
+      category: it.category,
+    }));
   // On EDIT, "skip the excess form" must not silently wipe previously-saved
   // excess data — only a fresh create with no prior excess may omit it
   // entirely (validator correction #5).
@@ -172,7 +181,7 @@ export function ListaEditor({
         ...needItems.map((it) => ({
           ...(it.supplyId
             ? { supplyId: it.supplyId }
-            : { customName: it.name }),
+            : { customName: it.name, category: it.category }),
           bucket: "need" as const,
           isUrgent: !!it.isUrgent,
         })),
@@ -180,7 +189,7 @@ export function ListaEditor({
           ? excessItems.map((it) => ({
               ...(it.supplyId
                 ? { supplyId: it.supplyId }
-                : { customName: it.name }),
+                : { customName: it.name, category: it.category }),
               bucket: "excess" as const,
             }))
           : []),
