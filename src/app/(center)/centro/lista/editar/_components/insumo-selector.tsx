@@ -170,10 +170,16 @@ export function InsumoSelector({
     setCustoms((prev) => prev.filter((c) => c.name !== name));
   }, []);
 
+  // Option A (field-insight §2): the category picker is COLLAPSED to a small
+  // «{Categoría} ▾» tag on the row; chips render only for the row being edited
+  // and collapse back once a category is picked.
+  const [categoryOpenFor, setCategoryOpenFor] = useState<string | null>(null);
+
   const setCustomCategory = useCallback((name: string, category: string) => {
     setCustoms((prev) =>
       prev.map((c) => (c.name === name ? { ...c, category } : c)),
     );
+    setCategoryOpenFor(null);
   }, []);
 
   const query = search.trim();
@@ -299,48 +305,80 @@ export function InsumoSelector({
           )}
 
           {/* Selected custom (free-text) insumos render as checked rows at the
-              top — tapping the row removes it. Each carries an inline category
-              picker (customs only; catalog rows never show it). */}
+              top — tapping the ROW removes it; tapping the category TAG expands
+              the chips for that row only (customs only; catalog rows never show
+              it). Picking a chip collapses back to the tag. */}
           {customs.length > 0 && (
             <ul>
               {customs.map((c) => (
                 <li key={c.name} className="border-b border-neutral-100 py-1">
-                  <button
-                    type="button"
-                    onClick={() => removeCustom(c.name)}
-                    aria-pressed={true}
-                    className="flex w-full items-center justify-between gap-3 py-2 text-left"
-                  >
-                    <span className="text-[15px] text-neutral-900">{c.name}</span>
-                    <Checkbox checked={true} />
-                  </button>
-                  <div className="pb-2">
-                    <p className="pb-1.5 text-xs text-neutral-500">
-                      ¿En qué categoría va?
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {CUSTOM_CATEGORY_OPTIONS.map((opt) => {
-                        const active = c.category === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            aria-pressed={active}
-                            onClick={() =>
-                              setCustomCategory(c.name, opt.value)
-                            }
-                            className={`shrink-0 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors ${
-                              active
-                                ? "border-accent bg-accent text-accent-on"
-                                : "border-neutral-300 bg-surface text-neutral-700 hover:border-neutral-400"
-                            }`}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div className="flex items-center gap-2 py-2">
+                    <button
+                      type="button"
+                      onClick={() => removeCustom(c.name)}
+                      aria-pressed={true}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    >
+                      <span className="truncate text-[15px] text-neutral-900">
+                        {c.name}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCategoryOpenFor((prev) =>
+                          prev === c.name ? null : c.name,
+                        )
+                      }
+                      aria-expanded={categoryOpenFor === c.name}
+                      aria-label={`Categoría de ${c.name}`}
+                      className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-200"
+                    >
+                      {CUSTOM_CATEGORY_OPTIONS.find(
+                        (o) => o.value === c.category,
+                      )?.label ?? "Otros"}
+                      <span aria-hidden="true" className="text-[10px] text-neutral-400">
+                        ▾
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeCustom(c.name)}
+                      aria-label={`Quitar ${c.name}`}
+                      className="shrink-0"
+                    >
+                      <Checkbox checked={true} />
+                    </button>
                   </div>
+                  {categoryOpenFor === c.name && (
+                    <div className="pb-2">
+                      <p className="pb-1.5 text-xs text-neutral-500">
+                        ¿En qué categoría va?
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {CUSTOM_CATEGORY_OPTIONS.map((opt) => {
+                          const active = c.category === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              aria-pressed={active}
+                              onClick={() =>
+                                setCustomCategory(c.name, opt.value)
+                              }
+                              className={`shrink-0 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors ${
+                                active
+                                  ? "border-accent bg-accent text-accent-on"
+                                  : "border-neutral-300 bg-surface text-neutral-700 hover:border-neutral-400"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
