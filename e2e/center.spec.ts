@@ -103,7 +103,7 @@ test.describe("center auth + registration", () => {
       page.getByRole("heading", { name: /Hospital J\.M\. de los Ríos/ }),
     ).toBeVisible();
     // A seeded section item (seed: an urgent need on this center's lista).
-    await expect(page.getByText("Jeringas 5 ml estériles")).toBeVisible();
+    await expect(page.getByText("Jeringas estériles")).toBeVisible();
     await expectNoErrorOverlay(page);
 
     // "Editar lista" (sticky footer) → the editor, pre-filled from the
@@ -115,7 +115,7 @@ test.describe("center auth + registration", () => {
     // open the selector, check a catalog item, and add a custom one by typing a
     // non-matching string into the search and tapping the "Crear «…»" row.
     await page.getByRole("button", { name: "Agregar insumos" }).click();
-    await page.getByRole("button", { name: "Guantes quirúrgicos" }).click();
+    await page.getByRole("button", { name: "Guantes quirúrgicos estériles" }).click();
     await page.getByLabel("Buscar insumo").fill(itemName);
     await page.getByRole("button", { name: `Crear ${itemName}` }).click();
     await page.getByRole("button", { name: /Agregar \d+ insumos?/ }).click();
