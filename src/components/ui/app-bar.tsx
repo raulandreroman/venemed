@@ -1,9 +1,15 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import logoMark from "@/assets/venemed-logo-mark.png";
+
 /**
- * Detail top bar (Figma 20:2): back arrow + centered title + optional trailing
- * action (e.g. external/share icon). Server-renderable.
+ * Detail top bar (Figma 20:2): back arrow + centered title + trailing slot.
+ * Server-renderable.
+ *
+ * The trailing slot defaults to the VeneMed mark linking home ("/") on every
+ * page; passing `trailing` (step counter, share icon…) replaces it.
  *
  * Pass `backHref={null}` for screens with no back affordance (e.g. the center
  * status screens "Casi listo" / "Estado del registro"). When `align` is
@@ -55,9 +61,21 @@ export function AppBar({
         {title}
       </h1>
       <span className="inline-flex h-9 min-w-9 items-center justify-end whitespace-nowrap">
-        {trailing}
+        {trailing ?? <HomeLogoLink />}
       </span>
     </header>
+  );
+}
+
+function HomeLogoLink() {
+  return (
+    <Link
+      href="/"
+      aria-label="Ir al inicio de VeneMed"
+      className="-mr-1 inline-flex h-9 w-9 items-center justify-center rounded-full hover:bg-neutral-100"
+    >
+      <Image src={logoMark} alt="" width={24} height={20} priority={false} />
+    </Link>
   );
 }
 
