@@ -7,7 +7,7 @@ import { loadInterFonts } from "@/lib/og/fonts";
 // Fully static: no request-time APIs → prerendered at build time and cached.
 
 export const alt =
-  "VeneMed — El puente directo entre tu ayuda y los hospitales";
+  "VeneMed — El puente directo entre tu ayuda y quien la necesita";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -69,7 +69,7 @@ export default async function Image() {
             maxWidth: 960,
           }}
         >
-          El puente directo entre tu ayuda y los hospitales
+          El puente directo entre tu ayuda y quien la necesita
         </div>
 
         {/* Footer */}

@@ -20,12 +20,12 @@ const STEPS = [
   {
     n: 1,
     title: "El centro publica su lista",
-    body: "El hospital o clínica detalla qué necesita.",
+    body: "El solicitante detalla qué necesita, y qué no.",
   },
   {
     n: 2,
-    title: "Los donantes ven y comparten",
-    body: "Donantes o centros de acopio saben a dónde distribuir los recursos.",
+    title: "Donantes ven y comparten",
+    body: "Organizaciones o donantes individuales saben a dónde distribuir los recursos.",
   },
   {
     n: 3,
@@ -63,11 +63,11 @@ export default async function LandingPage() {
       {/* Hero */}
       <section className="flex flex-col gap-5 bg-surface px-6 pb-8 pt-10">
         <h1 className="text-[28px] font-bold leading-[34px] text-neutral-900">
-          El puente directo entre tu ayuda y los hospitales.
+          El puente directo entre tu ayuda y quien la necesita.
         </h1>
         <p className="text-base leading-6 text-neutral-500">
-          Conectamos centros con donantes para que ninguna ayuda se
-          pierda.
+          Comunidades organizadas publican lo que necesitan. Los donantes lo ven
+          y lo comparten. Sin que nada se pierda.
         </p>
         <Button href="/listas" variant="primary" fullWidth>
           Ver listas activas
@@ -122,13 +122,14 @@ export default async function LandingPage() {
       <section className="bg-surface p-6">
         <div className="flex flex-col gap-3 rounded-2xl border border-accent-border bg-accent-subtle p-5">
           <p className="text-lg font-semibold leading-6 text-neutral-900">
-            ¿Trabajas en un hospital, refugio o casa de cuidado?
+            ¿Trabajas en un hospital, refugio o centro de acopio?
           </p>
           <p className="text-sm leading-5 text-neutral-700">
-            Publica una lista de lo que puedes recibir y evita el colapso.
+            Crea una lista fácil de compartir que permitirá mayor claridad en las
+            donaciones.
           </p>
           <Button href="/centro" variant="primary" fullWidth>
-            Solicitar acceso al portal
+            Registrar mi centro
           </Button>
         </div>
       </section>
