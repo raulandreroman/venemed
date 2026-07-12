@@ -303,7 +303,9 @@ function AddressCard({
           {receptionName && receptionPhone && " · "}
           {receptionPhone && (
             <a
-              href={`tel:${receptionPhone}`}
+              href={`https://wa.me/${receptionPhone.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-accent hover:underline"
             >
               {formatVePhone(receptionPhone)}
