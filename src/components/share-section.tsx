@@ -3,7 +3,10 @@
 import { useCallback, useState } from "react";
 
 import { recordShare } from "@/app/actions/share";
-import { shareWithOptionalImage } from "@/lib/share/native-share";
+import {
+  shareTextNative,
+  shareWithOptionalImage,
+} from "@/lib/share/native-share";
 
 /**
  * "Comparte esta solicitud" (Figma 20:2 / 30:16798).
@@ -44,8 +47,16 @@ export function ShareSection({
     window.open(url, "_blank", "noopener,noreferrer");
   }, []);
 
-  const shareWhatsApp = useCallback(() => {
-    open(`https://wa.me/?text=${encodeURIComponent(`${message} ${absoluteUrl()}`)}`);
+  const shareWhatsApp = useCallback(async () => {
+    const text = `${message} ${absoluteUrl()}`;
+    // Native share sheet first — the user picks WhatsApp (or any app) and the
+    // text lands prefilled in the chosen chat. Fall back to the wa.me deep link
+    // only when there is no native share (mostly desktop).
+    const result = await shareTextNative({ text });
+    if (result === "cancelled") return;
+    if (result === "unsupported") {
+      open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+    }
     recordShare(requestId, "whatsapp").catch(() => {});
   }, [open, message, absoluteUrl, requestId]);
 
