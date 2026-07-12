@@ -9,9 +9,9 @@ const inter = Inter({
   display: "swap",
 });
 
-const title = "VeneMed — El puente directo entre tu ayuda y los hospitales";
+const title = "VeneMed — El puente directo entre tu ayuda y quien la necesita";
 const description =
-  "Conectamos centros de salud con donantes para que ninguna ayuda se pierda.";
+  "Comunidades organizadas publican lo que necesitan. Los donantes lo ven y lo comparten. Sin que nada se pierda.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(

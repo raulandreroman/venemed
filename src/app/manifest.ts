@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "VeneMed",
     short_name: "VeneMed",
     description:
-      "Listas de insumos médicos de centros de salud en Venezuela. Dona directo a hospitales, clínicas y refugios.",
+      "Listas de insumos de centros verificados en Venezuela. Dona directo a hospitales, refugios y centros de acopio.",
     lang: "es",
     start_url: "/",
     display: "standalone",
