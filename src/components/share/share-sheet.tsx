@@ -48,6 +48,8 @@ export function ShareOptions({
   onImageShared?: () => void;
 }) {
   const [copied, setCopied] = useState<"whatsapp" | "link" | null>(null);
+  // Busy while the story PNG generates/fetches at tap time (loadStoryImageFile).
+  const [sharingImage, setSharingImage] = useState(false);
 
   // Resolve the origin AFTER mount: unlike the sheet (which only renders on
   // open, post-mount), these options also render inline on the publicada
@@ -101,20 +103,26 @@ export function ShareOptions({
   // 2 · Story image — reuse the native file-share flow (attaches the per-lista
   // story PNG); fall back to opening the image URL in a new tab.
   const onImage = useCallback(async () => {
-    const result = await shareWithOptionalImage({
-      title: shareMessage,
-      text: shareMessage,
-      url,
-    });
-    if (result === "cancelled") return;
-    if (result === "unsupported") {
-      window.open(`${url}/story-image`, "_blank", "noopener,noreferrer");
+    if (sharingImage) return;
+    setSharingImage(true);
+    try {
+      const result = await shareWithOptionalImage({
+        title: shareMessage,
+        text: shareMessage,
+        url,
+      });
+      if (result === "cancelled") return;
+      if (result === "unsupported") {
+        window.open(`${url}/story-image`, "_blank", "noopener,noreferrer");
+      }
+      // Native sheet hides the chosen app → channel "unknown" (same as the
+      // pre-sheet donor CTA).
+      recordShare(listaId, "unknown").catch(() => {});
+      onImageShared?.();
+    } finally {
+      setSharingImage(false);
     }
-    // Native sheet hides the chosen app → channel "unknown" (same as the
-    // pre-sheet donor CTA).
-    recordShare(listaId, "unknown").catch(() => {});
-    onImageShared?.();
-  }, [shareMessage, url, listaId, onImageShared]);
+  }, [sharingImage, shareMessage, url, listaId, onImageShared]);
 
   // 3 · Copy link — clipboard with brief "Copiado" feedback.
   const onCopyLink = useCallback(async () => {
@@ -142,10 +150,15 @@ export function ShareOptions({
         onClick={onWhatsAppText}
       />
       <OptionRow
-        icon={<ImageIcon />}
+        icon={sharingImage ? <SpinnerIcon /> : <ImageIcon />}
         label="Imagen"
-        description="Tarjeta para estados o historias"
+        description={
+          sharingImage
+            ? "Preparando imagen…"
+            : "Tarjeta para estados o historias"
+        }
         onClick={onImage}
+        disabled={sharingImage}
       />
       <OptionRow
         icon={<LinkIcon />}
@@ -287,6 +300,7 @@ function OptionRow({
   onClick,
   highlighted = false,
   confirmed = false,
+  disabled = false,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -294,12 +308,15 @@ function OptionRow({
   onClick: () => void;
   highlighted?: boolean;
   confirmed?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-3.5 rounded-2xl px-3.5 py-3 text-left transition-colors ${
+      disabled={disabled}
+      aria-busy={disabled}
+      className={`flex w-full items-center gap-3.5 rounded-2xl px-3.5 py-3 text-left transition-colors disabled:cursor-default ${
         highlighted
           ? "bg-accent-subtle hover:bg-accent-subtle/70"
           : "hover:bg-neutral-100"
@@ -341,6 +358,34 @@ function ChatIcon() {
       aria-hidden="true"
     >
       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
+    </svg>
+  );
+}
+
+function SpinnerIcon() {
+  return (
+    <svg
+      className="animate-spin"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="3"
+        opacity="0.25"
+      />
+      <path
+        d="M12 2a10 10 0 0 1 10 10"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
