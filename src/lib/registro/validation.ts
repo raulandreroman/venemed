@@ -168,7 +168,7 @@ export type CenterDetailsInput = Pick<
 
 export type ResponsableInput = Pick<
   CreateCenterInput,
-  "responsibleName" | "cargo"
+  "responsibleName" | "cargo" | "whatsappPhone"
 >;
 
 const CENTER_DETAIL_KEYS = [
@@ -181,7 +181,7 @@ const CENTER_DETAIL_KEYS = [
   "regularScheduleText",
 ] as const;
 
-const RESPONSABLE_KEYS = ["responsibleName", "cargo"] as const;
+const RESPONSABLE_KEYS = ["responsibleName", "cargo", "whatsappPhone"] as const;
 
 function pickErrors(
   errors: FieldErrors,

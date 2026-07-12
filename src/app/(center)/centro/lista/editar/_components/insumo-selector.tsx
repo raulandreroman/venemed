@@ -3,10 +3,35 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui";
+import { categoryLabel } from "@/lib/format";
+import {
+  CUSTOM_CATEGORY_OPTIONS,
+  DEFAULT_CUSTOM_CATEGORY,
+} from "@/lib/listas/validation";
 
 import type { SelectedItem } from "./lista-editor";
 
-type Supply = { id: string; name: string };
+/** A free-text custom insumo held in the selector's working state, with its
+ * picked home category (defaults to `general`/"Otros"). */
+type Custom = { name: string; category: string };
+
+type Supply = { id: string; name: string; category: string };
+
+/** Header order in browse mode: relief staples first, clinical after,
+ * catch-all last — mirrors the donor chips' relief-first ordering. */
+const CATALOG_CATEGORY_ORDER = [
+  "food",
+  "water",
+  "hygiene",
+  "bedding",
+  "pharmacy",
+  "emergency",
+  "surgical",
+  "inpatient",
+  "pediatrics",
+  "geriatrics",
+  "general",
+];
 
 /**
  * Insumo selector (Figma 32:5006 "6 · Selector de insumos") as a CONTROLLED
@@ -38,7 +63,7 @@ export function InsumoSelector({
 
   // Local working state — initialized from `selected` each time the sheet opens.
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [customs, setCustoms] = useState<string[]>([]);
+  const [customs, setCustoms] = useState<Custom[]>([]);
   const [search, setSearch] = useState("");
 
   // Seed working state when the sheet opens. State only ever mutates from an
@@ -56,7 +81,14 @@ export function InsumoSelector({
               .map((it) => it.supplyId as string),
           ),
         );
-        setCustoms(selected.filter((it) => !it.supplyId).map((it) => it.name));
+        setCustoms(
+          selected
+            .filter((it) => !it.supplyId)
+            .map((it) => ({
+              name: it.name,
+              category: it.category ?? DEFAULT_CUSTOM_CATEGORY,
+            })),
+        );
         setSearch("");
       });
       return () => cancelAnimationFrame(raf);
@@ -121,20 +153,33 @@ export function InsumoSelector({
     });
   }, []);
 
-  /** Add a free-text custom insumo (from the search box) and clear the search. */
+  /** Add a free-text custom insumo (from the search box) and clear the search.
+   * New customs default to the `general` ("Otros") category until picked. */
   const addCustomNamed = useCallback((raw: string) => {
     const name = raw.trim();
     if (!name) return;
     setCustoms((prev) =>
-      prev.some((c) => c.toLowerCase() === name.toLowerCase())
+      prev.some((c) => c.name.toLowerCase() === name.toLowerCase())
         ? prev
-        : [...prev, name],
+        : [...prev, { name, category: DEFAULT_CUSTOM_CATEGORY }],
     );
     setSearch("");
   }, []);
 
   const removeCustom = useCallback((name: string) => {
-    setCustoms((prev) => prev.filter((c) => c !== name));
+    setCustoms((prev) => prev.filter((c) => c.name !== name));
+  }, []);
+
+  // Option A (field-insight §2): the category picker is COLLAPSED to a small
+  // «{Categoría} ▾» tag on the row; chips render only for the row being edited
+  // and collapse back once a category is picked.
+  const [categoryOpenFor, setCategoryOpenFor] = useState<string | null>(null);
+
+  const setCustomCategory = useCallback((name: string, category: string) => {
+    setCustoms((prev) =>
+      prev.map((c) => (c.name === name ? { ...c, category } : c)),
+    );
+    setCategoryOpenFor(null);
   }, []);
 
   const query = search.trim();
@@ -143,12 +188,28 @@ export function InsumoSelector({
     return q ? supplies.filter((s) => s.name.toLowerCase().includes(q)) : supplies;
   }, [supplies, query]);
 
+  // Browse mode (no search): the 91-item catalog groups under category
+  // headers, relief-first (field-insight §2). Searching flattens the list —
+  // headers only organize browsing, search stays the fast path.
+  const grouped = useMemo(() => {
+    if (query) return null;
+    const byCategory = new Map<string, Supply[]>();
+    for (const s of supplies) {
+      const bucket = byCategory.get(s.category) ?? [];
+      bucket.push(s);
+      byCategory.set(s.category, bucket);
+    }
+    return CATALOG_CATEGORY_ORDER.filter((c) => byCategory.has(c)).map(
+      (c) => ({ category: c, items: byCategory.get(c)! }),
+    );
+  }, [supplies, query]);
+
   // Offer "create as new insumo" when the typed text matches nothing already
   // present (catalog item or an already-added custom).
   const canCreateFromSearch =
     query.length > 0 &&
     !supplies.some((s) => s.name.toLowerCase() === query.toLowerCase()) &&
-    !customs.some((c) => c.toLowerCase() === query.toLowerCase());
+    !customs.some((c) => c.name.toLowerCase() === query.toLowerCase());
 
   const total = checked.size + customs.length;
 
@@ -159,9 +220,10 @@ export function InsumoSelector({
       supplyId: id,
       name: byId.get(id) ?? "Insumo",
     }));
-    const fromCustom: SelectedItem[] = customs.map((name) => ({
-      key: `custom:${name.toLowerCase()}`,
-      name,
+    const fromCustom: SelectedItem[] = customs.map((c) => ({
+      key: `custom:${c.name.toLowerCase()}`,
+      name: c.name,
+      category: c.category,
     }));
     onConfirm([...fromCatalog, ...fromCustom]);
     onClose();
@@ -243,54 +305,125 @@ export function InsumoSelector({
           )}
 
           {/* Selected custom (free-text) insumos render as checked rows at the
-              top — tapping one removes it. */}
+              top — tapping the ROW removes it; tapping the category TAG expands
+              the chips for that row only (customs only; catalog rows never show
+              it). Picking a chip collapses back to the tag. */}
           {customs.length > 0 && (
             <ul>
-              {customs.map((name) => (
-                <li key={name} className="border-b border-neutral-100">
-                  <button
-                    type="button"
-                    onClick={() => removeCustom(name)}
-                    aria-pressed={true}
-                    className="flex w-full items-center justify-between gap-3 py-3 text-left"
-                  >
-                    <span className="text-[15px] text-neutral-900">{name}</span>
-                    <Checkbox checked={true} />
-                  </button>
+              {customs.map((c) => (
+                <li key={c.name} className="border-b border-neutral-100 py-1">
+                  <div className="flex items-center gap-2 py-2">
+                    <button
+                      type="button"
+                      onClick={() => removeCustom(c.name)}
+                      aria-pressed={true}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    >
+                      <span className="truncate text-[15px] text-neutral-900">
+                        {c.name}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCategoryOpenFor((prev) =>
+                          prev === c.name ? null : c.name,
+                        )
+                      }
+                      aria-expanded={categoryOpenFor === c.name}
+                      aria-label={`Categoría de ${c.name}`}
+                      className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-200"
+                    >
+                      {CUSTOM_CATEGORY_OPTIONS.find(
+                        (o) => o.value === c.category,
+                      )?.label ?? "Otros"}
+                      <span aria-hidden="true" className="text-[10px] text-neutral-400">
+                        ▾
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeCustom(c.name)}
+                      aria-label={`Quitar ${c.name}`}
+                      className="shrink-0"
+                    >
+                      <Checkbox checked={true} />
+                    </button>
+                  </div>
+                  {categoryOpenFor === c.name && (
+                    <div className="pb-2">
+                      <p className="pb-1.5 text-xs text-neutral-500">
+                        ¿En qué categoría va?
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {CUSTOM_CATEGORY_OPTIONS.map((opt) => {
+                          const active = c.category === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              aria-pressed={active}
+                              onClick={() =>
+                                setCustomCategory(c.name, opt.value)
+                              }
+                              className={`shrink-0 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors ${
+                                active
+                                  ? "border-accent bg-accent text-accent-on"
+                                  : "border-neutral-300 bg-surface text-neutral-700 hover:border-neutral-400"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
           )}
 
-          <p className="pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-            Insumos del catálogo
-          </p>
-
-          <ul>
-            {filtered.map((s) => {
-              const isChecked = checked.has(s.id);
-              return (
-                <li key={s.id} className="border-b border-neutral-100 last:border-0">
-                  <button
-                    type="button"
-                    onClick={() => toggle(s.id)}
-                    aria-pressed={isChecked}
-                    className="flex w-full items-center justify-between gap-3 py-3 text-left"
-                  >
-                    <span className="text-[15px] text-neutral-900">{s.name}</span>
-                    <Checkbox checked={isChecked} />
-                  </button>
-                </li>
-              );
-            })}
-            {filtered.length === 0 && !canCreateFromSearch && (
-              <li className="py-6 text-center text-sm text-neutral-500">
-                {query
-                  ? "Sin coincidencias."
-                  : "No hay insumos en el catálogo."}
-              </li>
-            )}
-          </ul>
+          {grouped ? (
+            grouped.map((g) => (
+              <div key={g.category}>
+                <p className="pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                  {categoryLabel(g.category)}
+                </p>
+                <ul>
+                  {g.items.map((s) => (
+                    <CatalogRow
+                      key={s.id}
+                      supply={s}
+                      checked={checked.has(s.id)}
+                      onToggle={toggle}
+                    />
+                  ))}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <>
+              <p className="pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                Insumos del catálogo
+              </p>
+              <ul>
+                {filtered.map((s) => (
+                  <CatalogRow
+                    key={s.id}
+                    supply={s}
+                    checked={checked.has(s.id)}
+                    onToggle={toggle}
+                  />
+                ))}
+                {filtered.length === 0 && !canCreateFromSearch && (
+                  <li className="py-6 text-center text-sm text-neutral-500">
+                    Sin coincidencias.
+                  </li>
+                )}
+              </ul>
+            </>
+          )}
         </div>
 
         {/* footer */}
@@ -303,6 +436,30 @@ export function InsumoSelector({
         </div>
       </div>
     </div>
+  );
+}
+
+function CatalogRow({
+  supply,
+  checked,
+  onToggle,
+}: {
+  supply: Supply;
+  checked: boolean;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <li className="border-b border-neutral-100 last:border-0">
+      <button
+        type="button"
+        onClick={() => onToggle(supply.id)}
+        aria-pressed={checked}
+        className="flex w-full items-center justify-between gap-3 py-3 text-left"
+      >
+        <span className="text-[15px] text-neutral-900">{supply.name}</span>
+        <Checkbox checked={checked} />
+      </button>
+    </li>
   );
 }
 

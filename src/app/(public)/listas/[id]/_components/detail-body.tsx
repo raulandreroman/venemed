@@ -1,9 +1,12 @@
+import type { ShareSheetData } from "@/components/share/share-sheet";
 import { Button, Tag } from "@/components/ui";
 import type { ListaDetailData } from "@/db/queries";
 import {
   formatPublishedAgo,
   formatStalenessBanner,
+  formatVePhone,
 } from "@/lib/format";
+import { partitionShareItems } from "@/lib/listas/share-text";
 import { ShareCtaButton } from "./share-cta-button";
 
 // AppBar titles differ by state (Figma "Perfil Centro" frames).
@@ -44,11 +47,26 @@ export function DetailFooter({ req }: { req: ListaDetailData }) {
   }
   return (
     <ShareCtaButton
-      requestId={req.id}
-      message={shareMessage(req)}
+      listaId={req.id}
       path={`/listas/${req.id}`}
+      data={shareSheetData(req)}
     />
   );
+}
+
+/** Assemble the WhatsApp/share payload from the donor detail data (all fields
+ * already fetched by getListaById). */
+function shareSheetData(req: ListaDetailData): ShareSheetData {
+  return {
+    centerName: req.centerName,
+    city: req.city,
+    ...partitionShareItems(req.items),
+    addressLine: req.center.addressLine,
+    landmark: req.receptionLandmark,
+    receptionContactName: req.receptionContactName,
+    receptionContactPhone: req.receptionContactPhone,
+    updatedAt: req.updatedAt,
+  };
 }
 
 // ---- active (Figma 210:14154) ----------------------------------------------
@@ -97,6 +115,7 @@ function ActiveDetailBody({ req }: { req: ListaDetailData }) {
                 <ItemRow
                   key={item.id}
                   name={item.name}
+                  quantity={item.quantity}
                   rowClassName="bg-error/10"
                   textClassName="text-error"
                 />
@@ -108,7 +127,7 @@ function ActiveDetailBody({ req }: { req: ListaDetailData }) {
         {necesitamos.length > 0 && (
           <ul className="mt-3 flex flex-col gap-2">
             {necesitamos.map((item) => (
-              <ItemRow key={item.id} name={item.name} />
+              <ItemRow key={item.id} name={item.name} quantity={item.quantity} />
             ))}
           </ul>
         )}
@@ -255,7 +274,11 @@ function AddressCard({
   className?: string;
 }) {
   const { center } = req;
-  if (!center.addressLine && !center.addressReference) return null;
+  const landmark = req.receptionLandmark?.trim();
+  const receptionName = req.receptionContactName?.trim();
+  const receptionPhone = req.receptionContactPhone?.trim();
+  const hasReception = !!landmark || !!receptionName || !!receptionPhone;
+  if (!center.addressLine && !center.addressReference && !hasReception) return null;
   return (
     <section className={`rounded-2xl bg-neutral-100 p-4 ${className}`}>
       <div className="flex items-center gap-1.5 text-accent">
@@ -267,6 +290,28 @@ function AddressCard({
       )}
       {center.addressReference && (
         <p className="mt-1 text-sm text-neutral-500">{center.addressReference}</p>
+      )}
+      {landmark && (
+        <p className="mt-1 text-sm text-neutral-500">
+          Punto de referencia: {landmark}
+        </p>
+      )}
+      {(receptionName || receptionPhone) && (
+        <p className="mt-1 text-sm text-neutral-500">
+          Recibe:{" "}
+          {receptionName}
+          {receptionName && receptionPhone && " · "}
+          {receptionPhone && (
+            <a
+              href={`https://wa.me/${receptionPhone.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              {formatVePhone(receptionPhone)}
+            </a>
+          )}
+        </p>
       )}
       <MapLink query={mapQuery(center.addressLine, center.city)} label="Como llegar" />
     </section>
@@ -284,16 +329,27 @@ function StalenessBanner({ text }: { text: string }) {
 
 function ItemRow({
   name,
+  quantity = null,
   rowClassName = "bg-neutral-100",
   textClassName = "text-neutral-900",
 }: {
   name: string;
+  quantity?: number | null;
   rowClassName?: string;
   textClassName?: string;
 }) {
   return (
-    <li className={`rounded-xl px-4 py-3 ${rowClassName}`}>
+    <li
+      className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 ${rowClassName}`}
+    >
       <p className={`text-[15px] font-semibold ${textClassName}`}>{name}</p>
+      {quantity != null && (
+        <span
+          className={`shrink-0 text-sm font-medium tabular-nums ${textClassName} opacity-70`}
+        >
+          × {quantity}
+        </span>
+      )}
     </li>
   );
 }
@@ -420,8 +476,4 @@ function BangIcon({ className = "" }: { className?: string }) {
 
 function mapQuery(addressLine: string | null, city: string): string {
   return [addressLine, city].filter(Boolean).join(", ") || city;
-}
-
-function shareMessage(req: ListaDetailData): string {
-  return `Ayuda a ${req.centerName}${req.city ? ` (${req.city})` : ""} en VeneMed:`;
 }

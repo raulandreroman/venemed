@@ -9,10 +9,11 @@ import {
   updateResponsable,
 } from "@/app/(center)/actions/editar";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
-import { centerTypeLabel } from "@/lib/format";
+import { centerTypeLabel, formatVePhone } from "@/lib/format";
 import {
   CENTER_TYPE_OPTIONS,
   VE_STATES,
+  normalizeVePhone,
   validateCenterDetails,
   validateResponsable,
   type CenterDetailsInput,
@@ -188,7 +189,7 @@ export type ResponsableValues = {
   cargo: string;
   /** read-only — the verified login identity (email). */
   email: string;
-  /** read-only here — optional WhatsApp contact (edit at /centro/editar). "" when unset. */
+  /** Optional WhatsApp contact — NATIONAL digits (e.g. "4125550034"); "" when unset. */
   whatsappPhone: string;
 };
 
@@ -208,7 +209,7 @@ export function ResponsableSection({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const set = useCallback(
-    (k: "responsibleName" | "cargo") => (v: string) =>
+    (k: "responsibleName" | "cargo" | "whatsappPhone") => (v: string) =>
       setValues((p) => ({ ...p, [k]: v })),
     [],
   );
@@ -221,9 +222,15 @@ export function ResponsableSection({
   }, [initial]);
 
   const save = useCallback(async () => {
+    const rawPhone = values.whatsappPhone.trim();
     const input: ResponsableInput = {
       responsibleName: values.responsibleName,
       cargo: values.cargo || undefined,
+      // Invalid values pass through raw so the validator flags them (same
+      // contract as the registro form's toInput).
+      whatsappPhone: rawPhone
+        ? (normalizeVePhone(rawPhone) ?? rawPhone)
+        : undefined,
     };
     const errs = validateResponsable(input);
     if (Object.keys(errs).length > 0) {
@@ -264,9 +271,14 @@ export function ResponsableSection({
         />
         {values.cargo && <ReadRow label="Cargo" value={values.cargo} />}
         <ReadRow label="Correo de acceso" value={values.email} />
-        {values.whatsappPhone && (
-          <ReadRow label="Teléfono de contacto" value={values.whatsappPhone} />
-        )}
+        <ReadRow
+          label="Teléfono de contacto (WhatsApp)"
+          value={
+            values.whatsappPhone
+              ? formatVePhone(normalizeVePhone(values.whatsappPhone) ?? values.whatsappPhone)
+              : "No especificado"
+          }
+        />
       </Section>
     );
   }
@@ -292,6 +304,39 @@ export function ResponsableSection({
         <span className="text-xs text-neutral-400">
           Tu correo de acceso no se puede cambiar aquí.
         </span>
+      </div>
+      <div className="flex flex-col gap-1.5 py-3">
+        <label
+          htmlFor="perfil-whatsapp"
+          className="text-xs text-neutral-500"
+        >
+          Teléfono de contacto (WhatsApp) · opcional
+        </label>
+        <div
+          className={`flex overflow-hidden rounded-md border-[1.5px] ${
+            errors.whatsappPhone
+              ? "border-error"
+              : "border-neutral-300 focus-within:border-accent"
+          }`}
+        >
+          <span className="flex items-center border-r border-neutral-300 bg-neutral-50 px-3 text-base font-semibold text-neutral-900">
+            +58
+          </span>
+          <input
+            id="perfil-whatsapp"
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel-national"
+            placeholder="412 000 0000"
+            value={values.whatsappPhone}
+            onChange={(e) => set("whatsappPhone")(e.target.value)}
+            aria-invalid={errors.whatsappPhone ? true : undefined}
+            className="h-12 w-full bg-surface px-3 text-base text-neutral-900 outline-none placeholder:text-neutral-400"
+          />
+        </div>
+        {errors.whatsappPhone && (
+          <p className="text-sm text-error">{errors.whatsappPhone}</p>
+        )}
       </div>
       <EditFooter pending={pending} error={submitError} onCancel={cancel} onSave={save} />
     </Section>

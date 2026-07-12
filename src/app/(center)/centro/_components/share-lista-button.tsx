@@ -1,44 +1,43 @@
 "use client";
 
-import { useCallback } from "react";
+import { useState } from "react";
 
-import { recordShare } from "@/app/actions/share";
+import { ShareSheet, type ShareSheetData } from "@/components/share/share-sheet";
 import { Button } from "@/components/ui";
 
 /**
- * "Compartir lista" sticky footer button (Figma dashboard v2 210:11795).
- * Native-shares the PUBLIC donor link when available, falling back to
- * clipboard (secure-context caveat — gotcha #5, only works on HTTPS/localhost)
- * — fire-and-forget `recordShare` mirrors `PublishedShare`/`ShareCardButton`.
+ * "Compartir lista" dashboard footer button (Figma dashboard v2 210:11795).
+ * Opens the share bottom-sheet (WhatsApp text / image / copy link) —
+ * field-insight-whatsapp §4 — over the PUBLIC donor link.
  */
-export function ShareListaButton({ listaId }: { listaId: string }) {
-  const onClick = useCallback(async () => {
-    const message = "Ayuda al centro en VeneMed:";
-    const url = new URL(`/listas/${listaId}`, window.location.origin).toString();
-
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({ title: message, text: message, url });
-        recordShare(listaId, "unknown").catch(() => {});
-        return;
-      } catch {
-        // cancelled/unsupported — fall through to clipboard
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(url);
-      recordShare(listaId, "copy_link").catch(() => {});
-    } catch {
-      // Clipboard unavailable (insecure context) — no-op.
-    }
-  }, [listaId]);
+export function ShareListaButton({
+  listaId,
+  data,
+}: {
+  listaId: string;
+  data: ShareSheetData;
+}) {
+  const [open, setOpen] = useState(false);
 
   return (
-    <Button type="button" variant="outline" fullWidth onClick={onClick}>
-      <ShareIcon />
-      Compartir lista
-    </Button>
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        fullWidth
+        onClick={() => setOpen(true)}
+      >
+        <ShareIcon />
+        Compartir lista
+      </Button>
+      <ShareSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        listaId={listaId}
+        path={`/listas/${listaId}`}
+        data={data}
+      />
+    </>
   );
 }
 

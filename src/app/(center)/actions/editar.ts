@@ -56,12 +56,14 @@ export async function updateCenterDetails(
 }
 
 /**
- * Update ONLY the session center's responsable (name + cargo) — the profile's
- * inline "Cambiar responsable" section. The email is NOT editable here (it's the
- * verified login identity). Same authz/validation/return contract.
+ * Update ONLY the session center's responsable (name + cargo) and the center's
+ * optional WhatsApp contact phone — the profile's inline "Cambiar responsable"
+ * section. The email is NOT editable here (it's the verified login identity).
+ * The phone lives on `center` (unverified contact field), so this writes two
+ * rows. Same authz/validation/return contract.
  */
 export async function updateResponsable(input: ResponsableInput): Promise<void> {
-  const { userId } = await requireResponsable();
+  const { userId, centerId } = await requireResponsable();
 
   if (Object.keys(validateResponsable(input)).length > 0) {
     throw new Error("Datos del responsable inválidos.");
@@ -75,6 +77,14 @@ export async function updateResponsable(input: ResponsableInput): Promise<void> 
       updatedAt: new Date(),
     })
     .where(eq(appUser.id, userId));
+
+  await db
+    .update(center)
+    .set({
+      whatsappPhone: input.whatsappPhone?.trim() || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(center.id, centerId));
 
   revalidatePath("/centro/perfil");
 }

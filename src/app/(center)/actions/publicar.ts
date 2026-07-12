@@ -5,12 +5,18 @@ import { revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
-import { center, lista, listaItem, supply } from "@/db/schema";
+import { center, lista, listaItem, supply, supplyCategory } from "@/db/schema";
 import { requireCenter } from "@/lib/auth/require-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { categoryLabel } from "@/lib/format";
-import { validatePublishLista } from "@/lib/listas/validation";
+import {
+  RECEPTION_LANDMARK_MAX,
+  RECEPTION_NAME_MAX,
+  isValidQuantity,
+  validatePublishLista,
+} from "@/lib/listas/validation";
 import type { PublishListaInput } from "@/lib/listas/validation";
+import { normalizeVePhone } from "@/lib/registro/validation";
 
 // NOTE: a "use server" module may export ONLY async functions (gotcha #1).
 // `PublishListaInput` is imported via `import type` above — never re-exported.
@@ -58,10 +64,15 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
     throw new Error("La recepción de donaciones está pausada.");
   }
 
-  // (3b) Derive categories from ALL chosen catalog items (need + excess) — the
-  // "área" facet was dropped from authoring. Each catalog supply carries its
-  // supply_category; custom (free-text) items fall back to the dormant
-  // 'general' bucket.
+  // (3b) Derive categories from ALL chosen items (need + excess) — the "área"
+  // facet was dropped from authoring. Each catalog supply carries its
+  // supply_category; a free-text custom now carries its PICKED category
+  // (field-insight-whatsapp §2), defaulting to 'general' ("Otros") when the
+  // center skipped the picker. Unknown values are coerced to 'general'.
+  const allowedCategories = new Set<string>(supplyCategory.enumValues);
+  const customCategory = (raw?: string): string =>
+    raw && allowedCategories.has(raw) ? raw : "general";
+
   const supplyIds = input.items
     .map((it) => it.supplyId)
     .filter((id): id is string => !!id);
@@ -74,13 +85,22 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
   const categoryBySupply = new Map<string, string>(
     supplyRows.map((r) => [r.id, r.category]),
   );
-  const hasCustom = input.items.some((it) => !it.supplyId);
   const categorySet = new Set<string>(supplyRows.map((r) => r.category));
-  if (hasCustom || categorySet.size === 0) categorySet.add("general");
+  for (const it of input.items) {
+    if (!it.supplyId) categorySet.add(customCategory(it.category));
+  }
+  if (categorySet.size === 0) categorySet.add("general");
   const categories = [...categorySet]; // English enum values (donor filters arrayContains)
 
   const deliveryInstructions = input.deliveryInstructions?.trim() || null;
   const excessReason = input.excessReason?.trim() || null;
+  // Reception contact (field-insight §3) — trim + length-cap the strings,
+  // normalize the phone to E.164. All optional; empty → null.
+  const receptionContactName =
+    input.receptionContactName?.trim().slice(0, RECEPTION_NAME_MAX) || null;
+  const receptionLandmark =
+    input.receptionLandmark?.trim().slice(0, RECEPTION_LANDMARK_MAX) || null;
+  const receptionContactPhone = normalizeVePhone(input.receptionContactPhone);
 
   const itemValues = (targetListaId: string) =>
     input.items.map((it) => ({
@@ -90,10 +110,17 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
       bucket: it.bucket,
       // excess items are never urgent — coerce regardless of client input.
       isUrgent: it.bucket === "need" ? !!it.isUrgent : false,
+      // Optional quantity, need-bucket only; excess is always null (§1).
+      quantity:
+        it.bucket === "need" && isValidQuantity(it.quantity)
+          ? it.quantity
+          : null,
       // lista_item.category is the Spanish label; catalog items use their
-      // supply's category, customs fall back to 'general'.
+      // supply's category, customs use their picked category (default general).
       category: categoryLabel(
-        (it.supplyId && categoryBySupply.get(it.supplyId)) || "general",
+        it.supplyId
+          ? categoryBySupply.get(it.supplyId) || "general"
+          : customCategory(it.category),
       ),
     }));
 
@@ -118,6 +145,9 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
         .set({
           deliveryInstructions,
           excessReason,
+          receptionContactName,
+          receptionContactPhone,
+          receptionLandmark,
           city: c?.city ?? null,
           categories,
           updatedAt: sql`now()`,
@@ -138,6 +168,9 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
             status: "active",
             deliveryInstructions,
             excessReason,
+            receptionContactName,
+            receptionContactPhone,
+            receptionLandmark,
             publishedAt: sql`now()`,
             city: c?.city ?? null,
             categories,

@@ -64,6 +64,15 @@ export const supplyCategory = pgEnum("supply_category", [
   "pharmacy",
   "inpatient",
   "geriatrics",
+  // Non-medical categories (field-insight-whatsapp §2) — APPENDED to keep enum
+  // positions stable so drizzle emits `ALTER TYPE … ADD VALUE`, never a
+  // destructive recreation. Postgres cannot USE a new enum value in the same
+  // transaction that adds it, so the catalog data migration that references
+  // these lives in a SEPARATE file (migration B).
+  "food",
+  "water",
+  "hygiene",
+  "bedding",
 ]);
 
 export const shareChannel = pgEnum("share_channel", [
@@ -210,6 +219,12 @@ export const lista = pgTable(
     deliveryInstructions: varchar("delivery_instructions", { length: 120 }),
     // list-level "Razón (opcional)" for the excess bucket (aviso-exceso, folded in).
     excessReason: varchar("excess_reason", { length: 40 }),
+    // reception contact — who receives donations at the center (field-insight §3).
+    // Optional, opt-in; the phone is published to the anonymous donor surface, so
+    // the editor helper copy flags it as "visible públicamente".
+    receptionContactName: varchar("reception_contact_name", { length: 80 }),
+    receptionContactPhone: varchar("reception_contact_phone", { length: 20 }),
+    receptionLandmark: varchar("reception_landmark", { length: 120 }),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     closedReason: closedReason("closed_reason"),
@@ -240,6 +255,10 @@ export const listaItem = pgTable("lista_item", {
   customName: text("custom_name"),
   category: text("category").notNull(),
   bucket: listaItemBucket("bucket").notNull().default("need"),
+  // Optional positive quantity for a NEED item (unit implied by the name, e.g.
+  // "Comidas calientes × 300"; field-insight-whatsapp §1). Null for excess and
+  // for needs left unquantified — display-only, zero required friction.
+  quantity: integer("quantity"),
   isUrgent: boolean("is_urgent").notNull().default(false),
   isFulfilled: boolean("is_fulfilled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

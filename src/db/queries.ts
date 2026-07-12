@@ -2,7 +2,7 @@ import "server-only";
 
 import {
   and,
-  arrayContains,
+  arrayOverlaps,
   asc,
   count,
   desc,
@@ -15,6 +15,8 @@ import {
   sql,
 } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
+
+import { CATEGORY_GROUPS, categoryValueFromLabel } from "@/lib/format";
 
 import { db } from "./index";
 import {
@@ -49,7 +51,7 @@ export type ListaFilters = {
   search?: string; // matches center name, city, or item name
   city?: string; // lista.city
   type?: string; // center.type enum value
-  category?: string; // a value present in lista.categories[]
+  category?: string; // a donor-facing CATEGORY_GROUPS key (e.g. "medical", "food")
   sort?: ListaSort; // default "recent"
 };
 
@@ -59,6 +61,7 @@ export type ListaItemData = {
   category: string; // lista_item.category (already Spanish)
   bucket: "need" | "excess";
   isUrgent: boolean;
+  quantity: number | null; // optional "× N" (need bucket only); null = unset
 };
 
 /** Fields shared by the donor card and detail shapes (lista-model-v2 §6). */
@@ -88,6 +91,11 @@ export type ListaDetailData = ListaBase & {
   status: "active" | "paused" | "closed" | "draft";
   deliveryInstructions: string | null; // per-lista drop-off note
   excessReason: string | null; // "No aceptamos" caption
+  // reception contact (field-insight §3) — who to look for on arrival. The phone
+  // is published to the anonymous donor surface (opt-in in the editor).
+  receptionContactName: string | null;
+  receptionContactPhone: string | null; // E.164
+  receptionLandmark: string | null;
   closedAt: Date | null;
   closedReason: "fulfilled" | "cancelled" | null;
   shareCount: number;
@@ -136,6 +144,11 @@ export type CenterListaCardData = {
  */
 export type CenterListaDetailData = CenterListaCardData & {
   deliveryInstructions: string | null;
+  updatedAt: Date; // freshness stamp for the share text (field-insight §4)
+  // reception contact (field-insight §3) — feeds the WhatsApp share text.
+  receptionContactName: string | null;
+  receptionContactPhone: string | null;
+  receptionLandmark: string | null;
   center: {
     addressLine: string | null;
     addressReference: string | null;
@@ -176,7 +189,13 @@ async function queryActiveListas(
           ? eq(center.type, filters.type as typeof center.type.enumValues[number])
           : undefined,
         filters.category
-          ? arrayContains(lista.categories, [filters.category])
+          ? // `filters.category` is a donor-facing GROUP key ("medical" spans
+            // six enum values) — match listas whose categories[] overlaps the
+            // group's members. Unknown keys fall back to a literal match.
+            arrayOverlaps(
+              lista.categories,
+              CATEGORY_GROUPS[filters.category]?.values ?? [filters.category],
+            )
           : undefined,
         searchPattern
           ? or(
@@ -211,6 +230,7 @@ async function queryActiveListas(
           category: listaItem.category,
           bucket: listaItem.bucket,
           isUrgent: listaItem.isUrgent,
+          quantity: listaItem.quantity,
         })
         .from(listaItem)
         .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -227,6 +247,7 @@ async function queryActiveListas(
       category: it.category,
       bucket: it.bucket,
       isUrgent: it.isUrgent,
+      quantity: it.quantity,
     });
     itemsByLista.set(it.listaId, list);
   }
@@ -275,6 +296,35 @@ export function getActiveListas(
   )();
 }
 
+// ---- 4.1b getActiveListaCategories -----------------------------------------
+
+/**
+ * Distinct supply categories (English enum values) present across the active
+ * donor feed — mirrors how `cities` is derived from `lista.city`, but reads the
+ * denormalized `lista.categories[]` array (unnested). Powers the donor category
+ * chip row so a chip only appears when ≥1 active lista carries that category.
+ * Cached under the same "active-listas" tag so it invalidates on publish/edit.
+ */
+async function queryActiveListaCategories(): Promise<string[]> {
+  const rows = (await db.execute(sql`
+    SELECT DISTINCT unnest(${lista.categories}) AS category
+    FROM ${lista}
+    INNER JOIN ${center} ON ${center.id} = ${lista.centerId}
+    WHERE ${lista.status} = 'active' AND ${center.status} = 'approved'
+  `)) as unknown as { category: string | null }[];
+  return rows
+    .map((r) => r.category)
+    .filter((c): c is string => Boolean(c));
+}
+
+export function getActiveListaCategories(): Promise<string[]> {
+  return unstable_cache(
+    queryActiveListaCategories,
+    ["active-lista-categories"],
+    { revalidate: 60, tags: ["active-listas"] },
+  )();
+}
+
 // ---- 4.2 getListaById --------------------------------------------------------
 
 async function queryListaById(id: string): Promise<ListaDetailData | null> {
@@ -286,6 +336,9 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       city: lista.city,
       deliveryInstructions: lista.deliveryInstructions,
       excessReason: lista.excessReason,
+      receptionContactName: lista.receptionContactName,
+      receptionContactPhone: lista.receptionContactPhone,
+      receptionLandmark: lista.receptionLandmark,
       categories: lista.categories,
       publishedAt: lista.publishedAt,
       updatedAt: lista.updatedAt,
@@ -322,6 +375,7 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       category: listaItem.category,
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
+      quantity: listaItem.quantity,
       isFulfilled: listaItem.isFulfilled,
     })
     .from(listaItem)
@@ -334,6 +388,9 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
     city: r.city,
     deliveryInstructions: r.deliveryInstructions,
     excessReason: r.excessReason,
+    receptionContactName: r.receptionContactName,
+    receptionContactPhone: r.receptionContactPhone,
+    receptionLandmark: r.receptionLandmark,
     status: r.status,
     centerName: r.centerName,
     centerDescription: r.centerDescription,
@@ -426,6 +483,7 @@ export type CenterListaItem = {
   category: string;
   bucket: "need" | "excess";
   isUrgent: boolean;
+  quantity: number | null;
 };
 
 export type CenterDashboardLista = {
@@ -434,6 +492,12 @@ export type CenterDashboardLista = {
   status: "active" | "paused";
   city: string | null;
   updatedAt: Date;
+  // Address + reception contact — powers the WhatsApp share text (field-insight
+  // §4). Address is inherited from the center; reception lives on the lista.
+  addressLine: string | null;
+  receptionContactName: string | null;
+  receptionContactPhone: string | null;
+  receptionLandmark: string | null;
   items: CenterListaItem[];
 };
 
@@ -453,8 +517,13 @@ export async function getCenterDashboardLista(
       status: lista.status,
       city: lista.city,
       updatedAt: lista.updatedAt,
+      addressLine: center.addressLine,
+      receptionContactName: lista.receptionContactName,
+      receptionContactPhone: lista.receptionContactPhone,
+      receptionLandmark: lista.receptionLandmark,
     })
     .from(lista)
+    .innerJoin(center, eq(center.id, lista.centerId))
     .where(
       and(eq(lista.centerId, centerId), inArray(lista.status, ["active", "paused"])),
     )
@@ -469,6 +538,7 @@ export async function getCenterDashboardLista(
       category: listaItem.category,
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
+      quantity: listaItem.quantity,
     })
     .from(listaItem)
     .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -482,6 +552,10 @@ export async function getCenterDashboardLista(
     status: row.status as "active" | "paused",
     city: row.city,
     updatedAt: row.updatedAt,
+    addressLine: row.addressLine,
+    receptionContactName: row.receptionContactName,
+    receptionContactPhone: row.receptionContactPhone,
+    receptionLandmark: row.receptionLandmark,
     items,
   };
 }
@@ -494,12 +568,19 @@ export type CenterEditableItem = {
   name: string;
   bucket: "need" | "excess";
   isUrgent: boolean;
+  /** For customs only: the picked home category (enum value), reverse-mapped
+   * from the stored Spanish label so an edit round-trips it. */
+  category?: string;
+  quantity: number | null;
 };
 
 export type CenterEditableLista = {
   id: string;
   deliveryInstructions: string | null;
   excessReason: string | null;
+  receptionContactName: string | null;
+  receptionContactPhone: string | null; // E.164
+  receptionLandmark: string | null;
   items: CenterEditableItem[];
 };
 
@@ -516,6 +597,9 @@ export async function getCenterListaForEdit(
       id: lista.id,
       deliveryInstructions: lista.deliveryInstructions,
       excessReason: lista.excessReason,
+      receptionContactName: lista.receptionContactName,
+      receptionContactPhone: lista.receptionContactPhone,
+      receptionLandmark: lista.receptionLandmark,
     })
     .from(lista)
     .where(
@@ -529,8 +613,10 @@ export async function getCenterListaForEdit(
     .select({
       supplyId: listaItem.supplyId,
       name: sql<string>`coalesce(${supply.name}, ${listaItem.customName})`,
+      category: listaItem.category,
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
+      quantity: listaItem.quantity,
     })
     .from(listaItem)
     .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -543,12 +629,19 @@ export async function getCenterListaForEdit(
     name: r.name,
     bucket: r.bucket,
     isUrgent: r.isUrgent,
+    // Customs carry their picked category (reverse-mapped from the label);
+    // catalog items re-derive it from the supply at publish, so leave undefined.
+    category: r.supplyId ? undefined : categoryValueFromLabel(r.category),
+    quantity: r.quantity,
   }));
 
   return {
     id: row.id,
     deliveryInstructions: row.deliveryInstructions,
     excessReason: row.excessReason,
+    receptionContactName: row.receptionContactName,
+    receptionContactPhone: row.receptionContactPhone,
+    receptionLandmark: row.receptionLandmark,
     items,
   };
 }
@@ -574,7 +667,11 @@ export async function getCenterListaById(
       shareCount: lista.shareCount,
       closedReason: lista.closedReason,
       createdAt: lista.createdAt,
+      updatedAt: lista.updatedAt,
       deliveryInstructions: lista.deliveryInstructions,
+      receptionContactName: lista.receptionContactName,
+      receptionContactPhone: lista.receptionContactPhone,
+      receptionLandmark: lista.receptionLandmark,
       addressLine: center.addressLine,
       addressReference: center.addressReference,
       regularScheduleText: center.regularScheduleText,
@@ -593,6 +690,7 @@ export async function getCenterListaById(
       category: listaItem.category,
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
+      quantity: listaItem.quantity,
     })
     .from(listaItem)
     .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -628,16 +726,18 @@ export async function getSuppliesByCategory(
 }
 
 /**
- * The full active catalog (id+name), name-sorted, for the insumo selector. The
- * "área" facet was dropped from authoring, so the selector now searches one flat
- * list and lets the center add any typed string as a custom insumo. Center-facing
- * + uncached (no donor surge tags).
+ * The full active catalog (id+name+category), for the insumo selector. The
+ * selector searches one flat list; when NOT searching it renders the catalog
+ * grouped under category headers (field-insight §2 — at 91 mixed items a flat
+ * alphabetical list is unbrowsable), so each row carries its category. Sorted
+ * name-ASC; the selector re-orders by CATEGORY display order. Center-facing +
+ * uncached (no donor surge tags).
  */
 export async function getActiveSupplies(): Promise<
-  { id: string; name: string }[]
+  { id: string; name: string; category: string }[]
 > {
   return db
-    .select({ id: supply.id, name: supply.name })
+    .select({ id: supply.id, name: supply.name, category: supply.category })
     .from(supply)
     .where(eq(supply.isActive, true))
     .orderBy(asc(supply.name));
@@ -767,6 +867,7 @@ export async function getCenterListasClosedSince(
           category: listaItem.category,
           bucket: listaItem.bucket,
           isUrgent: listaItem.isUrgent,
+          quantity: listaItem.quantity,
         })
         .from(listaItem)
         .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -783,6 +884,7 @@ export async function getCenterListasClosedSince(
       category: it.category,
       bucket: it.bucket,
       isUrgent: it.isUrgent,
+      quantity: it.quantity,
     });
     itemsByLista.set(it.listaId, list);
   }

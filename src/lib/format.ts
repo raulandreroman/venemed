@@ -94,9 +94,9 @@ export function formatClock(date: Date | string | null): string {
 }
 
 /**
- * supply_category enum (== area, 1:1) -> Spanish label. Drives the area chips,
- * the "Sugeridos · {área}" selector header, the card meta, and donor chips.
- * `general` is dormant (center-workspace §5.6) but kept so legacy rows render.
+ * supply_category enum -> Spanish label. Drives the donor category chip row,
+ * the card meta, and the item category labels. `general` ("Otros") is the home
+ * for free-text customs (field-insight-whatsapp §2).
  */
 export function categoryLabel(value: string): string {
   const map: Record<string, string> = {
@@ -104,11 +104,92 @@ export function categoryLabel(value: string): string {
     emergency: "Emergencias",
     pharmacy: "Farmacia",
     inpatient: "Hospitalización",
-    pediatrics: "Refugio infantil",
+    pediatrics: "Pediatría",
     geriatrics: "Adultos mayores",
-    general: "General",
+    // Non-medical categories (field-insight-whatsapp §2).
+    food: "Alimentos",
+    water: "Agua",
+    hygiene: "Higiene",
+    bedding: "Camas y cobijas",
+    // `general` is the catch-all home for free-text customs → "Otros".
+    general: "Otros",
   };
   return map[value] ?? capitalize(value);
+}
+
+/**
+ * Inverse of `categoryLabel`: Spanish label -> `supply_category` enum value.
+ * Used to restore a free-text custom item's picked category on EDIT (the DB
+ * stores the Spanish label on `lista_item.category`). Falls back to `general`
+ * for unknown/legacy labels. Includes the legacy "General" label (customs
+ * written before this label became "Otros").
+ */
+export function categoryValueFromLabel(label: string): string {
+  const map: Record<string, string> = {
+    Quirófano: "surgical",
+    Emergencias: "emergency",
+    Farmacia: "pharmacy",
+    Hospitalización: "inpatient",
+    Pediatría: "pediatrics",
+    // Legacy label (pre-Pediatría rename); rows backfilled by migration 0013,
+    // kept for any stragglers.
+    "Refugio infantil": "pediatrics",
+    "Adultos mayores": "geriatrics",
+    Alimentos: "food",
+    Agua: "water",
+    Higiene: "hygiene",
+    "Camas y cobijas": "bedding",
+    Otros: "general",
+    General: "general",
+  };
+  return map[label] ?? "general";
+}
+
+/**
+ * Donor-facing category GROUPS (field-insight-whatsapp §2). The enum stays
+ * granular in storage (values can never be dropped — destructive type
+ * recreation); the donor filter groups it to match the field mental model
+ * ("comida, medicinas, kit higiene, camas"): the six medical departments
+ * collapse into one «Medicinas» chip. Keys are what `?category=` carries.
+ */
+export const CATEGORY_GROUPS: Record<
+  string,
+  { label: string; values: string[] }
+> = {
+  food: { label: "Alimentos", values: ["food"] },
+  water: { label: "Agua", values: ["water"] },
+  hygiene: { label: "Higiene", values: ["hygiene"] },
+  bedding: { label: "Camas y cobijas", values: ["bedding"] },
+  medical: {
+    label: "Medicinas",
+    values: [
+      "pharmacy",
+      "emergency",
+      "surgical",
+      "inpatient",
+      "pediatrics",
+      "geriatrics",
+    ],
+  },
+  general: { label: "Otros", values: ["general"] },
+};
+
+/** Chip display order — relief staples first, catch-all last. */
+export const CATEGORY_GROUP_ORDER = [
+  "food",
+  "water",
+  "hygiene",
+  "bedding",
+  "medical",
+  "general",
+] as const;
+
+/** `supply_category` enum value -> its donor-facing group key. */
+export function categoryGroupOf(value: string): string {
+  for (const [key, group] of Object.entries(CATEGORY_GROUPS)) {
+    if (group.values.includes(value)) return key;
+  }
+  return "general";
 }
 
 /** center.type enum -> Spanish label. */

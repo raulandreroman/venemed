@@ -2,14 +2,17 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import { AppBar, Button, Tag } from "@/components/ui";
+import { AppBar, Button } from "@/components/ui";
 import { publishLista } from "@/app/(center)/actions/publicar";
 import type { CenterEditableLista } from "@/db/queries";
 import {
   EXCESS_REASON_MAX,
   INSTRUCTIONS_MAX,
+  RECEPTION_LANDMARK_MAX,
+  RECEPTION_NAME_MAX,
   type PublishListaInput,
 } from "@/lib/listas/validation";
+import { vePhoneToNational } from "@/lib/registro/validation";
 
 import { InsumoSelector } from "./insumo-selector";
 
@@ -22,9 +25,14 @@ export type SelectedItem = {
   supplyId?: string;
   name: string;
   isUrgent?: boolean;
+  /** For customs only: the picked home category (supply_category enum value).
+   * Catalog items derive their category from the supply and ignore this. */
+  category?: string;
+  /** Optional display-only quantity ("× N"); need-bucket only. null/undefined = unset. */
+  quantity?: number | null;
 };
 
-type Supply = { id: string; name: string };
+type Supply = { id: string; name: string; category: string };
 
 /**
  * Local, dependency-free redirect detection (mirrors edit-center-form). A
@@ -63,10 +71,17 @@ export function ListaEditor({
       supplyId: it.supplyId,
       name: it.name,
       isUrgent: it.isUrgent,
+      category: it.category,
+      quantity: it.quantity,
     }));
   const initialExcess = (initial?.items ?? [])
     .filter((it) => it.bucket === "excess")
-    .map((it) => ({ key: it.key, supplyId: it.supplyId, name: it.name }));
+    .map((it) => ({
+      key: it.key,
+      supplyId: it.supplyId,
+      name: it.name,
+      category: it.category,
+    }));
   // On EDIT, "skip the excess form" must not silently wipe previously-saved
   // excess data — only a fresh create with no prior excess may omit it
   // entirely (validator correction #5).
@@ -77,11 +92,23 @@ export function ListaEditor({
   const [excessItems, setExcessItems] = useState<SelectedItem[]>(initialExcess);
   const [nota, setNota] = useState(initial?.deliveryInstructions ?? "");
   const [excessReason, setExcessReason] = useState(initial?.excessReason ?? "");
+  // Reception contact (field-insight §3) — optional, opt-in. Prefill from the
+  // center's current lista; the phone shows as national digits (E.164 stored).
+  const [receptionName, setReceptionName] = useState(
+    initial?.receptionContactName ?? "",
+  );
+  const [receptionPhone, setReceptionPhone] = useState(
+    vePhoneToNational(initial?.receptionContactPhone),
+  );
+  const [receptionLandmark, setReceptionLandmark] = useState(
+    initial?.receptionLandmark ?? "",
+  );
   const [excessView, setExcessView] = useState<"intro" | "form">(
     initialStep === 2 || hadInitialExcess ? "form" : "intro",
   );
-  const [urgentMode, setUrgentMode] = useState(false);
-  const [urgentDraft, setUrgentDraft] = useState<Set<string>>(new Set());
+  // A2 accordion (Figma "Creación v2 · A2"): at most one need-row expanded;
+  // the expanded row hosts cantidad + urgente + quitar in place.
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [selectorTarget, setSelectorTarget] = useState<"need" | "excess" | null>(
     null,
   );
@@ -91,10 +118,15 @@ export function ListaEditor({
   // Stable per mount so a retried submit dedupes via lista.idempotency_key.
   const idempotencyKey = useRef<string>(crypto.randomUUID());
 
-  const hasUrgent = needItems.some((it) => it.isUrgent);
-
   const removeNeedItem = useCallback((key: string) => {
     setNeedItems((prev) => prev.filter((it) => it.key !== key));
+    setExpandedKey((prev) => (prev === key ? null : prev));
+  }, []);
+
+  const setNeedQuantity = useCallback((key: string, quantity: number | null) => {
+    setNeedItems((prev) =>
+      prev.map((it) => (it.key === key ? { ...it, quantity } : it)),
+    );
   }, []);
 
   const removeExcessItem = useCallback((key: string) => {
@@ -112,11 +144,15 @@ export function ListaEditor({
     (items: SelectedItem[]) => {
       if (selectorTarget === "need") {
         setNeedItems((prev) => {
-          const urgentByKey = new Map(prev.map((it) => [it.key, !!it.isUrgent]));
-          return items.map((it) => ({
-            ...it,
-            isUrgent: urgentByKey.get(it.key) ?? false,
-          }));
+          const priorByKey = new Map(prev.map((it) => [it.key, it]));
+          return items.map((it) => {
+            const prior = priorByKey.get(it.key);
+            return {
+              ...it,
+              isUrgent: prior?.isUrgent ?? false,
+              quantity: prior?.quantity ?? null,
+            };
+          });
         });
       } else if (selectorTarget === "excess") {
         setExcessItems(items);
@@ -126,30 +162,15 @@ export function ListaEditor({
     [selectorTarget],
   );
 
-  const enterUrgentMode = useCallback(() => {
-    setUrgentDraft(
-      new Set(needItems.filter((it) => it.isUrgent).map((it) => it.key)),
+  const toggleUrgent = useCallback((key: string) => {
+    setNeedItems((prev) =>
+      prev.map((it) => (it.key === key ? { ...it, isUrgent: !it.isUrgent } : it)),
     );
-    setUrgentMode(true);
-  }, [needItems]);
-
-  const toggleUrgentDraft = useCallback((key: string) => {
-    setUrgentDraft((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
   }, []);
 
-  const cancelUrgentMode = useCallback(() => setUrgentMode(false), []);
-
-  const confirmUrgentMode = useCallback(() => {
-    setNeedItems((prev) =>
-      prev.map((it) => ({ ...it, isUrgent: urgentDraft.has(it.key) })),
-    );
-    setUrgentMode(false);
-  }, [urgentDraft]);
+  const toggleExpanded = useCallback((key: string) => {
+    setExpandedKey((prev) => (prev === key ? null : key));
+  }, []);
 
   const goToStep2 = useCallback(() => {
     if (needItems.length === 0) {
@@ -172,15 +193,16 @@ export function ListaEditor({
         ...needItems.map((it) => ({
           ...(it.supplyId
             ? { supplyId: it.supplyId }
-            : { customName: it.name }),
+            : { customName: it.name, category: it.category }),
           bucket: "need" as const,
           isUrgent: !!it.isUrgent,
+          ...(it.quantity != null ? { quantity: it.quantity } : {}),
         })),
         ...(includeExcess
           ? excessItems.map((it) => ({
               ...(it.supplyId
                 ? { supplyId: it.supplyId }
-                : { customName: it.name }),
+                : { customName: it.name, category: it.category }),
               bucket: "excess" as const,
             }))
           : []),
@@ -188,6 +210,9 @@ export function ListaEditor({
       const input: PublishListaInput = {
         deliveryInstructions: nota.trim() || undefined,
         excessReason: includeExcess ? excessReason.trim() || undefined : undefined,
+        receptionContactName: receptionName.trim() || undefined,
+        receptionContactPhone: receptionPhone.trim() || undefined,
+        receptionLandmark: receptionLandmark.trim() || undefined,
         items,
         idempotencyKey: idempotencyKey.current,
       };
@@ -199,7 +224,16 @@ export function ListaEditor({
         setPending(false);
       }
     },
-    [hadInitialExcess, needItems, excessItems, nota, excessReason],
+    [
+      hadInitialExcess,
+      needItems,
+      excessItems,
+      nota,
+      excessReason,
+      receptionName,
+      receptionPhone,
+      receptionLandmark,
+    ],
   );
 
   if (step === 1) {
@@ -216,11 +250,6 @@ export function ListaEditor({
             <h2 className="text-lg font-bold text-neutral-900">
               Lista de insumos
             </h2>
-            {urgentMode && (
-              <p className="mt-1 text-sm text-neutral-500">
-                Marca insumos como urgente
-              </p>
-            )}
 
             {needItems.length > 0 && (
               <ul className="mt-3 flex flex-col gap-2">
@@ -228,10 +257,11 @@ export function ListaEditor({
                   <li key={it.key}>
                     <NeedRow
                       item={it}
-                      editing={urgentMode}
-                      draftChecked={urgentDraft.has(it.key)}
-                      onToggleDraft={() => toggleUrgentDraft(it.key)}
+                      expanded={expandedKey === it.key}
+                      onToggleExpand={() => toggleExpanded(it.key)}
+                      onToggleUrgent={() => toggleUrgent(it.key)}
                       onRemove={() => removeNeedItem(it.key)}
+                      onSetQuantity={(q) => setNeedQuantity(it.key, q)}
                     />
                   </li>
                 ))}
@@ -239,45 +269,16 @@ export function ListaEditor({
             )}
 
             <div className="mt-3 flex flex-col gap-2">
-              {urgentMode ? (
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    fullWidth
-                    onClick={cancelUrgentMode}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="button" fullWidth onClick={confirmUrgentMode}>
-                    Confirmar
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    fullWidth
-                    onClick={enterUrgentMode}
-                    disabled={needItems.length === 0}
-                    className="text-accent"
-                  >
-                    <WarningIcon />
-                    {hasUrgent ? "Editar urgentes" : "Marcar como urgente"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    fullWidth
-                    onClick={() => openSelector("need")}
-                    className="text-accent"
-                  >
-                    <PlusIcon />
-                    Agregar insumos
-                  </Button>
-                </>
-              )}
+              <Button
+                type="button"
+                variant="outline"
+                fullWidth
+                onClick={() => openSelector("need")}
+                className="text-accent"
+              >
+                <PlusIcon />
+                Agregar insumos
+              </Button>
             </div>
           </section>
 
@@ -297,6 +298,74 @@ export function ListaEditor({
             <p className="mt-1.5 text-right text-xs text-neutral-400">
               {nota.length} / {INSTRUCTIONS_MAX}
             </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-bold text-neutral-900">
+              Recepción de donaciones (opcional)
+            </h2>
+            <p className="mt-1 text-sm text-neutral-500">
+              Para que el donante sepa a quién buscar al llegar.
+            </p>
+
+            <div className="mt-3 flex flex-col gap-3">
+              <div>
+                <label
+                  htmlFor="reception-name"
+                  className="text-sm font-medium text-neutral-700"
+                >
+                  Quién recibe
+                </label>
+                <input
+                  id="reception-name"
+                  type="text"
+                  value={receptionName}
+                  maxLength={RECEPTION_NAME_MAX}
+                  onChange={(e) => setReceptionName(e.target.value)}
+                  placeholder="Ej: Roraima Colina"
+                  className="mt-1.5 h-[52px] w-full rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reception-phone"
+                  className="text-sm font-medium text-neutral-700"
+                >
+                  Teléfono de quien recibe
+                </label>
+                <input
+                  id="reception-phone"
+                  type="tel"
+                  inputMode="tel"
+                  value={receptionPhone}
+                  onChange={(e) => setReceptionPhone(e.target.value)}
+                  placeholder="Ej: 412 555 0034"
+                  className="mt-1.5 h-[52px] w-full rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
+                />
+                <p className="mt-1.5 text-xs text-neutral-400">
+                  Será visible públicamente para los donantes.
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reception-landmark"
+                  className="text-sm font-medium text-neutral-700"
+                >
+                  Punto de referencia (opcional)
+                </label>
+                <input
+                  id="reception-landmark"
+                  type="text"
+                  value={receptionLandmark}
+                  maxLength={RECEPTION_LANDMARK_MAX}
+                  onChange={(e) => setReceptionLandmark(e.target.value)}
+                  placeholder="Ej: Misma calle del café Tributo."
+                  className="mt-1.5 h-[52px] w-full rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
+                />
+              </div>
+            </div>
           </section>
 
           {error && (
@@ -472,79 +541,138 @@ export function ListaEditor({
 
 function NeedRow({
   item,
-  editing,
-  draftChecked,
-  onToggleDraft,
+  expanded,
+  onToggleExpand,
+  onToggleUrgent,
   onRemove,
+  onSetQuantity,
 }: {
   item: SelectedItem;
-  editing: boolean;
-  draftChecked: boolean;
-  onToggleDraft: () => void;
+  expanded: boolean;
+  onToggleExpand: () => void;
+  onToggleUrgent: () => void;
   onRemove: () => void;
+  onSetQuantity: (quantity: number | null) => void;
 }) {
-  const bg = editing
-    ? "bg-accent-subtle"
-    : item.isUrgent
-      ? "bg-error-tint"
-      : "bg-accent-subtle";
-
-  if (editing) {
-    return (
-      <button
-        type="button"
-        onClick={onToggleDraft}
-        aria-pressed={draftChecked}
-        className={`flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left ${bg}`}
-      >
-        <span className="text-[15px] font-medium text-neutral-900">
-          {item.name}
-        </span>
-        <span
-          aria-hidden="true"
-          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-sm border ${
-            draftChecked
-              ? "border-accent bg-accent text-accent-on"
-              : "border-neutral-300 bg-surface"
-          }`}
-        >
-          {draftChecked && (
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-          )}
-        </span>
-      </button>
-    );
-  }
-
+  const urgent = !!item.isUrgent;
   return (
     <div
-      className={`flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 ${bg}`}
+      className={`w-full rounded-xl ${urgent ? "bg-error-tint" : "bg-accent-subtle"} ${
+        expanded
+          ? `border-[1.5px] ${urgent ? "border-error" : "border-accent"}`
+          : ""
+      }`}
     >
-      <span className="text-[15px] font-medium text-neutral-900">
-        {item.name}
-      </span>
-      <div className="flex shrink-0 items-center gap-2">
-        {item.isUrgent && <Tag variant="urgent">Urgente</Tag>}
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Quitar ${item.name}`}
-          className="text-neutral-500 hover:text-neutral-700"
+      <button
+        type="button"
+        onClick={onToggleExpand}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left"
+      >
+        <span
+          className={`min-w-0 flex-1 text-[15px] font-medium ${
+            urgent ? "text-error" : "text-neutral-900"
+          }`}
         >
-          <CloseIcon />
-        </button>
-      </div>
+          {item.name}
+        </span>
+        {!expanded && item.quantity != null && (
+          <span className="shrink-0 text-sm font-medium tabular-nums text-neutral-500">
+            × {item.quantity}
+          </span>
+        )}
+        <ChevronIcon expanded={expanded} />
+      </button>
+
+      {expanded && (
+        <div className="flex flex-col gap-3 px-4 pb-4 pt-1">
+          <div className="flex items-center gap-3">
+            <span className="flex-1 text-sm text-neutral-500">Cantidad</span>
+            <QuantityStepper
+              name={item.name}
+              quantity={item.quantity ?? null}
+              onSet={onSetQuantity}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="flex-1 text-sm text-neutral-500">Urgente</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={urgent}
+              aria-label={`Urgente: ${item.name}`}
+              onClick={onToggleUrgent}
+              className={`relative h-[26px] w-11 shrink-0 rounded-full transition-colors ${
+                urgent ? "bg-accent" : "bg-neutral-300"
+              }`}
+            >
+              <span
+                className={`absolute top-[3px] h-5 w-5 rounded-full bg-surface transition-[left] ${
+                  urgent ? "left-[21px]" : "left-[3px]"
+                }`}
+              />
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="self-start text-sm font-semibold text-error"
+          >
+            Quitar de la lista
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Cantidad stepper for the expanded A2 row (field-insight §1): − / numeric
+ * input / +. Steps go 5 by 5 (field quantities are round: 15, 50, 300…);
+ * the input still takes any exact number. Empty input = no quantity (null);
+ * "−" at or below 5 clears it. The unit stays implied by the item name.
+ */
+function QuantityStepper({
+  name,
+  quantity,
+  onSet,
+}: {
+  name: string;
+  quantity: number | null;
+  onSet: (quantity: number | null) => void;
+}) {
+  const commitDraft = (raw: string) => {
+    const n = Number.parseInt(raw, 10);
+    onSet(Number.isInteger(n) && n > 0 ? n : null);
+  };
+  return (
+    <div className="flex shrink-0 items-center overflow-hidden rounded-lg border border-neutral-300 bg-surface">
+      <button
+        type="button"
+        onClick={() => onSet(quantity != null && quantity > 5 ? quantity - 5 : null)}
+        aria-label={`Reducir cantidad de ${name}`}
+        className="flex h-9 w-9 items-center justify-center text-lg text-neutral-700 hover:bg-neutral-100"
+      >
+        −
+      </button>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={1}
+        value={quantity ?? ""}
+        placeholder="—"
+        onChange={(e) => commitDraft(e.target.value)}
+        aria-label={`Cantidad de ${name}`}
+        className="h-9 w-14 border-x border-neutral-300 bg-surface text-center text-sm font-semibold tabular-nums text-neutral-900 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+      <button
+        type="button"
+        onClick={() => onSet((quantity ?? 0) + 5)}
+        aria-label={`Aumentar cantidad de ${name}`}
+        className="flex h-9 w-9 items-center justify-center text-lg text-neutral-700 hover:bg-neutral-100"
+      >
+        +
+      </button>
     </div>
   );
 }
@@ -611,11 +739,11 @@ function CloseIcon() {
   );
 }
 
-function WarningIcon() {
+function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
     <svg
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -623,10 +751,11 @@ function WarningIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
+      className={`shrink-0 text-neutral-400 transition-transform ${
+        expanded ? "rotate-180" : ""
+      }`}
     >
-      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-      <path d="M12 9v4" />
-      <path d="M12 17h.01" />
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }

@@ -79,13 +79,23 @@ export default async function CenterRequestDetailPage({
           </h2>
           <ul className="mt-3 flex flex-col gap-2">
             {req.items.map((item) => (
-              <li key={item.id} className="rounded-xl bg-neutral-100 px-4 py-3">
-                <p className="text-[15px] font-semibold text-neutral-900">
-                  {item.name}
-                </p>
-                <p className="mt-0.5 text-sm text-neutral-500">
-                  {item.category}
-                </p>
+              <li
+                key={item.id}
+                className="flex items-center justify-between gap-3 rounded-xl bg-neutral-100 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-[15px] font-semibold text-neutral-900">
+                    {item.name}
+                  </p>
+                  <p className="mt-0.5 text-sm text-neutral-500">
+                    {item.category}
+                  </p>
+                </div>
+                {item.quantity != null && (
+                  <span className="shrink-0 text-sm font-medium tabular-nums text-neutral-500">
+                    × {item.quantity}
+                  </span>
+                )}
               </li>
             ))}
           </ul>

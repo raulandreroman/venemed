@@ -4,6 +4,7 @@ import { Button } from "@/components/ui";
 import { getCenterDashboardLista } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
 import { formatUpdatedAgo, isListaStale } from "@/lib/format";
+import { partitionShareItems } from "@/lib/listas/share-text";
 
 import { ConnectionBanner } from "./_components/connection-banner";
 import { DashboardError } from "./_components/dashboard-error";
@@ -118,7 +119,19 @@ export default async function CenterDashboardPage() {
         {lista.status === "paused" ? (
           <ReactivateButton requestId={lista.id} receptionPaused />
         ) : (
-          <ShareListaButton listaId={lista.id} />
+          <ShareListaButton
+            listaId={lista.id}
+            data={{
+              centerName: center.centerName,
+              city: lista.city,
+              ...partitionShareItems(lista.items),
+              addressLine: lista.addressLine,
+              landmark: lista.receptionLandmark,
+              receptionContactName: lista.receptionContactName,
+              receptionContactPhone: lista.receptionContactPhone,
+              updatedAt: lista.updatedAt,
+            }}
+          />
         )}
       </footer>
     </>

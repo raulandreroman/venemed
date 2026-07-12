@@ -103,7 +103,7 @@ test.describe("center auth + registration", () => {
       page.getByRole("heading", { name: /Hospital J\.M\. de los Ríos/ }),
     ).toBeVisible();
     // A seeded section item (seed: an urgent need on this center's lista).
-    await expect(page.getByText("Jeringas 5 ml estériles")).toBeVisible();
+    await expect(page.getByText("Jeringas estériles")).toBeVisible();
     await expectNoErrorOverlay(page);
 
     // "Editar lista" (sticky footer) → the editor, pre-filled from the
@@ -115,18 +115,18 @@ test.describe("center auth + registration", () => {
     // open the selector, check a catalog item, and add a custom one by typing a
     // non-matching string into the search and tapping the "Crear «…»" row.
     await page.getByRole("button", { name: "Agregar insumos" }).click();
-    await page.getByRole("button", { name: "Guantes quirúrgicos" }).click();
+    await page.getByRole("button", { name: "Guantes quirúrgicos estériles" }).click();
     await page.getByLabel("Buscar insumo").fill(itemName);
     await page.getByRole("button", { name: `Crear ${itemName}` }).click();
     await page.getByRole("button", { name: /Agregar \d+ insumos?/ }).click();
 
-    // Mark the new custom item as urgent via the urgency-edit mode.
-    await page.getByRole("button", { name: "Editar urgentes" }).click();
-    await page.getByRole("button", { name: itemName }).click();
-    await page.getByRole("button", { name: "Confirmar" }).click();
-    await expect(
-      page.getByText(itemName).locator("..").getByText("Urgente"),
-    ).toBeVisible();
+    // Mark the new custom item as urgent via the A2 accordion row: expand the
+    // row, flip the per-item "Urgente" switch, collapse.
+    await page.getByRole("button", { name: itemName, exact: true }).click();
+    const urgentSwitch = page.getByRole("switch", { name: `Urgente: ${itemName}` });
+    await urgentSwitch.click();
+    await expect(urgentSwitch).toHaveAttribute("aria-checked", "true");
+    await page.getByRole("button", { name: itemName, exact: true }).click();
 
     await page
       .getByLabel("Nota para los donantes")

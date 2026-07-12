@@ -78,6 +78,27 @@
       "when": 1783100000000,
       "tag": "0010_team_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1783785502486,
+      "tag": "0011_watery_wraith",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783785503486,
+      "tag": "0012_catalog_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783785504486,
+      "tag": "0013_categories_backfill",
+      "breakpoints": true
     }
   ]
 }
