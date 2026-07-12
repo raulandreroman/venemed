@@ -105,6 +105,36 @@ export async function shareWithOptionalImage(
   }
 }
 
+/**
+ * Plain text+URL native share — no attached file. Used by the "Texto para
+ * WhatsApp" surfaces: instead of a bare `wa.me/?text=` deep link (which on many
+ * platforms just opens WhatsApp with no chat selected and no prefilled action),
+ * this raises the OS share sheet so the user picks WhatsApp — or any app — and
+ * the text lands prefilled in the chosen chat. Callers pass an already-formatted
+ * message; when the URL is embedded in the text, omit `url` so targets that
+ * append it don't duplicate the link.
+ *
+ * Returns "unsupported" when there is no `navigator.share` (mostly desktop) so
+ * the caller can fall back to the `wa.me` deep link. `AbortError` (user
+ * dismissed the sheet) is reported as "cancelled" and never throws.
+ */
+export async function shareTextNative(data: {
+  title?: string;
+  text: string;
+  url?: string;
+}): Promise<NativeShareResult> {
+  if (typeof navigator === "undefined" || !navigator.share) {
+    return "unsupported";
+  }
+  try {
+    await navigator.share(data);
+    return "shared";
+  } catch (err) {
+    if (isAbortError(err)) return "cancelled";
+    return "unsupported";
+  }
+}
+
 function isAbortError(err: unknown): boolean {
   return err instanceof DOMException && err.name === "AbortError";
 }

@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { recordShare } from "@/app/actions/share";
-import { shareWithOptionalImage } from "@/lib/share/native-share";
+import {
+  shareTextNative,
+  shareWithOptionalImage,
+} from "@/lib/share/native-share";
 import {
   buildListaShareText,
   type ListaShareData,
@@ -73,17 +76,24 @@ export function ShareOptions({
     setTimeout(() => setCopied(null), 2000);
   }, []);
 
-  // 1 · WhatsApp text — deep-link into WhatsApp with the text prefilled
-  // (wa.me opens the chat picker on mobile, WhatsApp Web on desktop). Also
-  // copy to clipboard as a courtesy when available (secure context only —
-  // gotcha #5) so the center can paste it elsewhere too.
-  const onWhatsAppText = useCallback(() => {
+  // 1 · WhatsApp text — raise the native share sheet with the formatted text so
+  // the user picks WhatsApp (or any app) and it lands prefilled in the chosen
+  // chat. A bare `wa.me/?text=` deep link only opened WhatsApp with no chat
+  // selected — kept purely as the desktop fallback when there's no native
+  // share. The text already embeds the URL, so we don't pass `url` (would
+  // duplicate the link). Also copy to clipboard as a courtesy when available
+  // (secure context only — gotcha #5) so the center can paste it elsewhere too.
+  const onWhatsAppText = useCallback(async () => {
     navigator.clipboard?.writeText(shareText).catch(() => {});
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(shareText)}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
+    const result = await shareTextNative({ text: shareText });
+    if (result === "cancelled") return;
+    if (result === "unsupported") {
+      window.open(
+        `https://wa.me/?text=${encodeURIComponent(shareText)}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+    }
     flashCopied("whatsapp");
     recordShare(listaId, "whatsapp").catch(() => {});
   }, [shareText, listaId, flashCopied]);
@@ -125,8 +135,8 @@ export function ShareOptions({
         label="Texto para WhatsApp"
         description={
           copied === "whatsapp"
-            ? "Abriendo WhatsApp…"
-            : "Abre WhatsApp con la lista formateada"
+            ? "Compartiendo…"
+            : "Comparte la lista formateada"
         }
         confirmed={copied === "whatsapp"}
         onClick={onWhatsAppText}
