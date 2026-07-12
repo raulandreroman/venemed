@@ -628,8 +628,9 @@ function NeedRow({
 
 /**
  * Cantidad stepper for the expanded A2 row (field-insight §1): − / numeric
- * input / +. Empty input = no quantity (null); "−" below 1 clears it. The unit
- * stays implied by the item name.
+ * input / +. Steps go 5 by 5 (field quantities are round: 15, 50, 300…);
+ * the input still takes any exact number. Empty input = no quantity (null);
+ * "−" at or below 5 clears it. The unit stays implied by the item name.
  */
 function QuantityStepper({
   name,
@@ -648,7 +649,7 @@ function QuantityStepper({
     <div className="flex shrink-0 items-center overflow-hidden rounded-lg border border-neutral-300 bg-surface">
       <button
         type="button"
-        onClick={() => onSet(quantity != null && quantity > 1 ? quantity - 1 : null)}
+        onClick={() => onSet(quantity != null && quantity > 5 ? quantity - 5 : null)}
         aria-label={`Reducir cantidad de ${name}`}
         className="flex h-9 w-9 items-center justify-center text-lg text-neutral-700 hover:bg-neutral-100"
       >
@@ -666,7 +667,7 @@ function QuantityStepper({
       />
       <button
         type="button"
-        onClick={() => onSet((quantity ?? 0) + 1)}
+        onClick={() => onSet((quantity ?? 0) + 5)}
         aria-label={`Aumentar cantidad de ${name}`}
         className="flex h-9 w-9 items-center justify-center text-lg text-neutral-700 hover:bg-neutral-100"
       >
