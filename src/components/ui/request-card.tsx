@@ -19,10 +19,6 @@ export function RequestCard({ request }: { request: ListaCardData }) {
   const visible = chips.slice(0, MAX_VISIBLE_ITEMS);
   const overflow = chips.length - visible.length;
 
-  const shareMessage = `Ayuda a ${request.centerName}${
-    request.city ? ` (${request.city})` : ""
-  } en VeneMed:`;
-
   return (
     <Card
       data-testid="request-card"
@@ -89,7 +85,6 @@ export function RequestCard({ request }: { request: ListaCardData }) {
       <div className="mt-3 flex items-center gap-2 border-t border-neutral-100 pt-3">
         <ShareCardButton
           requestId={request.id}
-          message={shareMessage}
           path={`/listas/${request.id}`}
         />
         <Button

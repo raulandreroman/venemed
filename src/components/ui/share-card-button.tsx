@@ -2,74 +2,79 @@
 
 import { useCallback, useState } from "react";
 
-import { recordShare } from "@/app/actions/share";
-import { shareWithOptionalImage } from "@/lib/share/native-share";
+import { getListaShareData } from "@/app/actions/lista-share";
+import { ShareSheet, type ShareSheetData } from "@/components/share/share-sheet";
 
 import { Button } from "./button";
 
 /**
- * Card "Compartir" affordance (Figma list 30:15714). Client Component so it can
- * reach `navigator.share` / clipboard and call the `recordShare` server action
- * over RPC. Mirrors `ShareCtaButton`:
- *  - `navigator.share` present → native share sheet with the per-lista story
- *    image attached when supported; records channel "unknown" (the native
- *    sheet doesn't tell us which app the user picked).
- *  - Otherwise (desktop, no Web Share) → copy the link with brief "Copiado"
- *    feedback.
+ * Card "Compartir" affordance (Figma list 30:15714). Client Component that opens
+ * the shared share bottom-sheet (Texto para WhatsApp / Imagen / Copiar enlace) —
+ * the same panel the detail-view CTA uses — instead of firing a bare
+ * navigator.share.
+ *
+ * The donor card only holds the lightweight, CDN-cached `ListaCardData`, so the
+ * sheet's payload (address / reception contact / quantities) is LAZY-FETCHED on
+ * tap via `getListaShareData` — showing the spinner while it loads — rather than
+ * bloating the surge-path card. The fetched payload is cached in state so a
+ * second tap reopens the sheet without another round-trip. A failed / empty
+ * fetch degrades to a silent no-op (gotcha #5).
  */
 export function ShareCardButton({
   requestId,
-  message,
   path,
 }: {
   requestId: string;
-  message: string;
   path: string;
 }) {
-  // Busy while the story PNG generates/downloads at tap time.
-  const [sharing, setSharing] = useState(false);
-  const [copied, setCopied] = useState(false);
+  // Busy while the share payload is fetched at tap time.
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<ShareSheetData | null>(null);
 
   const onClick = useCallback(async () => {
-    if (sharing) return;
-    setSharing(true);
-    try {
-      const url = new URL(path, window.location.origin).toString();
-      const result = await shareWithOptionalImage({ title: message, text: message, url });
-      if (result === "shared") {
-        // Fire-and-forget; `.catch` swallows a failed RPC (NOT a bare `void`,
-        // which would surface the server action's rejection as an unhandled
-        // promise rejection). Native sheet → channel unknown.
-        recordShare(requestId, "unknown").catch(() => {});
-        return;
-      }
-      if (result === "cancelled") return;
-      // No native share available — copy the link instead.
-      try {
-        await navigator.clipboard.writeText(url);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-        recordShare(requestId, "copy_link").catch(() => {});
-      } catch {
-        // Clipboard unavailable (e.g. insecure context) — no-op.
-      }
-    } finally {
-      setSharing(false);
+    if (loading) return;
+    // Reuse an already-fetched payload — no second round-trip.
+    if (data) {
+      setOpen(true);
+      return;
     }
-  }, [sharing, requestId, message, path]);
+    setLoading(true);
+    try {
+      const result = await getListaShareData(requestId);
+      if (!result) return; // missing / non-active lista — silent no-op
+      setData(result);
+      setOpen(true);
+    } catch {
+      // Server action failed (offline, transient) — silent no-op.
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, data, requestId]);
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      className="flex-1"
-      disabled={sharing}
-      aria-busy={sharing}
-    >
-      {sharing ? <SpinnerIcon /> : <ShareArrow />}
-      {sharing ? "Preparando…" : copied ? "Copiado" : "Compartir"}
-    </Button>
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onClick}
+        className="flex-1"
+        disabled={loading}
+        aria-busy={loading}
+      >
+        {loading ? <SpinnerIcon /> : <ShareArrow />}
+        {loading ? "Preparando…" : "Compartir"}
+      </Button>
+      {data && (
+        <ShareSheet
+          open={open}
+          onClose={() => setOpen(false)}
+          listaId={requestId}
+          path={path}
+          data={data}
+        />
+      )}
+    </>
   );
 }
 

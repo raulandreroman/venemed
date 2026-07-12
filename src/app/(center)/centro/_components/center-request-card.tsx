@@ -27,7 +27,6 @@ export function CenterRequestCard({
   const shortId = request.shortId;
 
   const isTerminal = request.status === "closed";
-  const shareMessage = "Ayuda al centro en VeneMed:";
 
   return (
     <Card data-testid="center-request-card" className="p-[18px]">
@@ -72,7 +71,6 @@ export function CenterRequestCard({
           <div className="flex items-center gap-2">
             <ShareCardButton
               requestId={request.id}
-              message={shareMessage}
               path={`/listas/${request.id}`}
             />
           </div>
