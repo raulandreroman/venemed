@@ -25,6 +25,129 @@ export type ShareSheetData = Omit<ListaShareData, "url">;
  * Clipboard / navigator.share are secure-context APIs (gotcha #5) — every option
  * degrades gracefully when unavailable.
  */
+/**
+ * The three share option rows + their handlers, extracted so surfaces can
+ * render them either inside the bottom sheet (donor detail, dashboard) or
+ * INLINE on the page (the publicada confirm screen — no sheet hop right after
+ * publishing). Clipboard / navigator.share degrade gracefully (gotcha #5).
+ */
+export function ShareOptions({
+  listaId,
+  path,
+  data,
+  onImageShared,
+}: {
+  listaId: string;
+  /** Canonical donor path, e.g. "/listas/<id>". */
+  path: string;
+  data: ShareSheetData;
+  /** Called after the image share resolves (the sheet closes itself here). */
+  onImageShared?: () => void;
+}) {
+  const [copied, setCopied] = useState<"whatsapp" | "link" | null>(null);
+
+  // Resolve the origin AFTER mount: unlike the sheet (which only renders on
+  // open, post-mount), these options also render inline on the publicada
+  // screen — reading window.location during render would make the SSR and
+  // client HTML disagree (hydration error). Deferred via rAF per the
+  // set-state-in-effect rule.
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setOrigin(window.location.origin));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const url = useMemo(
+    () => (origin ? new URL(path, origin).toString() : ""),
+    [path, origin],
+  );
+  const shareText = useMemo(
+    () => buildListaShareText({ ...data, url }),
+    [data, url],
+  );
+  const shareMessage = `Ayuda a ${data.centerName} en VeneMed:`;
+  const displayUrl = url ? url.replace(/^https?:\/\//, "") : path;
+
+
+  const flashCopied = useCallback((which: "whatsapp" | "link") => {
+    setCopied(which);
+    setTimeout(() => setCopied(null), 2000);
+  }, []);
+
+  // 1 · WhatsApp text — deep-link into WhatsApp with the text prefilled
+  // (wa.me opens the chat picker on mobile, WhatsApp Web on desktop). Also
+  // copy to clipboard as a courtesy when available (secure context only —
+  // gotcha #5) so the center can paste it elsewhere too.
+  const onWhatsAppText = useCallback(() => {
+    navigator.clipboard?.writeText(shareText).catch(() => {});
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(shareText)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+    flashCopied("whatsapp");
+    recordShare(listaId, "whatsapp").catch(() => {});
+  }, [shareText, listaId, flashCopied]);
+
+  // 2 · Story image — reuse the native file-share flow (attaches the per-lista
+  // story PNG); fall back to opening the image URL in a new tab.
+  const onImage = useCallback(async () => {
+    const result = await shareWithOptionalImage({
+      title: shareMessage,
+      text: shareMessage,
+      url,
+    });
+    if (result === "cancelled") return;
+    if (result === "unsupported") {
+      window.open(`${url}/story-image`, "_blank", "noopener,noreferrer");
+    }
+    // Native sheet hides the chosen app → channel "unknown" (same as the
+    // pre-sheet donor CTA).
+    recordShare(listaId, "unknown").catch(() => {});
+    onImageShared?.();
+  }, [shareMessage, url, listaId, onImageShared]);
+
+  // 3 · Copy link — clipboard with brief "Copiado" feedback.
+  const onCopyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      flashCopied("link");
+      recordShare(listaId, "copy_link").catch(() => {});
+    } catch {
+      // Clipboard unavailable (insecure context) — no-op.
+    }
+  }, [url, listaId, flashCopied]);
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      <OptionRow
+        highlighted
+        icon={<ChatIcon />}
+        label="Texto para WhatsApp"
+        description={
+          copied === "whatsapp"
+            ? "Abriendo WhatsApp…"
+            : "Abre WhatsApp con la lista formateada"
+        }
+        confirmed={copied === "whatsapp"}
+        onClick={onWhatsAppText}
+      />
+      <OptionRow
+        icon={<ImageIcon />}
+        label="Imagen"
+        description="Tarjeta para estados o historias"
+        onClick={onImage}
+      />
+      <OptionRow
+        icon={<LinkIcon />}
+        label="Copiar enlace"
+        description={copied === "link" ? "Copiado" : displayUrl}
+        confirmed={copied === "link"}
+        onClick={onCopyLink}
+      />
+    </div>
+  );
+}
+
 export function ShareSheet({
   open,
   onClose,
@@ -40,26 +163,7 @@ export function ShareSheet({
   data: ShareSheetData;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const [copied, setCopied] = useState<"whatsapp" | "link" | null>(null);
 
-  // Resolve the absolute URL + prebuilt WhatsApp text client-side. The panel
-  // only renders (open === true) after mount, so `window` is always defined by
-  // the time these are read; the SSR guard keeps the hook order stable.
-  const url = useMemo(
-    () =>
-      typeof window !== "undefined"
-        ? new URL(path, window.location.origin).toString()
-        : "",
-    [path],
-  );
-  const shareText = useMemo(
-    () => buildListaShareText({ ...data, url }),
-    [data, url],
-  );
-  const shareMessage = `Ayuda a ${data.centerName} en VeneMed:`;
-  const displayUrl = url.replace(/^https?:\/\//, "");
-
-  // Escape + body-scroll-lock + focus-trap while open (InsumoSelector recipe).
   useEffect(() => {
     if (!open) return;
     const panel = panelRef.current;
@@ -107,66 +211,6 @@ export function ShareSheet({
     };
   }, [open, onClose]);
 
-  // Reset the transient "Copiado" state whenever the sheet reopens.
-  const wasOpen = useRef(false);
-  useEffect(() => {
-    if (open && !wasOpen.current) {
-      wasOpen.current = true;
-      const raf = requestAnimationFrame(() => setCopied(null));
-      return () => cancelAnimationFrame(raf);
-    }
-    if (!open) wasOpen.current = false;
-  }, [open]);
-
-  const flashCopied = useCallback((which: "whatsapp" | "link") => {
-    setCopied(which);
-    setTimeout(() => setCopied(null), 2000);
-  }, []);
-
-  // 1 · WhatsApp text — deep-link into WhatsApp with the text prefilled
-  // (wa.me opens the chat picker on mobile, WhatsApp Web on desktop). Also
-  // copy to clipboard as a courtesy when available (secure context only —
-  // gotcha #5) so the center can paste it elsewhere too.
-  const onWhatsAppText = useCallback(() => {
-    navigator.clipboard?.writeText(shareText).catch(() => {});
-    window.open(
-      `https://wa.me/?text=${encodeURIComponent(shareText)}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
-    flashCopied("whatsapp");
-    recordShare(listaId, "whatsapp").catch(() => {});
-  }, [shareText, listaId, flashCopied]);
-
-  // 2 · Story image — reuse the native file-share flow (attaches the per-lista
-  // story PNG); fall back to opening the image URL in a new tab.
-  const onImage = useCallback(async () => {
-    const result = await shareWithOptionalImage({
-      title: shareMessage,
-      text: shareMessage,
-      url,
-    });
-    if (result === "cancelled") return;
-    if (result === "unsupported") {
-      window.open(`${url}/story-image`, "_blank", "noopener,noreferrer");
-    }
-    // Native sheet hides the chosen app → channel "unknown" (same as the
-    // pre-sheet donor CTA).
-    recordShare(listaId, "unknown").catch(() => {});
-    onClose();
-  }, [shareMessage, url, listaId, onClose]);
-
-  // 3 · Copy link — clipboard with brief "Copiado" feedback.
-  const onCopyLink = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      flashCopied("link");
-      recordShare(listaId, "copy_link").catch(() => {});
-    } catch {
-      // Clipboard unavailable (insecure context) — no-op.
-    }
-  }, [url, listaId, flashCopied]);
-
   if (!open) return null;
 
   return (
@@ -213,31 +257,12 @@ export function ShareSheet({
         </div>
 
         {/* options */}
-        <div className="flex flex-col gap-2.5 px-5 pb-8 pt-1">
-          <OptionRow
-            highlighted
-            icon={<ChatIcon />}
-            label="Texto para WhatsApp"
-            description={
-              copied === "whatsapp"
-                ? "Abriendo WhatsApp…"
-                : "Abre WhatsApp con la lista formateada"
-            }
-            confirmed={copied === "whatsapp"}
-            onClick={onWhatsAppText}
-          />
-          <OptionRow
-            icon={<ImageIcon />}
-            label="Imagen"
-            description="Tarjeta para estados o historias"
-            onClick={onImage}
-          />
-          <OptionRow
-            icon={<LinkIcon />}
-            label="Copiar enlace"
-            description={copied === "link" ? "Copiado" : displayUrl}
-            confirmed={copied === "link"}
-            onClick={onCopyLink}
+        <div className="px-5 pb-8 pt-1">
+          <ShareOptions
+            listaId={listaId}
+            path={path}
+            data={data}
+            onImageShared={onClose}
           />
         </div>
       </div>
