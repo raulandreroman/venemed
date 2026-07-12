@@ -322,7 +322,7 @@ export function ListaEditor({
                   value={receptionName}
                   maxLength={RECEPTION_NAME_MAX}
                   onChange={(e) => setReceptionName(e.target.value)}
-                  placeholder="Ej: Roraima Colina"
+                  placeholder="Ej: María Pérez"
                   className="mt-1.5 h-[52px] w-full rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
                 />
               </div>
