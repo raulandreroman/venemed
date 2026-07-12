@@ -752,10 +752,10 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
       strokeLinejoin="round"
       aria-hidden="true"
       className={`shrink-0 text-neutral-400 transition-transform ${
-        expanded ? "rotate-90" : ""
+        expanded ? "rotate-180" : ""
       }`}
     >
-      <path d="m9 18 6-6-6-6" />
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
