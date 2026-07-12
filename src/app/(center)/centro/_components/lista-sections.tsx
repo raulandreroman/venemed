@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import type { CenterListaItem } from "@/db/queries";
 import { Tag } from "@/components/ui";
+import { formatItemQuantity } from "@/lib/format";
 
 const TRUNCATE_AT = 4;
 
@@ -108,7 +109,7 @@ function Section({
                 <span
                   className={`text-sm font-medium tabular-nums ${rowTextClassName} opacity-70`}
                 >
-                  × {item.quantity}
+                  {formatItemQuantity(item.quantity, item.unit)}
                 </span>
               )}
               {renderTrailing?.(item)}

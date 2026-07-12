@@ -9,9 +9,17 @@
  * (built client-side from `window.location.origin`, matching how the rest of the
  * share surfaces resolve URLs at click time).
  */
-import { formatUpdatedAgo, formatVePhone } from "@/lib/format";
+import {
+  formatItemQuantity,
+  formatUpdatedAgo,
+  formatVePhone,
+} from "@/lib/format";
 
-export type ListaShareItem = { name: string; quantity?: number | null };
+export type ListaShareItem = {
+  name: string;
+  quantity?: number | null;
+  unit?: string | null;
+};
 
 export type ListaShareData = {
   centerName: string;
@@ -41,24 +49,27 @@ export function partitionShareItems(
     bucket: "need" | "excess";
     isUrgent: boolean;
     quantity?: number | null;
+    unit?: string | null;
   }[],
 ): Pick<ListaShareData, "urgent" | "need" | "excess"> {
   return {
     urgent: items
       .filter((it) => it.bucket === "need" && it.isUrgent)
-      .map((it) => ({ name: it.name, quantity: it.quantity })),
+      .map((it) => ({ name: it.name, quantity: it.quantity, unit: it.unit })),
     need: items
       .filter((it) => it.bucket === "need" && !it.isUrgent)
-      .map((it) => ({ name: it.name, quantity: it.quantity })),
+      .map((it) => ({ name: it.name, quantity: it.quantity, unit: it.unit })),
     excess: items
       .filter((it) => it.bucket === "excess")
       .map((it) => ({ name: it.name })),
   };
 }
 
-/** "• Comidas × 300" / "• Gasas" — the "× N" suffix only when quantity is set. */
+/** "• Comidas × 300" / "• Arroz × 20 kg" / "• Gasas" — the amount suffix (with
+ * unit) only when quantity is set. */
 function itemLine(it: ListaShareItem): string {
-  return it.quantity != null ? `• ${it.name} × ${it.quantity}` : `• ${it.name}`;
+  const suffix = formatItemQuantity(it.quantity, it.unit);
+  return suffix ? `• ${it.name} ${suffix}` : `• ${it.name}`;
 }
 
 /**

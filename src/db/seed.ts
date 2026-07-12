@@ -191,17 +191,22 @@ async function main() {
       listaId: listaA.id,
       supplyId: supplyId("Acetaminofén 500 mg"),
       category: "Pediatría",
+      quantity: 40,
+      unit: "caja",
     },
     {
       listaId: listaA.id,
       supplyId: supplyId("Suero fisiológico 500 ml"),
       category: "Pediatría",
+      quantity: 100,
+      // unit left as the "unidad" default → renders bare "× 100".
     },
     {
       listaId: listaA.id,
       supplyId: supplyId("Jeringas estériles"),
       category: "Pediatría",
       isUrgent: true,
+      quantity: 500,
     },
     // Refugio Casa Esperanza: needs + an excess ("no aceptamos") item
     {

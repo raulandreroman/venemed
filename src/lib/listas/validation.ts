@@ -7,6 +7,7 @@
  * `import type`.
  */
 
+import { isListaItemUnit } from "@/lib/format";
 import { normalizeVePhone } from "@/lib/registro/validation";
 
 export const INSTRUCTIONS_MAX = 120;
@@ -45,9 +46,11 @@ export type PublishListaItemInput = {
   bucket: "need" | "excess";
   isUrgent?: boolean;
   category?: string;
-  /** Optional positive quantity, need-bucket only (unit implied by the name).
-   * Ignored/nulled for excess. */
+  /** Optional positive quantity, need-bucket only. Ignored/nulled for excess. */
   quantity?: number;
+  /** Unit of measure for `quantity` (a `lista_item_unit` enum value, #101).
+   * Defaults to `unidad`; only meaningful when quantity is set (need bucket). */
+  unit?: string;
 };
 
 /** Max quantity — a sane upper bound so a stray keystroke can't store an absurd
@@ -128,8 +131,13 @@ export function validatePublishLista(
       // items carry none — the action nulls them regardless).
       const validQuantity =
         it.quantity == null || isValidQuantity(it.quantity);
+      // unit is optional; when present it must be an enum member (the action
+      // coerces to the default otherwise).
+      const validUnit = it.unit == null || isListaItemUnit(it.unit);
       // exactly one of supplyId/customName
-      return hasSupply !== hasCustom && validBucket && validQuantity;
+      return (
+        hasSupply !== hasCustom && validBucket && validQuantity && validUnit
+      );
     });
     if (!allValid) errors.items = "Hay un insumo inválido.";
   }

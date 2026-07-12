@@ -50,6 +50,20 @@ export const closedReason = pgEnum("closed_reason", ["fulfilled", "cancelled"]);
 // old `kind='surplus'` aviso-de-exceso — it's now an item bucket, not a list kind.
 export const listaItemBucket = pgEnum("lista_item_bucket", ["need", "excess"]);
 
+// Unit of measure for a need-item's optional quantity (#101). Fixed enum, not
+// free text. English/short enum keys; the es-VE label + correct plural render at
+// read time via `formatItemQuantity` (src/lib/format.ts). `unidad` is the
+// default and stays implicit on the surfaces ("× 20", not "× 20 unidades").
+export const listaItemUnit = pgEnum("lista_item_unit", [
+  "unidad",
+  "kg",
+  "g",
+  "l",
+  "ml",
+  "caja",
+  "paquete",
+]);
+
 // Area = category, 1:1 (center-workspace §5.6). The 4 area values added in 0004
 // are APPENDED to keep existing enum positions stable (so drizzle emits clean
 // `ALTER TYPE … ADD VALUE` statements, not a destructive type recreation).
@@ -255,10 +269,14 @@ export const listaItem = pgTable("lista_item", {
   customName: text("custom_name"),
   category: text("category").notNull(),
   bucket: listaItemBucket("bucket").notNull().default("need"),
-  // Optional positive quantity for a NEED item (unit implied by the name, e.g.
-  // "Comidas calientes × 300"; field-insight-whatsapp §1). Null for excess and
-  // for needs left unquantified — display-only, zero required friction.
+  // Optional positive quantity for a NEED item (field-insight-whatsapp §1). Null
+  // for excess and for needs left unquantified — display-only, zero required
+  // friction. The unit below qualifies it.
   quantity: integer("quantity"),
+  // Unit of measure for `quantity` (#101). Defaults to `unidad`; only meaningful
+  // when quantity is set (need bucket). NOT NULL + default so the additive
+  // migration needs no backfill and existing rows are valid.
+  unit: listaItemUnit("unit").notNull().default("unidad"),
   isUrgent: boolean("is_urgent").notNull().default(false),
   isFulfilled: boolean("is_fulfilled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

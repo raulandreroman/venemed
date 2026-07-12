@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { center, lista, listaItem, supply, supplyCategory } from "@/db/schema";
 import { requireCenter } from "@/lib/auth/require-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
-import { categoryLabel } from "@/lib/format";
+import { DEFAULT_LISTA_ITEM_UNIT, categoryLabel, isListaItemUnit } from "@/lib/format";
 import {
   RECEPTION_LANDMARK_MAX,
   RECEPTION_NAME_MAX,
@@ -115,6 +115,14 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
         it.bucket === "need" && isValidQuantity(it.quantity)
           ? it.quantity
           : null,
+      // Unit qualifies the quantity (#101). Only carried for a quantified need
+      // item; coerced to the default for anything else / unknown client input.
+      unit:
+        it.bucket === "need" &&
+        isValidQuantity(it.quantity) &&
+        isListaItemUnit(it.unit)
+          ? it.unit
+          : DEFAULT_LISTA_ITEM_UNIT,
       // lista_item.category is the Spanish label; catalog items use their
       // supply's category, customs use their picked category (default general).
       category: categoryLabel(
