@@ -107,8 +107,14 @@ export function ListaEditor({
     initialStep === 2 || hadInitialExcess ? "form" : "intro",
   );
   // A2 accordion (Figma "Creación v2 · A2"): at most one need-row expanded;
-  // the expanded row hosts cantidad + urgente + quitar in place.
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  // the expanded row hosts cantidad + urgente + quitar in place. The FIRST
+  // need row starts expanded so the accordion affordance is discoverable
+  // (issue #107) — seed from initial items here, and keep parity in the
+  // confirm handler after adding insumos. Never seed via a useEffect
+  // (set-state-in-effect is a hard eslint error in this repo).
+  const [expandedKey, setExpandedKey] = useState<string | null>(
+    initialNeed[0]?.key ?? null,
+  );
   const [selectorTarget, setSelectorTarget] = useState<"need" | "excess" | null>(
     null,
   );
@@ -118,10 +124,19 @@ export function ListaEditor({
   // Stable per mount so a retried submit dedupes via lista.idempotency_key.
   const idempotencyKey = useRef<string>(crypto.randomUUID());
 
-  const removeNeedItem = useCallback((key: string) => {
-    setNeedItems((prev) => prev.filter((it) => it.key !== key));
-    setExpandedKey((prev) => (prev === key ? null : prev));
-  }, []);
+  const removeNeedItem = useCallback(
+    (key: string) => {
+      setNeedItems((prev) => prev.filter((it) => it.key !== key));
+      // When the open row is removed, fall back to the new first row instead of
+      // fully collapsing so the affordance stays visible (issue #107).
+      setExpandedKey((cur) => {
+        if (cur !== key) return cur;
+        const remaining = needItems.filter((it) => it.key !== key);
+        return remaining[0]?.key ?? null;
+      });
+    },
+    [needItems],
+  );
 
   const setNeedQuantity = useCallback((key: string, quantity: number | null) => {
     setNeedItems((prev) =>
@@ -154,6 +169,12 @@ export function ListaEditor({
             };
           });
         });
+        // Keep the first row open so the accordion affordance stays
+        // discoverable (issue #107); don't steal focus from a row the user
+        // already opened.
+        if (items.length > 0) {
+          setExpandedKey((prev) => prev ?? items[0].key);
+        }
       } else if (selectorTarget === "excess") {
         setExcessItems(items);
       }
