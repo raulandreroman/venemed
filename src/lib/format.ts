@@ -192,6 +192,92 @@ export function categoryGroupOf(value: string): string {
   return "general";
 }
 
+/**
+ * lista_item unit enum values (#101). Store the English/short enum key (matches
+ * the pgEnum `lista_item_unit` in schema.ts); render the es-VE label + correct
+ * plural at read time. `unidad` is the default and stays implicit on the render
+ * surfaces (bare "× 20"). Kept in sync with the pgEnum by hand — the same
+ * convention the category enum/label pair already follows.
+ */
+export const LISTA_ITEM_UNITS = [
+  "unidad",
+  "kg",
+  "g",
+  "l",
+  "ml",
+  "caja",
+  "paquete",
+] as const;
+
+export type ListaItemUnit = (typeof LISTA_ITEM_UNITS)[number];
+
+export const DEFAULT_LISTA_ITEM_UNIT: ListaItemUnit = "unidad";
+
+/** True when `v` is a member of the unit enum. */
+export function isListaItemUnit(v: unknown): v is ListaItemUnit {
+  return (
+    typeof v === "string" &&
+    (LISTA_ITEM_UNITS as readonly string[]).includes(v)
+  );
+}
+
+/**
+ * Editor unit-picker options: enum value + singular es-VE label. The dropdown
+ * shows the symbol alongside the word so the choice is unambiguous.
+ */
+export const LISTA_ITEM_UNIT_OPTIONS: {
+  value: ListaItemUnit;
+  label: string;
+}[] = [
+  { value: "unidad", label: "Unidades" },
+  { value: "kg", label: "Kilogramos (kg)" },
+  { value: "g", label: "Gramos (g)" },
+  { value: "l", label: "Litros (L)" },
+  { value: "ml", label: "Mililitros (ml)" },
+  { value: "caja", label: "Cajas" },
+  { value: "paquete", label: "Paquetes" },
+];
+
+/** es-VE label for a unit, pluralized for `qty`. Weight/volume symbols
+ * (kg/g/L/ml) are invariant; only the spelled-out units inflect. */
+function unitLabel(unit: ListaItemUnit, qty: number): string {
+  const plural = qty !== 1;
+  switch (unit) {
+    case "unidad":
+      return plural ? "unidades" : "unidad";
+    case "caja":
+      return plural ? "cajas" : "caja";
+    case "paquete":
+      return plural ? "paquetes" : "paquete";
+    case "kg":
+      return "kg";
+    case "g":
+      return "g";
+    case "l":
+      return "L";
+    case "ml":
+      return "ml";
+  }
+}
+
+/**
+ * "× 20" / "× 20 kg" / "× 2 cajas" — the amount suffix shown beside an item name
+ * on every render surface (donor detail, dashboard sections, published view,
+ * WhatsApp share text). Returns "" when there's no quantity. The default `unidad`
+ * unit stays IMPLICIT (bare "× 20") to keep the common case uncluttered; any
+ * other unit renders its es-VE label with the correct plural. Single source of
+ * truth so the surfaces never drift (#101).
+ */
+export function formatItemQuantity(
+  quantity: number | null | undefined,
+  unit?: ListaItemUnit | string | null,
+): string {
+  if (quantity == null) return "";
+  const u = isListaItemUnit(unit) ? unit : DEFAULT_LISTA_ITEM_UNIT;
+  if (u === DEFAULT_LISTA_ITEM_UNIT) return `× ${quantity}`;
+  return `× ${quantity} ${unitLabel(u, quantity)}`;
+}
+
 /** center.type enum -> Spanish label. */
 export function centerTypeLabel(value: string): string {
   const map: Record<string, string> = {

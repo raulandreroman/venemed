@@ -62,6 +62,7 @@ export type ListaItemData = {
   bucket: "need" | "excess";
   isUrgent: boolean;
   quantity: number | null; // optional "× N" (need bucket only); null = unset
+  unit: string; // lista_item_unit enum value; "unidad" default (#101)
 };
 
 /** Fields shared by the donor card and detail shapes (lista-model-v2 §6). */
@@ -235,6 +236,7 @@ async function queryActiveListas(
           bucket: listaItem.bucket,
           isUrgent: listaItem.isUrgent,
           quantity: listaItem.quantity,
+          unit: listaItem.unit,
         })
         .from(listaItem)
         .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -252,6 +254,7 @@ async function queryActiveListas(
       bucket: it.bucket,
       isUrgent: it.isUrgent,
       quantity: it.quantity,
+      unit: it.unit,
     });
     itemsByLista.set(it.listaId, list);
   }
@@ -380,6 +383,7 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
       quantity: listaItem.quantity,
+      unit: listaItem.unit,
       isFulfilled: listaItem.isFulfilled,
     })
     .from(listaItem)
@@ -488,6 +492,7 @@ export type CenterListaItem = {
   bucket: "need" | "excess";
   isUrgent: boolean;
   quantity: number | null;
+  unit: string; // lista_item_unit enum value; "unidad" default (#101)
 };
 
 export type CenterDashboardLista = {
@@ -543,6 +548,7 @@ export async function getCenterDashboardLista(
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
       quantity: listaItem.quantity,
+      unit: listaItem.unit,
     })
     .from(listaItem)
     .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -576,6 +582,7 @@ export type CenterEditableItem = {
    * from the stored Spanish label so an edit round-trips it. */
   category?: string;
   quantity: number | null;
+  unit: string; // lista_item_unit enum value; "unidad" default (#101)
 };
 
 export type CenterEditableLista = {
@@ -621,6 +628,7 @@ export async function getCenterListaForEdit(
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
       quantity: listaItem.quantity,
+      unit: listaItem.unit,
     })
     .from(listaItem)
     .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -637,6 +645,7 @@ export async function getCenterListaForEdit(
     // catalog items re-derive it from the supply at publish, so leave undefined.
     category: r.supplyId ? undefined : categoryValueFromLabel(r.category),
     quantity: r.quantity,
+    unit: r.unit,
   }));
 
   return {
@@ -695,6 +704,7 @@ export async function getCenterListaById(
       bucket: listaItem.bucket,
       isUrgent: listaItem.isUrgent,
       quantity: listaItem.quantity,
+      unit: listaItem.unit,
     })
     .from(listaItem)
     .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -872,6 +882,7 @@ export async function getCenterListasClosedSince(
           bucket: listaItem.bucket,
           isUrgent: listaItem.isUrgent,
           quantity: listaItem.quantity,
+          unit: listaItem.unit,
         })
         .from(listaItem)
         .leftJoin(supply, eq(supply.id, listaItem.supplyId))
@@ -889,6 +900,7 @@ export async function getCenterListasClosedSince(
       bucket: it.bucket,
       isUrgent: it.isUrgent,
       quantity: it.quantity,
+      unit: it.unit,
     });
     itemsByLista.set(it.listaId, list);
   }

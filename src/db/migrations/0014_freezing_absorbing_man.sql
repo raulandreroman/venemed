@@ -1,0 +1,2 @@
+CREATE TYPE "public"."lista_item_unit" AS ENUM('unidad', 'kg', 'g', 'l', 'ml', 'caja', 'paquete');--> statement-breakpoint
+ALTER TABLE "lista_item" ADD COLUMN "unit" "lista_item_unit" DEFAULT 'unidad' NOT NULL;

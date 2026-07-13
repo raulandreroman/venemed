@@ -5,7 +5,7 @@ import { AppBar, Tag } from "@/components/ui";
 import type { CenterListaDetailData } from "@/db/queries";
 import { getCenterListaById } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
-import { closedReasonLabel } from "@/lib/format";
+import { closedReasonLabel, formatItemQuantity } from "@/lib/format";
 
 import { FinalizeButton } from "./_components/finalize-button";
 
@@ -93,7 +93,7 @@ export default async function CenterRequestDetailPage({
                 </div>
                 {item.quantity != null && (
                   <span className="shrink-0 text-sm font-medium tabular-nums text-neutral-500">
-                    × {item.quantity}
+                    {formatItemQuantity(item.quantity, item.unit)}
                   </span>
                 )}
               </li>

@@ -6,6 +6,11 @@ import { AppBar, Button } from "@/components/ui";
 import { publishLista } from "@/app/(center)/actions/publicar";
 import type { CenterEditableLista } from "@/db/queries";
 import {
+  DEFAULT_LISTA_ITEM_UNIT,
+  LISTA_ITEM_UNIT_OPTIONS,
+  formatItemQuantity,
+} from "@/lib/format";
+import {
   EXCESS_REASON_MAX,
   INSTRUCTIONS_MAX,
   RECEPTION_LANDMARK_MAX,
@@ -30,6 +35,9 @@ export type SelectedItem = {
   category?: string;
   /** Optional display-only quantity ("× N"); need-bucket only. null/undefined = unset. */
   quantity?: number | null;
+  /** Unit of measure for `quantity` (a `lista_item_unit` enum value, #101);
+   * defaults to `unidad`. Only meaningful when quantity is set. */
+  unit?: string | null;
 };
 
 type Supply = { id: string; name: string; category: string };
@@ -73,6 +81,7 @@ export function ListaEditor({
       isUrgent: it.isUrgent,
       category: it.category,
       quantity: it.quantity,
+      unit: it.unit,
     }));
   const initialExcess = (initial?.items ?? [])
     .filter((it) => it.bucket === "excess")
@@ -144,6 +153,12 @@ export function ListaEditor({
     );
   }, []);
 
+  const setNeedUnit = useCallback((key: string, unit: string) => {
+    setNeedItems((prev) =>
+      prev.map((it) => (it.key === key ? { ...it, unit } : it)),
+    );
+  }, []);
+
   const removeExcessItem = useCallback((key: string) => {
     setExcessItems((prev) => prev.filter((it) => it.key !== key));
   }, []);
@@ -166,6 +181,7 @@ export function ListaEditor({
               ...it,
               isUrgent: prior?.isUrgent ?? false,
               quantity: prior?.quantity ?? null,
+              unit: prior?.unit ?? DEFAULT_LISTA_ITEM_UNIT,
             };
           });
         });
@@ -217,7 +233,9 @@ export function ListaEditor({
             : { customName: it.name, category: it.category }),
           bucket: "need" as const,
           isUrgent: !!it.isUrgent,
-          ...(it.quantity != null ? { quantity: it.quantity } : {}),
+          ...(it.quantity != null
+            ? { quantity: it.quantity, unit: it.unit ?? DEFAULT_LISTA_ITEM_UNIT }
+            : {}),
         })),
         ...(includeExcess
           ? excessItems.map((it) => ({
@@ -283,6 +301,7 @@ export function ListaEditor({
                       onToggleUrgent={() => toggleUrgent(it.key)}
                       onRemove={() => removeNeedItem(it.key)}
                       onSetQuantity={(q) => setNeedQuantity(it.key, q)}
+                      onSetUnit={(u) => setNeedUnit(it.key, u)}
                     />
                   </li>
                 ))}
@@ -567,6 +586,7 @@ function NeedRow({
   onToggleUrgent,
   onRemove,
   onSetQuantity,
+  onSetUnit,
 }: {
   item: SelectedItem;
   expanded: boolean;
@@ -574,6 +594,7 @@ function NeedRow({
   onToggleUrgent: () => void;
   onRemove: () => void;
   onSetQuantity: (quantity: number | null) => void;
+  onSetUnit: (unit: string) => void;
 }) {
   const urgent = !!item.isUrgent;
   return (
@@ -599,7 +620,7 @@ function NeedRow({
         </span>
         {!expanded && item.quantity != null && (
           <span className="shrink-0 text-sm font-medium tabular-nums text-neutral-500">
-            × {item.quantity}
+            {formatItemQuantity(item.quantity, item.unit)}
           </span>
         )}
         <ChevronIcon expanded={expanded} />
@@ -615,6 +636,16 @@ function NeedRow({
               onSet={onSetQuantity}
             />
           </div>
+          {item.quantity != null && (
+            <div className="flex items-center gap-3">
+              <span className="flex-1 text-sm text-neutral-500">Unidad</span>
+              <UnitSelect
+                name={item.name}
+                unit={item.unit ?? DEFAULT_LISTA_ITEM_UNIT}
+                onSet={onSetUnit}
+              />
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <span className="flex-1 text-sm text-neutral-500">Urgente</span>
             <button
@@ -695,6 +726,37 @@ function QuantityStepper({
         +
       </button>
     </div>
+  );
+}
+
+/**
+ * Unidad picker for the expanded need row (#101): a native <select> over the
+ * fixed `lista_item_unit` enum. Native so it scales to the full list and gets
+ * the platform's accessible dropdown on mobile. Neutral control (single-accent
+ * rule) — the blue accent only lands on the focus ring.
+ */
+function UnitSelect({
+  name,
+  unit,
+  onSet,
+}: {
+  name: string;
+  unit: string;
+  onSet: (unit: string) => void;
+}) {
+  return (
+    <select
+      value={unit}
+      onChange={(e) => onSet(e.target.value)}
+      aria-label={`Unidad de ${name}`}
+      className="h-9 shrink-0 rounded-lg border border-neutral-300 bg-surface px-3 text-sm font-medium text-neutral-900 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+    >
+      {LISTA_ITEM_UNIT_OPTIONS.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
