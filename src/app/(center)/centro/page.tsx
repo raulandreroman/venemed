@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ListaItemSections } from "@/components/lista/lista-item-sections";
 import { Button } from "@/components/ui";
 import { getCenterDashboardLista } from "@/db/queries";
 import { requireCenter } from "@/lib/auth/require-center";
@@ -10,7 +12,6 @@ import { ConnectionBanner } from "./_components/connection-banner";
 import { DashboardError } from "./_components/dashboard-error";
 import { DashboardHeader } from "./_components/dashboard-header";
 import { FreshnessCard } from "./_components/freshness-card";
-import { ListaSections } from "./_components/lista-sections";
 import { ModoOperadorBanner } from "./_components/modo-operador-banner";
 import { ReactivateButton } from "./_components/reactivate-button";
 import { ShareListaButton } from "./_components/share-lista-button";
@@ -111,7 +112,19 @@ export default async function CenterDashboardPage() {
 
         {isOperador && <ModoOperadorBanner />}
 
-        <ListaSections items={lista.items} />
+        <ListaItemSections
+          items={lista.items}
+          truncateAt={4}
+          className="flex flex-col gap-4"
+          emptyExcessSlot={
+            <Link
+              href="/centro/lista/editar?paso=exceso"
+              className="self-start text-sm font-semibold text-accent hover:underline"
+            >
+              + Avisar lo que tienes en exceso
+            </Link>
+          }
+        />
       </main>
 
       <footer
