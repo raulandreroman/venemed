@@ -7,8 +7,10 @@ import { publishLista } from "@/app/(center)/actions/publicar";
 import type { CenterEditableLista } from "@/db/queries";
 import {
   DEFAULT_LISTA_ITEM_UNIT,
-  LISTA_ITEM_UNIT_OPTIONS,
+  LISTA_ITEM_UNIT_SHORT,
   formatItemQuantity,
+  isListaItemUnit,
+  nextListaItemUnit,
 } from "@/lib/format";
 import {
   EXCESS_REASON_MAX,
@@ -639,7 +641,7 @@ function NeedRow({
           {item.quantity != null && (
             <div className="flex items-center gap-3">
               <span className="flex-1 text-sm text-neutral-500">Unidad</span>
-              <UnitSelect
+              <UnitToggle
                 name={item.name}
                 unit={item.unit ?? DEFAULT_LISTA_ITEM_UNIT}
                 onSet={onSetUnit}
@@ -730,12 +732,14 @@ function QuantityStepper({
 }
 
 /**
- * Unidad picker for the expanded need row (#101): a native <select> over the
- * fixed `lista_item_unit` enum. Native so it scales to the full list and gets
- * the platform's accessible dropdown on mobile. Neutral control (single-accent
- * rule) — the blue accent only lands on the focus ring.
+ * Unidad picker for the expanded need row (#101 follow-up): a tap-to-cycle
+ * button instead of a dropdown. Each press advances to the next unit in
+ * `LISTA_ITEM_UNIT_CYCLE` (ud. → kg → L → caja → paq. → …), showing the compact
+ * label of the current one. Neutral control (single-accent rule) — the blue
+ * accent only lands on the focus ring. Fixed min-width so the row doesn't jump
+ * as the label changes width.
  */
-function UnitSelect({
+function UnitToggle({
   name,
   unit,
   onSet,
@@ -744,19 +748,40 @@ function UnitSelect({
   unit: string;
   onSet: (unit: string) => void;
 }) {
+  const current = isListaItemUnit(unit) ? unit : DEFAULT_LISTA_ITEM_UNIT;
   return (
-    <select
-      value={unit}
-      onChange={(e) => onSet(e.target.value)}
-      aria-label={`Unidad de ${name}`}
-      className="h-9 shrink-0 rounded-lg border border-neutral-300 bg-surface px-3 text-sm font-medium text-neutral-900 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+    <button
+      type="button"
+      onClick={() => onSet(nextListaItemUnit(current))}
+      aria-label={`Unidad de ${name}: ${LISTA_ITEM_UNIT_SHORT[current]}. Toca para cambiar.`}
+      className="flex h-9 min-w-[60px] shrink-0 items-center justify-center gap-1.5 rounded-lg border border-neutral-300 bg-surface px-3 text-sm font-semibold text-neutral-900 outline-none hover:bg-neutral-100 focus:border-accent focus:ring-1 focus:ring-accent"
     >
-      {LISTA_ITEM_UNIT_OPTIONS.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
+      <span className="tabular-nums">{LISTA_ITEM_UNIT_SHORT[current]}</span>
+      <CycleIcon />
+    </button>
+  );
+}
+
+/** Small loop glyph cueing that the unit button cycles on tap. */
+function CycleIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-neutral-400"
+      aria-hidden="true"
+    >
+      <path d="M17 2.1 21 6l-4 3.9" />
+      <path d="M3 12A9 9 0 0 1 21 6" />
+      <path d="M7 21.9 3 18l4-3.9" />
+      <path d="M21 12A9 9 0 0 1 3 18" />
+    </svg>
   );
 }
 
