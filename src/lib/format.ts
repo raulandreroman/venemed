@@ -238,6 +238,35 @@ export const LISTA_ITEM_UNIT_OPTIONS: {
   { value: "paquete", label: "Paquetes" },
 ];
 
+/**
+ * Compact chip label for the editor's unit picker (#101 follow-up). Defined for
+ * every enum member so display never breaks even if an item stored a unit
+ * outside the offered set below.
+ */
+export const LISTA_ITEM_UNIT_SHORT: Record<ListaItemUnit, string> = {
+  unidad: "ud.",
+  kg: "kg",
+  g: "g",
+  l: "L",
+  ml: "ml",
+  caja: "caja",
+  paquete: "paq.",
+};
+
+/**
+ * Units the editor offers as chips, in order. A curated subset of the stored
+ * enum (aid supplies come in whole/coarse measures) — the DB enum keeps all
+ * members, so trimming here needs no migration and is reversible. The default
+ * `unidad` leads.
+ */
+export const LISTA_ITEM_UNIT_CYCLE: readonly ListaItemUnit[] = [
+  "unidad",
+  "kg",
+  "l",
+  "caja",
+  "paquete",
+];
+
 /** es-VE label for a unit, pluralized for `qty`. Weight/volume symbols
  * (kg/g/L/ml) are invariant; only the spelled-out units inflect. */
 function unitLabel(unit: ListaItemUnit, qty: number): string {

@@ -7,8 +7,11 @@ import { publishLista } from "@/app/(center)/actions/publicar";
 import type { CenterEditableLista } from "@/db/queries";
 import {
   DEFAULT_LISTA_ITEM_UNIT,
-  LISTA_ITEM_UNIT_OPTIONS,
+  LISTA_ITEM_UNIT_CYCLE,
+  LISTA_ITEM_UNIT_SHORT,
+  type ListaItemUnit,
   formatItemQuantity,
+  isListaItemUnit,
 } from "@/lib/format";
 import {
   EXCESS_REASON_MAX,
@@ -629,22 +632,23 @@ function NeedRow({
       {expanded && (
         <div className="flex flex-col gap-3 px-4 pb-4 pt-1">
           <div className="flex items-center gap-3">
-            <span className="flex-1 text-sm text-neutral-500">Cantidad</span>
+            <span className="flex-1 text-sm text-neutral-500">
+              Cantidad{" "}
+              <span className="text-neutral-400">(opcional)</span>
+            </span>
             <QuantityStepper
               name={item.name}
               quantity={item.quantity ?? null}
               onSet={onSetQuantity}
             />
           </div>
+          {/* Unit chips only appear once there's a quantity to measure. */}
           {item.quantity != null && (
-            <div className="flex items-center gap-3">
-              <span className="flex-1 text-sm text-neutral-500">Unidad</span>
-              <UnitSelect
-                name={item.name}
-                unit={item.unit ?? DEFAULT_LISTA_ITEM_UNIT}
-                onSet={onSetUnit}
-              />
-            </div>
+            <UnitChips
+              name={item.name}
+              unit={item.unit ?? DEFAULT_LISTA_ITEM_UNIT}
+              onSet={onSetUnit}
+            />
           )}
           <div className="flex items-center gap-3">
             <span className="flex-1 text-sm text-neutral-500">Urgente</span>
@@ -682,7 +686,7 @@ function NeedRow({
  * Cantidad stepper for the expanded A2 row (field-insight §1): − / numeric
  * input / +. Steps go 5 by 5 (field quantities are round: 15, 50, 300…);
  * the input still takes any exact number. Empty input = no quantity (null);
- * "−" at or below 5 clears it. The unit stays implied by the item name.
+ * "−" at or below 5 clears it. Unit is picked separately via `UnitChips`.
  */
 function QuantityStepper({
   name,
@@ -730,12 +734,15 @@ function QuantityStepper({
 }
 
 /**
- * Unidad picker for the expanded need row (#101): a native <select> over the
- * fixed `lista_item_unit` enum. Native so it scales to the full list and gets
- * the platform's accessible dropdown on mobile. Neutral control (single-accent
- * rule) — the blue accent only lands on the focus ring.
+ * Unidad picker for the expanded need row (#101 follow-up): a single-select
+ * chip row under the quantity stepper, shown only once the item has a quantity
+ * (the unit only means something alongside an amount). One tap sets the unit;
+ * the chosen chip carries the accent (selected state — sanctioned under the
+ * single-accent rule), the rest stay neutral. The offered set
+ * (ud./kg/L/caja/paq.) is shown, plus the item's own unit if it's a legacy
+ * value outside that set.
  */
-function UnitSelect({
+function UnitChips({
   name,
   unit,
   onSet,
@@ -744,19 +751,36 @@ function UnitSelect({
   unit: string;
   onSet: (unit: string) => void;
 }) {
+  const current = isListaItemUnit(unit) ? unit : DEFAULT_LISTA_ITEM_UNIT;
+  const units: ListaItemUnit[] = LISTA_ITEM_UNIT_CYCLE.includes(current)
+    ? [...LISTA_ITEM_UNIT_CYCLE]
+    : [...LISTA_ITEM_UNIT_CYCLE, current];
   return (
-    <select
-      value={unit}
-      onChange={(e) => onSet(e.target.value)}
+    <div
+      role="radiogroup"
       aria-label={`Unidad de ${name}`}
-      className="h-9 shrink-0 rounded-lg border border-neutral-300 bg-surface px-3 text-sm font-medium text-neutral-900 outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+      className="animate-unit-chips-in flex flex-wrap gap-2"
     >
-      {LISTA_ITEM_UNIT_OPTIONS.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
+      {units.map((u) => {
+        const selected = u === current;
+        return (
+          <button
+            key={u}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onSet(u)}
+            className={`h-8 rounded-full border-[1.5px] px-3 text-[13px] font-semibold tabular-nums outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+              selected
+                ? "border-accent bg-surface text-accent"
+                : "border-neutral-300 bg-surface text-neutral-700 hover:bg-neutral-50"
+            }`}
+          >
+            {LISTA_ITEM_UNIT_SHORT[u]}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
