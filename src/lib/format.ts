@@ -239,9 +239,9 @@ export const LISTA_ITEM_UNIT_OPTIONS: {
 ];
 
 /**
- * Compact one-glyph-ish label for the editor's tap-to-cycle unit toggle (#101
- * follow-up). Defined for every enum member so display never breaks even if an
- * item stored a unit outside the cycle set below.
+ * Compact chip label for the editor's unit picker (#101 follow-up). Defined for
+ * every enum member so display never breaks even if an item stored a unit
+ * outside the offered set below.
  */
 export const LISTA_ITEM_UNIT_SHORT: Record<ListaItemUnit, string> = {
   unidad: "ud.",
@@ -254,10 +254,10 @@ export const LISTA_ITEM_UNIT_SHORT: Record<ListaItemUnit, string> = {
 };
 
 /**
- * Order the unit toggle cycles through on tap. A curated subset of the stored
+ * Units the editor offers as chips, in order. A curated subset of the stored
  * enum (aid supplies come in whole/coarse measures) — the DB enum keeps all
- * members, so trimming here needs no migration and is reversible. Starts at the
- * default `unidad`.
+ * members, so trimming here needs no migration and is reversible. The default
+ * `unidad` leads.
  */
 export const LISTA_ITEM_UNIT_CYCLE: readonly ListaItemUnit[] = [
   "unidad",
@@ -266,13 +266,6 @@ export const LISTA_ITEM_UNIT_CYCLE: readonly ListaItemUnit[] = [
   "caja",
   "paquete",
 ];
-
-/** Next unit in the tap-to-cycle order; wraps around. A current value outside
- * the cycle set (e.g. a legacy `g`/`ml`) advances to the first cycle entry. */
-export function nextListaItemUnit(current: ListaItemUnit): ListaItemUnit {
-  const i = LISTA_ITEM_UNIT_CYCLE.indexOf(current);
-  return LISTA_ITEM_UNIT_CYCLE[(i + 1) % LISTA_ITEM_UNIT_CYCLE.length];
-}
 
 /** es-VE label for a unit, pluralized for `qty`. Weight/volume symbols
  * (kg/g/L/ml) are invariant; only the spelled-out units inflect. */

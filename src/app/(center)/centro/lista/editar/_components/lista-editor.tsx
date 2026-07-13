@@ -7,10 +7,11 @@ import { publishLista } from "@/app/(center)/actions/publicar";
 import type { CenterEditableLista } from "@/db/queries";
 import {
   DEFAULT_LISTA_ITEM_UNIT,
+  LISTA_ITEM_UNIT_CYCLE,
   LISTA_ITEM_UNIT_SHORT,
+  type ListaItemUnit,
   formatItemQuantity,
   isListaItemUnit,
-  nextListaItemUnit,
 } from "@/lib/format";
 import {
   EXCESS_REASON_MAX,
@@ -631,22 +632,23 @@ function NeedRow({
       {expanded && (
         <div className="flex flex-col gap-3 px-4 pb-4 pt-1">
           <div className="flex items-center gap-3">
-            <span className="flex-1 text-sm text-neutral-500">Cantidad</span>
+            <span className="flex-1 text-sm text-neutral-500">
+              Cantidad{" "}
+              <span className="text-neutral-400">(opcional)</span>
+            </span>
             <QuantityStepper
               name={item.name}
               quantity={item.quantity ?? null}
               onSet={onSetQuantity}
             />
           </div>
+          {/* Unit chips only appear once there's a quantity to measure. */}
           {item.quantity != null && (
-            <div className="flex items-center gap-3">
-              <span className="flex-1 text-sm text-neutral-500">Unidad</span>
-              <UnitToggle
-                name={item.name}
-                unit={item.unit ?? DEFAULT_LISTA_ITEM_UNIT}
-                onSet={onSetUnit}
-              />
-            </div>
+            <UnitChips
+              name={item.name}
+              unit={item.unit ?? DEFAULT_LISTA_ITEM_UNIT}
+              onSet={onSetUnit}
+            />
           )}
           <div className="flex items-center gap-3">
             <span className="flex-1 text-sm text-neutral-500">Urgente</span>
@@ -684,7 +686,7 @@ function NeedRow({
  * Cantidad stepper for the expanded A2 row (field-insight §1): − / numeric
  * input / +. Steps go 5 by 5 (field quantities are round: 15, 50, 300…);
  * the input still takes any exact number. Empty input = no quantity (null);
- * "−" at or below 5 clears it. The unit stays implied by the item name.
+ * "−" at or below 5 clears it. Unit is picked separately via `UnitChips`.
  */
 function QuantityStepper({
   name,
@@ -732,14 +734,15 @@ function QuantityStepper({
 }
 
 /**
- * Unidad picker for the expanded need row (#101 follow-up): a tap-to-cycle
- * button instead of a dropdown. Each press advances to the next unit in
- * `LISTA_ITEM_UNIT_CYCLE` (ud. → kg → L → caja → paq. → …), showing the compact
- * label of the current one. Neutral control (single-accent rule) — the blue
- * accent only lands on the focus ring. Fixed min-width so the row doesn't jump
- * as the label changes width.
+ * Unidad picker for the expanded need row (#101 follow-up): a single-select
+ * chip row under the quantity stepper, shown only once the item has a quantity
+ * (the unit only means something alongside an amount). One tap sets the unit;
+ * the chosen chip carries the accent (selected state — sanctioned under the
+ * single-accent rule), the rest stay neutral. The offered set
+ * (ud./kg/L/caja/paq.) is shown, plus the item's own unit if it's a legacy
+ * value outside that set.
  */
-function UnitToggle({
+function UnitChips({
   name,
   unit,
   onSet,
@@ -749,39 +752,35 @@ function UnitToggle({
   onSet: (unit: string) => void;
 }) {
   const current = isListaItemUnit(unit) ? unit : DEFAULT_LISTA_ITEM_UNIT;
+  const units: ListaItemUnit[] = LISTA_ITEM_UNIT_CYCLE.includes(current)
+    ? [...LISTA_ITEM_UNIT_CYCLE]
+    : [...LISTA_ITEM_UNIT_CYCLE, current];
   return (
-    <button
-      type="button"
-      onClick={() => onSet(nextListaItemUnit(current))}
-      aria-label={`Unidad de ${name}: ${LISTA_ITEM_UNIT_SHORT[current]}. Toca para cambiar.`}
-      className="flex h-9 min-w-[60px] shrink-0 items-center justify-center gap-1.5 rounded-lg border border-neutral-300 bg-surface px-3 text-sm font-semibold text-neutral-900 outline-none hover:bg-neutral-100 focus:border-accent focus:ring-1 focus:ring-accent"
+    <div
+      role="radiogroup"
+      aria-label={`Unidad de ${name}`}
+      className="animate-unit-chips-in flex flex-wrap gap-2"
     >
-      <span className="tabular-nums">{LISTA_ITEM_UNIT_SHORT[current]}</span>
-      <CycleIcon />
-    </button>
-  );
-}
-
-/** Small loop glyph cueing that the unit button cycles on tap. */
-function CycleIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-neutral-400"
-      aria-hidden="true"
-    >
-      <path d="M17 2.1 21 6l-4 3.9" />
-      <path d="M3 12A9 9 0 0 1 21 6" />
-      <path d="M7 21.9 3 18l4-3.9" />
-      <path d="M21 12A9 9 0 0 1 3 18" />
-    </svg>
+      {units.map((u) => {
+        const selected = u === current;
+        return (
+          <button
+            key={u}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onSet(u)}
+            className={`h-8 rounded-full border-[1.5px] px-3 text-[13px] font-semibold tabular-nums outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+              selected
+                ? "border-accent bg-surface text-accent"
+                : "border-neutral-300 bg-surface text-neutral-700 hover:bg-neutral-50"
+            }`}
+          >
+            {LISTA_ITEM_UNIT_SHORT[u]}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
