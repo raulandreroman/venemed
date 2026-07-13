@@ -1,8 +1,8 @@
+import { ListaItemSections } from "@/components/lista/lista-item-sections";
 import type { ShareSheetData } from "@/components/share/share-sheet";
 import { Button, Tag } from "@/components/ui";
 import type { ListaDetailData } from "@/db/queries";
 import {
-  formatItemQuantity,
   formatPublishedAgo,
   formatStalenessBanner,
   formatVePhone,
@@ -76,12 +76,6 @@ function ActiveDetailBody({ req }: { req: ListaDetailData }) {
   const staleBanner = formatStalenessBanner(req.updatedAt);
   const publishedAgo = formatPublishedAgo(req.publishedAt);
 
-  const urgent = req.items.filter((it) => it.bucket === "need" && it.isUrgent);
-  const necesitamos = req.items.filter(
-    (it) => it.bucket === "need" && !it.isUrgent,
-  );
-  const noAceptamos = req.items.filter((it) => it.bucket === "excess");
-
   return (
     <>
       {staleBanner && <StalenessBanner text={staleBanner} />}
@@ -92,84 +86,11 @@ function ActiveDetailBody({ req }: { req: ListaDetailData }) {
 
       <Divider />
 
-      {/* Qué necesita el centro */}
-      <section>
-        <h2 className="text-lg font-semibold text-neutral-900">
-          Qué necesita el centro
-        </h2>
-
-        {urgent.length > 0 && (
-          <div className="mt-3 rounded-2xl bg-error-tint/40 p-3">
-            <div className="flex items-center gap-2.5">
-              <BangIcon className="text-error" />
-              <div>
-                <p className="text-[15px] font-semibold text-error">
-                  Insumos urgentes
-                </p>
-                {publishedAgo && (
-                  <p className="text-xs text-error">{publishedAgo}</p>
-                )}
-              </div>
-            </div>
-            <ul className="mt-3 flex flex-col gap-2">
-              {urgent.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  name={item.name}
-                  quantity={item.quantity}
-                  unit={item.unit}
-                  rowClassName="bg-error/10"
-                  textClassName="text-error"
-                />
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {necesitamos.length > 0 && (
-          <ul className="mt-3 flex flex-col gap-2">
-            {necesitamos.map((item) => (
-              <ItemRow
-                key={item.id}
-                name={item.name}
-                quantity={item.quantity}
-                unit={item.unit}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {noAceptamos.length > 0 && (
-        <section className="mt-4 rounded-2xl bg-warning-tint/40 p-3">
-          <div className="flex items-center gap-2.5">
-            <BangIcon className="text-warning" />
-            <div>
-              <p className="text-[15px] font-semibold text-warning">
-                Por favor no traigan
-              </p>
-              {req.excessReason ? (
-                <p className="text-xs text-warning">{req.excessReason}</p>
-              ) : (
-                publishedAgo && (
-                  <p className="text-xs text-warning">{publishedAgo}</p>
-                )
-              )}
-            </div>
-          </div>
-          <ul className="mt-3 flex flex-col gap-2">
-            {noAceptamos.map((item) => (
-              <ItemRow
-                key={item.id}
-                name={item.name}
-                rowClassName="bg-warning/10"
-                textClassName="text-warning"
-              />
-            ))}
-          </ul>
-        </section>
-      )}
-
+      <ListaItemSections
+        items={req.items}
+        publishedAgo={publishedAgo}
+        excessReason={req.excessReason}
+      />
     </>
   );
 }
@@ -334,36 +255,6 @@ function StalenessBanner({ text }: { text: string }) {
   );
 }
 
-function ItemRow({
-  name,
-  quantity = null,
-  unit = null,
-  rowClassName = "bg-neutral-100",
-  textClassName = "text-neutral-900",
-}: {
-  name: string;
-  quantity?: number | null;
-  unit?: string | null;
-  rowClassName?: string;
-  textClassName?: string;
-}) {
-  const amount = formatItemQuantity(quantity, unit);
-  return (
-    <li
-      className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 ${rowClassName}`}
-    >
-      <p className={`text-[15px] font-semibold ${textClassName}`}>{name}</p>
-      {amount && (
-        <span
-          className={`shrink-0 text-sm font-medium tabular-nums ${textClassName} opacity-70`}
-        >
-          {amount}
-        </span>
-      )}
-    </li>
-  );
-}
-
 function Divider() {
   return <div className="my-6 border-t border-neutral-100" />;
 }
@@ -470,19 +361,6 @@ function PauseIcon() {
     </svg>
   );
 }
-
-/** Circular "!" badge for the urgent / excess sub-cards. */
-function BangIcon({ className = "" }: { className?: string }) {
-  return (
-    <span
-      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface text-base font-bold ${className}`}
-      aria-hidden="true"
-    >
-      !
-    </span>
-  );
-}
-
 
 function mapQuery(addressLine: string | null, city: string): string {
   return [addressLine, city].filter(Boolean).join(", ") || city;
