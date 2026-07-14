@@ -40,7 +40,6 @@ export type CenterDetailsValues = {
   city: string;
   addressLine: string;
   addressReference: string;
-  regularScheduleText: string;
 };
 
 export function CenterDetailsSection({
@@ -79,7 +78,6 @@ export function CenterDetailsSection({
       city: values.city,
       addressLine: values.addressLine,
       addressReference: values.addressReference || undefined,
-      regularScheduleText: values.regularScheduleText || undefined,
     };
     const errs = validateCenterDetails(input);
     if (Object.keys(errs).length > 0) {
@@ -171,12 +169,6 @@ export function CenterDetailsSection({
         onChange={set("addressReference")}
         error={errors.addressReference}
       />
-      <Field
-        label="Horario de atención (opcional)"
-        value={values.regularScheduleText}
-        onChange={set("regularScheduleText")}
-        error={errors.regularScheduleText}
-      />
       <EditFooter pending={pending} error={submitError} onCancel={cancel} onSave={save} />
     </Section>
   );
@@ -191,6 +183,8 @@ export type ResponsableValues = {
   email: string;
   /** Optional WhatsApp contact — NATIONAL digits (e.g. "4125550034"); "" when unset. */
   whatsappPhone: string;
+  /** Preferred delivery schedule (free text, optional); "" when unset. */
+  regularScheduleText: string;
 };
 
 export function ResponsableSection({
@@ -209,8 +203,9 @@ export function ResponsableSection({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const set = useCallback(
-    (k: "responsibleName" | "cargo" | "whatsappPhone") => (v: string) =>
-      setValues((p) => ({ ...p, [k]: v })),
+    (k: "responsibleName" | "cargo" | "whatsappPhone" | "regularScheduleText") =>
+      (v: string) =>
+        setValues((p) => ({ ...p, [k]: v })),
     [],
   );
 
@@ -226,6 +221,7 @@ export function ResponsableSection({
     const input: ResponsableInput = {
       responsibleName: values.responsibleName,
       cargo: values.cargo || undefined,
+      regularScheduleText: values.regularScheduleText || undefined,
       // Invalid values pass through raw so the validator flags them (same
       // contract as the registro form's toInput).
       whatsappPhone: rawPhone
@@ -296,6 +292,12 @@ export function ResponsableSection({
         value={values.cargo}
         onChange={set("cargo")}
         error={errors.cargo}
+      />
+      <Field
+        label="Horario preferido para la entrega (opcional)"
+        value={values.regularScheduleText}
+        onChange={set("regularScheduleText")}
+        error={errors.regularScheduleText}
       />
       {/* Email is the verified login identity — not editable here. */}
       <div className="flex flex-col gap-0.5 border-b border-neutral-100 py-3">

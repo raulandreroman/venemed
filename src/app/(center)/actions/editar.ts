@@ -23,7 +23,7 @@ import type {
 
 /**
  * Update ONLY the session center's "Datos del centro" (name/type/state/city/
- * address/reference/schedule) — the profile's inline "Editar datos del centro"
+ * address/reference) — the profile's inline "Editar datos del centro"
  * section. Phone/responsable/status untouched. center_id is server-resolved
  * (Drizzle bypasses RLS); re-validates server-side. Returns (no redirect) so the
  * inline editor can exit edit mode + router.refresh(); throws on invalid input
@@ -47,7 +47,6 @@ export async function updateCenterDetails(
       state: input.state,
       addressLine: input.addressLine.trim(),
       addressReference: input.addressReference?.trim() || null,
-      regularScheduleText: input.regularScheduleText?.trim() || null,
       updatedAt: new Date(),
     })
     .where(eq(center.id, centerId));
@@ -56,11 +55,11 @@ export async function updateCenterDetails(
 }
 
 /**
- * Update ONLY the session center's responsable (name + cargo) and the center's
- * optional WhatsApp contact phone — the profile's inline "Cambiar responsable"
- * section. The email is NOT editable here (it's the verified login identity).
- * The phone lives on `center` (unverified contact field), so this writes two
- * rows. Same authz/validation/return contract.
+ * Update ONLY the session center's responsable (name + cargo), the center's
+ * optional WhatsApp contact phone, and the preferred delivery schedule — the
+ * profile's inline "Cambiar responsable" section. The email is NOT editable
+ * here (it's the verified login identity). The phone + schedule live on
+ * `center`, so this writes two rows. Same authz/validation/return contract.
  */
 export async function updateResponsable(input: ResponsableInput): Promise<void> {
   const { userId, centerId } = await requireResponsable();
@@ -82,6 +81,7 @@ export async function updateResponsable(input: ResponsableInput): Promise<void> 
     .update(center)
     .set({
       whatsappPhone: input.whatsappPhone?.trim() || null,
+      regularScheduleText: input.regularScheduleText?.trim() || null,
       updatedAt: new Date(),
     })
     .where(eq(center.id, centerId));
