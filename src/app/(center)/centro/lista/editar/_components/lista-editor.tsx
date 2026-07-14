@@ -577,6 +577,7 @@ export function ListaEditor({
         supplies={supplies}
         selected={excessItems}
         onConfirm={handleSelectorConfirm}
+        exclude={needItems}
       />
     </>
   );
