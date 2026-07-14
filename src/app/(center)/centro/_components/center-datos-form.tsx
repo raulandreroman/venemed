@@ -256,15 +256,6 @@ export function CenterDatosForm({
         error={errors.addressReference}
       />
 
-      <TextField
-        id="regularScheduleText"
-        label="Horario de atención (opcional)"
-        placeholder="Ej: Lun a Vie, 8am–4pm"
-        value={data.regularScheduleText}
-        onChange={set("regularScheduleText")}
-        error={errors.regularScheduleText}
-      />
-
       <PhoneField
         value={data.nationalPhone}
         onChange={set("nationalPhone")}
@@ -291,6 +282,15 @@ export function CenterDatosForm({
         value={data.cargo}
         onChange={set("cargo")}
         error={errors.cargo}
+      />
+
+      <TextField
+        id="regularScheduleText"
+        label="Horario preferido para la entrega (opcional)"
+        placeholder="Ej: Lun a Vie, 8am–4pm"
+        value={data.regularScheduleText}
+        onChange={set("regularScheduleText")}
+        error={errors.regularScheduleText}
       />
 
       {collectEmail && (

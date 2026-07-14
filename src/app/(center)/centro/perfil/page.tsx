@@ -62,7 +62,6 @@ export default async function CenterProfilePage() {
     city: profile.city,
     addressLine: profile.addressLine ?? "",
     addressReference: profile.addressReference ?? "",
-    regularScheduleText: profile.regularScheduleText ?? "",
   };
   const responsable: ResponsableValues = {
     responsibleName: profile.responsibleName ?? "",
@@ -70,6 +69,7 @@ export default async function CenterProfilePage() {
     email: profile.responsibleEmail ?? "",
     // National digits — the inline editor's +58 field edits this directly.
     whatsappPhone: vePhoneToNational(profile.whatsappPhone),
+    regularScheduleText: profile.regularScheduleText ?? "",
   };
 
   const isOperador = current.role === "center_member";
