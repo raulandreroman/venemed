@@ -51,15 +51,41 @@ export function InsumoSelector({
   supplies,
   selected,
   onConfirm,
+  exclude = [],
 }: {
   open: boolean;
   onClose: () => void;
   supplies: Supply[];
   selected: SelectedItem[];
   onConfirm: (items: SelectedItem[]) => void;
+  /** Insumos to hide from the catalog (e.g. items already picked in the OTHER
+   * bucket, #109). Catalog items excluded by supplyId, customs by name. */
+  exclude?: SelectedItem[];
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const catalogIds = useMemo(() => new Set(supplies.map((s) => s.id)), [supplies]);
+
+  // Insumos already in the OTHER bucket — hidden from this picker so an item
+  // can't be both a need and a surplus (#109). Split like `selected`: catalog
+  // items by supplyId, custom items by (lowercased) name.
+  const excludedIds = useMemo(
+    () =>
+      new Set(
+        exclude.filter((it) => it.supplyId).map((it) => it.supplyId as string),
+      ),
+    [exclude],
+  );
+  const excludedNames = useMemo(
+    () =>
+      new Set(
+        exclude.filter((it) => !it.supplyId).map((it) => it.name.toLowerCase()),
+      ),
+    [exclude],
+  );
+  const visibleSupplies = useMemo(
+    () => supplies.filter((s) => !excludedIds.has(s.id)),
+    [supplies, excludedIds],
+  );
 
   // Local working state — initialized from `selected` each time the sheet opens.
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -185,8 +211,10 @@ export function InsumoSelector({
   const query = search.trim();
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
-    return q ? supplies.filter((s) => s.name.toLowerCase().includes(q)) : supplies;
-  }, [supplies, query]);
+    return q
+      ? visibleSupplies.filter((s) => s.name.toLowerCase().includes(q))
+      : visibleSupplies;
+  }, [visibleSupplies, query]);
 
   // Browse mode (no search): the 91-item catalog groups under category
   // headers, relief-first (field-insight §2). Searching flattens the list —
@@ -194,7 +222,7 @@ export function InsumoSelector({
   const grouped = useMemo(() => {
     if (query) return null;
     const byCategory = new Map<string, Supply[]>();
-    for (const s of supplies) {
+    for (const s of visibleSupplies) {
       const bucket = byCategory.get(s.category) ?? [];
       bucket.push(s);
       byCategory.set(s.category, bucket);
@@ -202,14 +230,15 @@ export function InsumoSelector({
     return CATALOG_CATEGORY_ORDER.filter((c) => byCategory.has(c)).map(
       (c) => ({ category: c, items: byCategory.get(c)! }),
     );
-  }, [supplies, query]);
+  }, [visibleSupplies, query]);
 
   // Offer "create as new insumo" when the typed text matches nothing already
   // present (catalog item or an already-added custom).
   const canCreateFromSearch =
     query.length > 0 &&
     !supplies.some((s) => s.name.toLowerCase() === query.toLowerCase()) &&
-    !customs.some((c) => c.name.toLowerCase() === query.toLowerCase());
+    !customs.some((c) => c.name.toLowerCase() === query.toLowerCase()) &&
+    !excludedNames.has(query.toLowerCase());
 
   const total = checked.size + customs.length;
 
