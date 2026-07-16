@@ -3,7 +3,7 @@ import path from "node:path";
 import type { ReactElement } from "react";
 
 import type { ListaDetailData } from "@/db/queries";
-import { formatListaUpdated } from "@/lib/format";
+import { formatItemQuantity, formatListaUpdated } from "@/lib/format";
 
 /**
  * Shared social-share card for a lista, rendered by Satori (next/og
@@ -91,12 +91,20 @@ function centerArticle(type: string | null): string | null {
 
 type PillItem = { name: string; urgent: boolean };
 
+/** Chip label: the insumo name plus its quantity ("Jeringas × 100") when set,
+ * using the app's canonical quantity format so the share image never drifts
+ * from the donor surfaces (#101). No quantity → bare name. */
+function pillLabel(it: ListaDetailData["items"][number]): string {
+  const qty = formatItemQuantity(it.quantity, it.unit);
+  return qty ? `${it.name} ${qty}` : it.name;
+}
+
 function needPills(lista: ListaDetailData): PillItem[] {
   // Urgent items first (design's call), then the rest. Every need item counts
   // regardless of isFulfilled — mirrors the donor detail/share derivations.
   const need = lista.items.filter((it) => it.bucket === "need");
-  const urgent = need.filter((it) => it.isUrgent).map((it) => ({ name: it.name, urgent: true }));
-  const rest = need.filter((it) => !it.isUrgent).map((it) => ({ name: it.name, urgent: false }));
+  const urgent = need.filter((it) => it.isUrgent).map((it) => ({ name: pillLabel(it), urgent: true }));
+  const rest = need.filter((it) => !it.isUrgent).map((it) => ({ name: pillLabel(it), urgent: false }));
   return [...urgent, ...rest];
 }
 
@@ -393,22 +401,23 @@ function ActiveCard({ lista, spec }: { lista: ListaDetailData; spec: FormatSpec 
   const { scale } = spec;
   return (
     <CardShell spec={spec}>
-      <div style={{ display: "flex", flexDirection: "column", gap: spec.headerGap * scale }}>
-        <Header scale={scale} row={spec.headerRow} />
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <ChipRow lista={lista} scale={scale} />
-          <div style={{ display: "flex", flexDirection: "column", marginTop: 12 * scale }}>
-            <Headline lista={lista} scale={scale} />
-          </div>
-          <div style={{ display: "flex", marginTop: 8 * scale, fontSize: 12 * scale, fontWeight: 400, color: NEUTRAL_500 }}>
-            {formatListaUpdated(lista.updatedAt)}
-          </div>
-          <div style={{ display: "flex", marginTop: 24 * scale }}>
-            <ItemPills lista={lista} scale={scale} cap={spec.itemCap} />
-          </div>
-          <div style={{ display: "flex", marginTop: 24 * scale }}>
-            <AvisoBadge lista={lista} scale={scale} fullWidth={!spec.headerRow} />
-          </div>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <ChipRow lista={lista} scale={scale} />
+        <div style={{ display: "flex", flexDirection: "column", marginTop: 12 * scale }}>
+          <Headline lista={lista} scale={scale} />
+        </div>
+        <div style={{ display: "flex", marginTop: 8 * scale, fontSize: 12 * scale, fontWeight: 400, color: NEUTRAL_500 }}>
+          {formatListaUpdated(lista.updatedAt)}
+        </div>
+        <div style={{ display: "flex", marginTop: 24 * scale }}>
+          <ItemPills lista={lista} scale={scale} cap={spec.itemCap} />
+        </div>
+        <div style={{ display: "flex", marginTop: 24 * scale }}>
+          <AvisoBadge lista={lista} scale={scale} fullWidth={!spec.headerRow} />
+        </div>
+        {/* Branding moved from a top header to a bottom footer (design #105). */}
+        <div style={{ display: "flex", marginTop: spec.headerGap * scale }}>
+          <Header scale={scale} row={spec.headerRow} />
         </div>
       </div>
     </CardShell>
