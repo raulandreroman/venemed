@@ -10,7 +10,7 @@ import { requireCenter } from "@/lib/auth/require-center";
 import { CENTER_TYPE_ENABLED } from "@/lib/flags";
 import { centerTypeLabel, formatRelativeTime } from "@/lib/format";
 import {
-  vePhoneToNational,
+  vePhoneToNationalDisplay,
   type CenterType,
 } from "@/lib/registro/validation";
 
@@ -67,8 +67,9 @@ export default async function CenterProfilePage() {
     responsibleName: profile.responsibleName ?? "",
     cargo: profile.cargo ?? "",
     email: profile.responsibleEmail ?? "",
-    // National digits — the inline editor's +58 field edits this directly.
-    whatsappPhone: vePhoneToNational(profile.whatsappPhone),
+    // National digits WITH the leading 0 for display (#102 Part B); the inline
+    // editor's +58 field edits this and normalization strips the 0 on save.
+    whatsappPhone: vePhoneToNationalDisplay(profile.whatsappPhone),
     regularScheduleText: profile.regularScheduleText ?? "",
   };
 

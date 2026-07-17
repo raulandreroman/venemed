@@ -4,7 +4,10 @@ import { db } from "@/db";
 import { appUser, center } from "@/db/schema";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { requireResponsable } from "@/lib/auth/require-responsable";
-import { vePhoneToNational, type CenterType } from "@/lib/registro/validation";
+import {
+  vePhoneToNationalDisplay,
+  type CenterType,
+} from "@/lib/registro/validation";
 import type { CenterDatosValues } from "../_components/center-datos-form";
 import { EditCenterForm } from "./edit-center-form";
 
@@ -46,8 +49,8 @@ export default async function EditarPage() {
     addressLine: row?.addressLine ?? "",
     addressReference: row?.addressReference ?? "",
     regularScheduleText: row?.regularScheduleText ?? "",
-    // Optional WhatsApp contact number (national digits for the input).
-    nationalPhone: vePhoneToNational(row?.whatsappPhone),
+    // Required WhatsApp contact — national digits WITH the leading 0 for display.
+    nationalPhone: vePhoneToNationalDisplay(row?.whatsappPhone),
     // Email is the login identity, not editable here — the field is hidden.
     email: "",
     responsibleName: row?.responsibleName ?? "",
