@@ -49,10 +49,10 @@ export async function createCenterForCurrentUser(
   }
 
   // (3a) Identity comes from the verified session email — never the client. The
-  // WhatsApp number is now an OPTIONAL, unverified contact field, so we persist
-  // the (already-validated) client value as-is.
+  // WhatsApp number is a REQUIRED, unverified contact field (#102), already
+  // validated non-empty above, so we persist the client value as-is.
   const email = user.email?.trim().toLowerCase() || undefined;
-  const whatsappPhone = input.whatsappPhone?.trim() || null;
+  const whatsappPhone = input.whatsappPhone.trim();
   const now = new Date();
 
   // (4) Transaction: upsert app_user, insert center (pending_review), insert

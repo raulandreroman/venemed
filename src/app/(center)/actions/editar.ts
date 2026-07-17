@@ -80,7 +80,7 @@ export async function updateResponsable(input: ResponsableInput): Promise<void> 
   await db
     .update(center)
     .set({
-      whatsappPhone: input.whatsappPhone?.trim() || null,
+      whatsappPhone: input.whatsappPhone.trim(),
       regularScheduleText: input.regularScheduleText?.trim() || null,
       updatedAt: new Date(),
     })
@@ -111,7 +111,7 @@ export async function updateCenterForCurrentUser(
     throw new Error("Datos del centro inválidos.");
   }
 
-  const whatsappPhone = input.whatsappPhone?.trim() || null;
+  const whatsappPhone = input.whatsappPhone.trim();
   const now = new Date();
 
   // (3) Transaction: update center + app_user, both keyed by server-resolved
