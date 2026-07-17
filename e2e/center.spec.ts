@@ -240,7 +240,10 @@ test.describe("center auth + registration", () => {
     await page.getByLabel("Ciudad").fill("Caracas");
     await page.getByLabel("Dirección").fill("Av. Principal, sector e2e");
     await page.getByLabel("Nombre y apellido").fill("Coordinador E2E");
-    // Email is the login identity (OTP target); the contact phone is optional.
+    // WhatsApp contact phone is now REQUIRED (#102 Part A) — the form won't
+    // submit (and the OTP step never renders) without it.
+    await page.getByLabel("Teléfono de contacto (WhatsApp)").fill("04121234567");
+    // Email is the login identity (OTP target).
     await page.getByLabel("Correo electrónico").fill(EMAIL_REG);
 
     await page.getByRole("button", { name: "Continuar" }).click();
