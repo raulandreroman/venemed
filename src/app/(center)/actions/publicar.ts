@@ -16,7 +16,6 @@ import {
   validatePublishLista,
 } from "@/lib/listas/validation";
 import type { PublishListaInput } from "@/lib/listas/validation";
-import { normalizeVePhone } from "@/lib/registro/validation";
 
 // NOTE: a "use server" module may export ONLY async functions (gotcha #1).
 // `PublishListaInput` is imported via `import type` above — never re-exported.
@@ -94,13 +93,12 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
 
   const deliveryInstructions = input.deliveryInstructions?.trim() || null;
   const excessReason = input.excessReason?.trim() || null;
-  // Reception contact (field-insight §3) — trim + length-cap the strings,
-  // normalize the phone to E.164. All optional; empty → null.
+  // Reception contact (field-insight §3) — trim + length-cap the strings. The
+  // per-lista phone was dropped (#102 C2); donors see the center's phone.
   const receptionContactName =
     input.receptionContactName?.trim().slice(0, RECEPTION_NAME_MAX) || null;
   const receptionLandmark =
     input.receptionLandmark?.trim().slice(0, RECEPTION_LANDMARK_MAX) || null;
-  const receptionContactPhone = normalizeVePhone(input.receptionContactPhone);
 
   const itemValues = (targetListaId: string) =>
     input.items.map((it) => ({
@@ -154,7 +152,6 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
           deliveryInstructions,
           excessReason,
           receptionContactName,
-          receptionContactPhone,
           receptionLandmark,
           city: c?.city ?? null,
           categories,
@@ -177,7 +174,6 @@ export async function publishLista(input: PublishListaInput): Promise<void> {
             deliveryInstructions,
             excessReason,
             receptionContactName,
-            receptionContactPhone,
             receptionLandmark,
             publishedAt: sql`now()`,
             city: c?.city ?? null,

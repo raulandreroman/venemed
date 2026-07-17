@@ -132,6 +132,10 @@ test.describe("center auth + registration", () => {
       .getByLabel("Nota para los donantes")
       .fill("Entrada principal · Recepción de donaciones");
 
+    // Reception name is now required (#102 C1) — fill it before advancing, or
+    // "Siguiente" blocks with "Agrega el nombre de quien recibe."
+    await page.getByLabel("Quién recibe").fill("María Pérez");
+
     await page.getByRole("button", { name: "Siguiente" }).click();
 
     // Step 2: aviso de exceso — create one with a new excess item + a razón.
