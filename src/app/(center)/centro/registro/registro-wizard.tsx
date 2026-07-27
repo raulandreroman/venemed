@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
-import { createClient } from "@/lib/supabase/client";
+import { OTP_COOLDOWN_SECONDS, requestOtp } from "@/lib/auth/otp-request";
 import {
   normalizeEmail,
   type CreateCenterInput,
@@ -28,6 +28,8 @@ export function RegistroWizard({ mode }: { mode: Mode }) {
   const [lastInput, setLastInput] = useState<CreateCenterInput | null>(null);
   const [otpEmail, setOtpEmail] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+  const [otpCooldown, setOtpCooldown] = useState(OTP_COOLDOWN_SECONDS);
+  const [otpNotice, setOtpNotice] = useState<string | null>(null);
   const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
   const captchaRef = useRef<CaptchaHandle>(null);
 
@@ -58,29 +60,20 @@ export function RegistroWizard({ mode }: { mode: Mode }) {
         throw new Error("invalid-email");
       }
       setOtpEmail(email);
-      const supabase = createClient();
-      let captchaToken: string | undefined;
-      try {
-        captchaToken = await captchaRef.current?.getToken();
-      } catch {
-        setSendError(
-          "No pudimos verificar que no eres un robot. Recarga e inténtalo de nuevo.",
-        );
-        throw new Error("captcha-failed");
-      }
-      const { error } = await supabase.auth.signInWithOtp({
+      const result = await requestOtp({
         email,
-        options: { captchaToken },
+        getCaptchaToken: () =>
+          captchaRef.current?.getToken() ?? Promise.resolve(undefined),
       });
-      if (error) {
-        setSendError(
-          error.status === 429
-            ? "Demasiados intentos. Inténtalo de nuevo en un momento."
-            : "No pudimos enviar el código. Inténtalo de nuevo en un momento.",
-        );
+      if (result.status === "error" && !result.codeAlreadySent) {
+        setSendError(result.message);
         // Keep the form mounted; the shared form's finally re-enables the button.
         throw new Error("otp-send-failed");
       }
+      // Reused / already-sent code: advance anyway so a datos → otp → datos
+      // round-trip inside the 60s window can still finish with the live code.
+      setOtpCooldown(result.cooldown);
+      setOtpNotice(result.status === "error" ? result.message : result.notice);
       setStep("otp");
     },
     [mode],
@@ -94,6 +87,8 @@ export function RegistroWizard({ mode }: { mode: Mode }) {
         backToChangeNumber
         onChangeNumber={() => setStep("datos")}
         onVerified={submitWrite}
+        initialResendIn={otpCooldown}
+        notice={otpNotice}
         stepLabel="2 de 3"
         progressSlot={<Stepper current={2} label="Verifica tu correo" />}
       />
