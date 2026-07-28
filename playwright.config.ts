@@ -2,7 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 import { config as loadEnv } from "dotenv";
 
 // Load .env.local into the test-runner process so gated specs (center.spec)
-// see TEST_OTP_CODE / TEST_CENTER_PHONE and RUN instead of skipping. Next.js
+// see their TEST_*_EMAIL identities and RUN instead of skipping. The OTP itself
+// is not an env var — e2e/_mail.ts reads the real code from Mailpit. Next.js
 // already loads .env.local for the webServer; the Playwright runner does not.
 // dotenv does NOT override vars already in process.env, so CI (which sets these
 // as job-level env) is unaffected.

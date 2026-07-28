@@ -299,6 +299,13 @@ fresh in the CI DB. (See §9 fallback.)
 
 ## 7. `e2e/center.spec.ts` — GATED on `TEST_OTP_CODE`
 
+> ⚠️ **Superseded (2026-07-28).** This section documents the original design and
+> no longer matches the code. There is no `TEST_OTP_CODE` and no fixed-code map:
+> `center.spec.ts` gates on the `TEST_*_EMAIL` identities and reads the REAL
+> 6-digit code from Mailpit via `e2e/_mail.ts` (`readEmailOtp`/`clearMailbox`).
+> The phone fields below (`TEST_CENTER_PHONE`) died with the email-OTP migration
+> (0008). See AGENTS.md → "Offline email OTP" for the current contract.
+
 Skips cleanly until the correct OTP is confirmed and added as a secret:
 
 ```ts
