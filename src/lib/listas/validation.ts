@@ -8,7 +8,6 @@
  */
 
 import { isListaItemUnit } from "@/lib/format";
-import { normalizeVePhone } from "@/lib/registro/validation";
 
 export const INSTRUCTIONS_MAX = 120;
 export const EXCESS_REASON_MAX = 40;
@@ -70,10 +69,10 @@ export function isValidQuantity(q: unknown): q is number {
 export type PublishListaInput = {
   deliveryInstructions?: string;
   excessReason?: string;
-  // Reception contact (field-insight §3): who to look for on arrival. All
-  // optional; the phone is published to the anonymous donor surface.
+  // Reception contact (field-insight §3): who to look for on arrival. The name
+  // is required (#102 C1); the per-lista phone was dropped — the donor-facing
+  // reception phone is the center's whatsapp_phone (#102 C2).
   receptionContactName?: string;
-  receptionContactPhone?: string;
   receptionLandmark?: string;
   items: PublishListaItemInput[];
   /** client-generated, stable per attempt → dedupes a double-submit. */
@@ -85,7 +84,6 @@ export type PublishFieldErrors = Partial<
     | "deliveryInstructions"
     | "excessReason"
     | "receptionContactName"
-    | "receptionContactPhone"
     | "receptionLandmark"
     | "items",
     string
@@ -105,18 +103,16 @@ export function validatePublishLista(
   if (excessReason.length > EXCESS_REASON_MAX)
     errors.excessReason = `Máximo ${EXCESS_REASON_MAX} caracteres.`;
 
-  // Reception contact — all optional; only length/format when present.
+  // Reception name is REQUIRED (#102 C1); landmark stays optional.
   const receptionName = input.receptionContactName?.trim() ?? "";
-  if (receptionName.length > RECEPTION_NAME_MAX)
+  if (receptionName.length === 0)
+    errors.receptionContactName = "Agrega el nombre de quien recibe.";
+  else if (receptionName.length > RECEPTION_NAME_MAX)
     errors.receptionContactName = `Máximo ${RECEPTION_NAME_MAX} caracteres.`;
 
   const receptionLandmark = input.receptionLandmark?.trim() ?? "";
   if (receptionLandmark.length > RECEPTION_LANDMARK_MAX)
     errors.receptionLandmark = `Máximo ${RECEPTION_LANDMARK_MAX} caracteres.`;
-
-  const receptionPhone = input.receptionContactPhone?.trim() ?? "";
-  if (receptionPhone.length > 0 && !normalizeVePhone(receptionPhone))
-    errors.receptionContactPhone = "Teléfono inválido.";
 
   const items = input.items ?? [];
   const hasNeed = items.some((it) => it.bucket === "need");

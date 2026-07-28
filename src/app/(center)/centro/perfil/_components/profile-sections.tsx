@@ -226,7 +226,7 @@ export function ResponsableSection({
       // contract as the registro form's toInput).
       whatsappPhone: rawPhone
         ? (normalizeVePhone(rawPhone) ?? rawPhone)
-        : undefined,
+        : "",
     };
     const errs = validateResponsable(input);
     if (Object.keys(errs).length > 0) {
@@ -312,7 +312,7 @@ export function ResponsableSection({
           htmlFor="perfil-whatsapp"
           className="text-xs text-neutral-500"
         >
-          Teléfono de contacto (WhatsApp) · opcional
+          Teléfono de contacto (WhatsApp)
         </label>
         <div
           className={`flex overflow-hidden rounded-md border-[1.5px] ${
@@ -329,7 +329,7 @@ export function ResponsableSection({
             type="tel"
             inputMode="numeric"
             autoComplete="tel-national"
-            placeholder="412 000 0000"
+            placeholder="0412 000 0000"
             value={values.whatsappPhone}
             onChange={(e) => set("whatsappPhone")(e.target.value)}
             aria-invalid={errors.whatsappPhone ? true : undefined}

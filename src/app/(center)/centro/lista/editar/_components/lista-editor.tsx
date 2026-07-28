@@ -20,8 +20,6 @@ import {
   RECEPTION_NAME_MAX,
   type PublishListaInput,
 } from "@/lib/listas/validation";
-import { vePhoneToNational } from "@/lib/registro/validation";
-
 import { InsumoSelector } from "./insumo-selector";
 
 /** A donation item chosen in the editor: a catalog supply (supplyId+name) or a
@@ -108,9 +106,6 @@ export function ListaEditor({
   // center's current lista; the phone shows as national digits (E.164 stored).
   const [receptionName, setReceptionName] = useState(
     initial?.receptionContactName ?? "",
-  );
-  const [receptionPhone, setReceptionPhone] = useState(
-    vePhoneToNational(initial?.receptionContactPhone),
   );
   const [receptionLandmark, setReceptionLandmark] = useState(
     initial?.receptionLandmark ?? "",
@@ -217,10 +212,16 @@ export function ListaEditor({
       setError("Agrega al menos un insumo.");
       return;
     }
+    // Reception name is required (#102 C1) — surface it here (on step 1, where
+    // the field lives) before the publish action re-validates server-side.
+    if (receptionName.trim().length === 0) {
+      setError("Agrega el nombre de quien recibe.");
+      return;
+    }
     setError(null);
     setExcessView(excessItems.length > 0 ? "form" : "intro");
     setStep(2);
-  }, [needItems, excessItems]);
+  }, [needItems, excessItems, receptionName]);
 
   const backToStep1 = useCallback(() => setStep(1), []);
 
@@ -253,7 +254,6 @@ export function ListaEditor({
         deliveryInstructions: nota.trim() || undefined,
         excessReason: includeExcess ? excessReason.trim() || undefined : undefined,
         receptionContactName: receptionName.trim() || undefined,
-        receptionContactPhone: receptionPhone.trim() || undefined,
         receptionLandmark: receptionLandmark.trim() || undefined,
         items,
         idempotencyKey: idempotencyKey.current,
@@ -273,7 +273,6 @@ export function ListaEditor({
       nota,
       excessReason,
       receptionName,
-      receptionPhone,
       receptionLandmark,
     ],
   );
@@ -345,7 +344,7 @@ export function ListaEditor({
 
           <section>
             <h2 className="text-lg font-bold text-neutral-900">
-              Recepción de donaciones (opcional)
+              Recepción de donaciones
             </h2>
             <p className="mt-1 text-sm text-neutral-500">
               Para que el donante sepa a quién buscar al llegar.
@@ -368,27 +367,6 @@ export function ListaEditor({
                   placeholder="Ej: María Pérez"
                   className="mt-1.5 h-[52px] w-full rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
                 />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="reception-phone"
-                  className="text-sm font-medium text-neutral-700"
-                >
-                  Teléfono de quien recibe
-                </label>
-                <input
-                  id="reception-phone"
-                  type="tel"
-                  inputMode="tel"
-                  value={receptionPhone}
-                  onChange={(e) => setReceptionPhone(e.target.value)}
-                  placeholder="Ej: 412 555 0034"
-                  className="mt-1.5 h-[52px] w-full rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-base text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-2 focus:border-accent focus:ring-2 focus:ring-accent/30"
-                />
-                <p className="mt-1.5 text-xs text-neutral-400">
-                  Será visible públicamente para los donantes.
-                </p>
               </div>
 
               <div>

@@ -348,7 +348,9 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       deliveryInstructions: lista.deliveryInstructions,
       excessReason: lista.excessReason,
       receptionContactName: lista.receptionContactName,
-      receptionContactPhone: lista.receptionContactPhone,
+      // #102 C2: the donor-facing reception phone is the center's whatsapp_phone
+      // (the per-lista phone was dropped); repointed here so consumers are unchanged.
+      receptionContactPhone: center.whatsappPhone,
       receptionLandmark: lista.receptionLandmark,
       categories: lista.categories,
       publishedAt: lista.publishedAt,
@@ -532,7 +534,8 @@ export async function getCenterDashboardLista(
       updatedAt: lista.updatedAt,
       addressLine: center.addressLine,
       receptionContactName: lista.receptionContactName,
-      receptionContactPhone: lista.receptionContactPhone,
+      // #102 C2: reception phone = the center's whatsapp_phone (share text).
+      receptionContactPhone: center.whatsappPhone,
       receptionLandmark: lista.receptionLandmark,
     })
     .from(lista)
@@ -687,7 +690,8 @@ export async function getCenterListaById(
       updatedAt: lista.updatedAt,
       deliveryInstructions: lista.deliveryInstructions,
       receptionContactName: lista.receptionContactName,
-      receptionContactPhone: lista.receptionContactPhone,
+      // #102 C2: reception phone = the center's whatsapp_phone (share text).
+      receptionContactPhone: center.whatsappPhone,
       receptionLandmark: lista.receptionLandmark,
       addressLine: center.addressLine,
       addressReference: center.addressReference,

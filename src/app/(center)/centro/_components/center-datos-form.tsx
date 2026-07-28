@@ -68,7 +68,7 @@ export function toInput(d: CenterDatosValues): CreateCenterInput {
     regularScheduleText: d.regularScheduleText || undefined,
     whatsappPhone: rawPhone
       ? (normalizeVePhone(rawPhone) ?? rawPhone)
-      : undefined,
+      : "",
     responsibleName: d.responsibleName,
     cargo: d.cargo || undefined,
   };
@@ -441,7 +441,7 @@ function PhoneField({
         htmlFor="whatsappPhone"
         className="block text-sm font-medium text-neutral-700"
       >
-        Teléfono de contacto (WhatsApp) · opcional
+        Teléfono de contacto (WhatsApp)
       </label>
       <div
         className={`mt-2 flex overflow-hidden rounded-md border-[1.5px] ${
@@ -458,7 +458,7 @@ function PhoneField({
           type="tel"
           inputMode="numeric"
           autoComplete="tel-national"
-          placeholder="412 000 0000"
+          placeholder="0412 000 0000"
           value={value}
           onChange={onChange}
           aria-invalid={error ? true : undefined}
@@ -469,7 +469,7 @@ function PhoneField({
         <p className="mt-1.5 text-sm text-error">{error}</p>
       ) : (
         <p className="mt-1.5 text-xs text-neutral-500">
-          Para coordinar la entrega. Puedes dejarlo en blanco.
+          Para coordinar la entrega.
         </p>
       )}
     </div>

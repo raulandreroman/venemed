@@ -30,7 +30,7 @@ export const CENTER_TYPE_OPTIONS: { value: CenterType; label: string }[] = [
 
 const CENTER_TYPE_VALUES = CENTER_TYPE_OPTIONS.map((o) => o.value);
 
-/** The validated, server-bound payload. `whatsappPhone` is an OPTIONAL,
+/** The validated, server-bound payload. `whatsappPhone` is a REQUIRED (#102),
  * unverified contact number (E.164 "+58…" once normalized) for delivery
  * coordination — auth is via email, so it's no longer tied to the session. */
 export type CreateCenterInput = {
@@ -42,7 +42,7 @@ export type CreateCenterInput = {
   addressLine: string;
   addressReference?: string;
   regularScheduleText?: string;
-  whatsappPhone?: string;
+  whatsappPhone: string;
   responsibleName: string;
   cargo?: string; // responsable's role/title, optional (Figma "Cargo")
 };
@@ -85,6 +85,19 @@ export function normalizeVePhone(raw: string | undefined | null): string | null 
  */
 export function vePhoneToNational(e164: string | undefined | null): string {
   return (e164 ?? "").replace(/\D/g, "").replace(/^58/, "");
+}
+
+/**
+ * Like `vePhoneToNational` but re-adds the national trunk "0" for DISPLAY in the
+ * editable phone field (#102 Part B), so what the user sees matches what they
+ * type ("0424…"). Empty stays empty — never fabricate a "0" for a blank field.
+ * Storage stays canonical E.164 (no "0"); the "0" is display-only.
+ */
+export function vePhoneToNationalDisplay(
+  e164: string | undefined | null,
+): string {
+  const national = vePhoneToNational(e164);
+  return national ? `0${national}` : "";
 }
 
 function len(v: string | undefined): number {
@@ -133,8 +146,10 @@ export function validateRegistro(
       "El horario no debe superar 120 caracteres.";
   }
 
-  // WhatsApp is now an OPTIONAL contact field — only validate a non-empty value.
-  if (len(input.whatsappPhone) > 0 && !normalizeVePhone(input.whatsappPhone)) {
+  // WhatsApp is REQUIRED again (#102) — the coordination channel for donations.
+  if (len(input.whatsappPhone) === 0) {
+    errors.whatsappPhone = "Ingresa el número de contacto (WhatsApp).";
+  } else if (!normalizeVePhone(input.whatsappPhone)) {
     errors.whatsappPhone = "Ingresa un número de teléfono válido.";
   }
 
