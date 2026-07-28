@@ -110,7 +110,9 @@ export function RegistroWizard({
   if (step === "intro") {
     return (
       <>
-        <AppBar title="Registro" backHref="/centro/login" />
+        {/* R0 is entered from the public home CTA, so back returns there —
+            not to login, which is a sibling entry point, not the parent. */}
+        <AppBar title="Registro" backHref="/" />
         <main className="flex flex-1 flex-col px-6 pb-6 pt-2">
           {/* Centered composition (medallion → título → qué pedimos), with the
               action block pinned to the bottom. */}
