@@ -14,7 +14,7 @@ export default async function RegistroPage() {
   const session = await getCurrentCenter();
 
   if (session.kind === "center") {
-    redirect(ROUTE_BY_STATUS[session.center.status] ?? "/centro/en-revision");
+    redirect(ROUTE_BY_STATUS[session.center.status] ?? "/centro");
   }
 
   if (session.kind === "no-membership") {

@@ -20,7 +20,6 @@ export default async function EditarListaPage({
   searchParams: Promise<{ paso?: string }>;
 }) {
   const center = await requireCenter();
-  if (center.status === "pending_review") redirect("/centro/en-revision");
   if (center.status === "rejected" || center.status === "suspended") {
     redirect("/centro/rechazado");
   }

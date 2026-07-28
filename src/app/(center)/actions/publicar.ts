@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { center, lista, listaItem, supply, supplyCategory } from "@/db/schema";
 import { requireCenter } from "@/lib/auth/require-center";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
+import { canManageLista } from "@/lib/auth/lista-access";
 import { DEFAULT_LISTA_ITEM_UNIT, categoryLabel, isListaItemUnit } from "@/lib/format";
 import {
   RECEPTION_LANDMARK_MAX,
@@ -25,9 +26,10 @@ import { normalizeVePhone } from "@/lib/registro/validation";
  * Publish (create OR edit) the logged-in center's single evergreen lista
  * (lista-model-v2: one live lista per center, no windows). Authorization
  * derives from `requireCenter()` (session → membership → centerId); a
- * client-supplied center id is never trusted (Drizzle bypasses RLS). Only
- * `approved` centers may publish. The full payload is re-validated
- * server-side (defense-in-depth).
+ * client-supplied center id is never trusted (Drizzle bypasses RLS). Both
+ * `approved` and `pending_review` centers may publish — moderation ranks and
+ * labels a lista on the donor surface, it does not block it. The full payload
+ * is re-validated server-side (defense-in-depth).
  *
  * Resolves the center's existing `active|paused` row first: if found, this is
  * an EDIT (last-write-wins — update the lista's fields + fully replace its
@@ -38,10 +40,11 @@ import { normalizeVePhone } from "@/lib/registro/validation";
  * returns on the happy path (redirect throws).
  */
 export async function publishLista(input: PublishListaInput): Promise<void> {
-  // (1) Resolve session/authz. Only approved centers publish.
+  // (1) Resolve session/authz. Pending centers publish (unverified); only
+  //     rejected/suspended ones are turned away.
   const current = await requireCenter();
-  if (current.status !== "approved") {
-    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
+  if (!canManageLista(current.status)) {
+    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/rechazado");
   }
   const { centerId } = current;
 

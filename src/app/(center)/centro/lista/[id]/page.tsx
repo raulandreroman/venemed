@@ -23,7 +23,6 @@ export default async function CenterRequestDetailPage({
 }) {
   const { id } = await params;
   const center = await requireCenter();
-  if (center.status === "pending_review") redirect("/centro/en-revision");
   if (center.status === "rejected" || center.status === "suspended") {
     redirect("/centro/rechazado");
   }

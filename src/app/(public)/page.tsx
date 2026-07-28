@@ -111,6 +111,11 @@ export default async function HomePage({
     sp.search || sp.state || (CENTER_TYPE_ENABLED && sp.type) || sp.category,
   );
 
+  // The feed already orders verified-first; splitting it lets the unverified
+  // block carry its own separator instead of blending into the directory.
+  const verified = requests.filter((r) => r.verified);
+  const unverified = requests.filter((r) => !r.verified);
+
   return (
     <>
       {/* Header */}
@@ -208,9 +213,27 @@ export default async function HomePage({
         </div>
 
         {requests.length > 0 ? (
-          requests.map((request) => (
-            <RequestCard key={request.id} request={request} />
-          ))
+          <>
+            {verified.map((request) => (
+              <RequestCard key={request.id} request={request} />
+            ))}
+            {unverified.length > 0 && (
+              <>
+                {/* Unverified centers publish immediately but never mix into
+                    the vetted block — the query already sorts them last. */}
+                <div className="flex items-center gap-3 pt-2">
+                  <span className="h-px flex-1 bg-neutral-200" />
+                  <p className="text-xs font-medium text-neutral-500">
+                    Sin verificar aún
+                  </p>
+                  <span className="h-px flex-1 bg-neutral-200" />
+                </div>
+                {unverified.map((request) => (
+                  <RequestCard key={request.id} request={request} />
+                ))}
+              </>
+            )}
+          </>
         ) : (
           <EmptyState hasFilters={hasFilters} />
         )}
