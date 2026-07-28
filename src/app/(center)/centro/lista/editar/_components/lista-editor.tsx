@@ -98,6 +98,9 @@ export function ListaEditor({
   // excess data — only a fresh create with no prior excess may omit it
   // entirely (validator correction #5).
   const hadInitialExcess = initialExcess.length > 0;
+  // Editing a published lista (vs a fresh create). On edit the excess step
+  // collapses its two publish buttons into a single "Actualizar lista" (#106).
+  const isEdit = initial !== null;
 
   const [step, setStep] = useState<1 | 2>(initialStep);
   const [needItems, setNeedItems] = useState<SelectedItem[]>(initialNeed);
@@ -262,11 +265,16 @@ export function ListaEditor({
         await publishLista(input); // always ends in redirect()
       } catch (e) {
         if (isNextRedirectError(e)) throw e; // let Next navigate
-        setError("No pudimos publicar la lista. Inténtalo de nuevo.");
+        setError(
+          isEdit
+            ? "No pudimos actualizar la lista. Inténtalo de nuevo."
+            : "No pudimos publicar la lista. Inténtalo de nuevo.",
+        );
         setPending(false);
       }
     },
     [
+      isEdit,
       hadInitialExcess,
       needItems,
       excessItems,
@@ -484,7 +492,7 @@ export function ListaEditor({
               disabled={pending}
               onClick={() => handlePublish(false)}
             >
-              {pending ? "Publicando…" : "Ahora no"}
+              {pending ? (isEdit ? "Actualizando…" : "Publicando…") : "Ahora no"}
             </Button>
           </footer>
         </>
@@ -550,23 +558,36 @@ export function ListaEditor({
           </main>
 
           <footer className="sticky bottom-0 z-20 flex flex-col gap-2 border-t border-neutral-100 bg-background px-4 py-3">
-            <Button
-              type="button"
-              fullWidth
-              disabled={pending}
-              onClick={() => handlePublish(true)}
-            >
-              {pending ? "Publicando…" : "Publicar aviso"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              fullWidth
-              disabled={pending}
-              onClick={() => handlePublish(false)}
-            >
-              Continuar sin aviso de exceso
-            </Button>
+            {isEdit ? (
+              <Button
+                type="button"
+                fullWidth
+                disabled={pending}
+                onClick={() => handlePublish(excessItems.length > 0)}
+              >
+                {pending ? "Actualizando…" : "Actualizar lista"}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  fullWidth
+                  disabled={pending}
+                  onClick={() => handlePublish(true)}
+                >
+                  {pending ? "Publicando…" : "Publicar aviso"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  fullWidth
+                  disabled={pending}
+                  onClick={() => handlePublish(false)}
+                >
+                  Continuar sin aviso de exceso
+                </Button>
+              </>
+            )}
           </footer>
         </>
       )}

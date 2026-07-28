@@ -140,7 +140,9 @@ test.describe("center auth + registration", () => {
     await page.getByRole("button", { name: "Sábanas clínicas" }).click();
     await page.getByRole("button", { name: /Agregar \d+ insumos?/ }).click();
     await page.getByLabel("Razón del aviso de exceso").fill("Depósito lleno.");
-    await page.getByRole("button", { name: "Publicar aviso" }).click();
+    // Editing an existing lista → the excess step shows a single "Actualizar
+    // lista" button instead of the create flow's "Publicar aviso" (#106).
+    await page.getByRole("button", { name: "Actualizar lista" }).click();
 
     // The POINT (gotcha #2): the action must actually run, commit + redirect.
     await page.waitForURL(/\/centro\/lista\/[^/]+\/publicada$/, {
