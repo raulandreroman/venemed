@@ -154,13 +154,13 @@ test.describe("center auth + registration", () => {
     // /centro/lista/<id>/publicada → grab <id> for the reconfirm step below.
     const listaId = new URL(page.url()).pathname.split("/")[3];
 
-    // Donor list reflects the edit (active-listas tag revalidated). The
-    // list is ISR (stale-while-revalidate), so re-navigate until the
+    // Donor home reflects the edit (active-listas tag revalidated). The
+    // feed is ISR (stale-while-revalidate), so re-navigate until the
     // regenerated HTML carries the new item.
     await expect
       .poll(
         async () => {
-          await page.goto("/listas", { waitUntil: "networkidle" });
+          await page.goto("/", { waitUntil: "networkidle" });
           return page.getByText(itemName).count();
         },
         { timeout: 45_000, intervals: [1000, 2000, 3000, 5000] },
@@ -215,7 +215,7 @@ test.describe("center auth + registration", () => {
     await expect
       .poll(
         async () => {
-          await page.goto("/listas", { waitUntil: "networkidle" });
+          await page.goto("/", { waitUntil: "networkidle" });
           return page.getByText(itemName).count();
         },
         { timeout: 75_000, intervals: [2000, 3000, 5000, 5000] },

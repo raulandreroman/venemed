@@ -49,7 +49,7 @@ export type ListaSort = "recent" | "alphabetical"; // Reciente | Alfabético
 
 export type ListaFilters = {
   search?: string; // matches center name, city, or item name
-  city?: string; // lista.city
+  state?: string; // center.state — the donor "Estado" facet (24 federal entities)
   type?: string; // center.type enum value
   category?: string; // a donor-facing CATEGORY_GROUPS key (e.g. "medical", "food")
   sort?: ListaSort; // default "recent"
@@ -82,6 +82,7 @@ type ListaBase = {
  * Necesitamos / No aceptamos) so RequestCard stays dumb.
  */
 export type ListaCardData = ListaBase & {
+  state: string | null; // center.state — powers the donor "Estado" facet
   urgentItems: ListaItemData[]; // bucket=need & isUrgent
   needItems: ListaItemData[]; // bucket=need & !isUrgent
   excessItems: ListaItemData[]; // bucket=excess
@@ -178,6 +179,7 @@ async function queryActiveListas(
       centerName: center.name,
       centerDescription: center.description,
       centerType: center.type,
+      state: center.state,
     })
     .from(lista)
     .innerJoin(center, eq(center.id, lista.centerId))
@@ -185,7 +187,7 @@ async function queryActiveListas(
       and(
         eq(lista.status, "active"),
         eq(center.status, "approved"),
-        filters.city ? eq(lista.city, filters.city) : undefined,
+        filters.state ? eq(center.state, filters.state) : undefined,
         filters.type
           ? eq(center.type, filters.type as typeof center.type.enumValues[number])
           : undefined,
@@ -202,6 +204,7 @@ async function queryActiveListas(
           ? or(
               ilike(center.name, searchPattern),
               ilike(lista.city, searchPattern),
+              ilike(center.state, searchPattern),
               sql`EXISTS (
                 SELECT 1 FROM ${listaItem} li
                 LEFT JOIN ${supply} s ON s.id = li.supply_id
@@ -267,6 +270,7 @@ async function queryActiveListas(
     return {
       id: r.id,
       city: r.city,
+      state: r.state,
       centerName: r.centerName,
       centerDescription: r.centerDescription,
       centerType: r.centerType,
@@ -290,7 +294,7 @@ export function getActiveListas(
 ): Promise<ListaCardData[]> {
   const normalized: ListaFilters = {
     search: filters.search?.trim().toLowerCase() || undefined,
-    city: filters.city || undefined,
+    state: filters.state || undefined,
     type: filters.type || undefined,
     category: filters.category || undefined,
     sort: filters.sort === "alphabetical" ? "alphabetical" : "recent",

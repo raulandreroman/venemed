@@ -15,7 +15,7 @@ A **list-based medical-aid platform for Venezuela**. Health centers (hospitals, 
 > **Model history**: VeneMed began *time-windowed* (per-request *solicitudes* with a 12/24/48h countdown + expiry cron). It pivoted to the evergreen **lista** model above — `request`→`lista`, one lista per center, freshness instead of expiry, per-item urgency, excess folded in as an item bucket. Canonical model: [`docs/specs/lista-model-v2.md`](docs/specs/lista-model-v2.md). Treat any lingering "solicitud / ventana / countdown / expiry" reference as removed.
 
 **Three surfaces:**
-- **Donor (public, no auth)** — landing, active-listas list (**one card per center**), lista detail (as a bottom-sheet). The surge lands here → it's CDN-cached.
+- **Donor (public, no auth)** — home (hero + search + facet dropdowns + the full active-listas feed, **one card per center** — there is no separate `/listas` index; it permanently redirects to `/`), lista detail. The surge lands here → it's CDN-cached.
 - **Center (back office, auth)** — registration, email-OTP login, one-lista dashboard (freshness card + Urgente/Necesitamos/No aceptamos), create-once/edit editor, team roles + invitations, edit center data, reception toggle.
 - **Admin (moderation)** — vets centers (`pending_review → approved/rejected`). Built (login + queue + review + approve/reject).
 
@@ -72,8 +72,9 @@ pnpm supabase:stop    # tear down when done (data persists across start/stop)
 ```
 src/
   app/
-    (public)/            # donor surface → "/", /listas, /listas/[id]  (one card per center)
-      listas/[id]/       # detail; opens as an INTERCEPTED bottom-sheet (@modal) over the list, full-page on direct load
+    (public)/            # donor surface → "/" (hero + filters + full feed), /listas/[id]
+      _components/       # feed controls: search-box, filter-select (categoría/sector/estado/orden)
+      listas/[id]/       # lista detail (full page). "/listas" 308s to "/"
     (center)/            # back office (gated by middleware)
       centro/{login,registro,editar,en-revision,rechazado,perfil,lista,equipo,unirse}/ + centro (dashboard)
     actions/             # "use server" actions (auth, registro, editar, publicar/gestionar lista, share, team)

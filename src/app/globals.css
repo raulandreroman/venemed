@@ -31,7 +31,7 @@
   --color-neutral-800: #1f2937; /* strong text */
   --color-neutral-700: #374151; /* secondary text */
   --color-neutral-600: #4b5563; /* body text */
-  --color-neutral-500: #6b7280; /* tertiary text */
+  --color-neutral-500: #525b69; /* tertiary text — 6.86:1 on white (was #6b7280, 4.83:1) */
   --color-neutral-400: #9aa2b1; /* placeholder / muted */
   --color-neutral-300: #c4cad4; /* borders */
   --color-neutral-200: #dde1e8; /* borders / track */
