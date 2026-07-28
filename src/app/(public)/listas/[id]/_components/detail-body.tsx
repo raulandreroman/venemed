@@ -82,6 +82,8 @@ function ActiveDetailBody({ req }: { req: ListaDetailData }) {
 
       <IdentityBlock req={req} />
 
+      {!req.verified && <UnverifiedNotice />}
+
       <AddressCard req={req} className="mt-4" />
 
       <Divider />
@@ -103,6 +105,8 @@ function ClosedDetailBody({ req }: { req: ListaDetailData }) {
   return (
     <>
       <IdentityBlock req={req} />
+
+      {!req.verified && <UnverifiedNotice />}
 
       <AddressCard req={req} className="mt-4" />
 
@@ -163,6 +167,25 @@ function ClosedDetailBody({ req }: { req: ListaDetailData }) {
 
 // ---- shared bits -----------------------------------------------------------
 
+/**
+ * Shown when the center is still `pending_review`. It can publish and share
+ * from day one, so the donor is the one who needs the caveat: the identity of
+ * this center has not been confirmed by a moderator yet.
+ */
+function UnverifiedNotice() {
+  return (
+    <div className="mt-4 rounded-2xl border border-warning/20 bg-warning-tint p-4">
+      <p className="text-[15px] font-semibold text-neutral-900">
+        Este centro aún no ha sido verificado
+      </p>
+      <p className="mt-1 text-sm leading-relaxed text-neutral-700">
+        Nuestro equipo todavía no confirma su identidad. Si vas a donar,
+        contáctalo antes y confirma que la ayuda llega a donde dice.
+      </p>
+    </div>
+  );
+}
+
 /** Avatar + center name + "Verificado" / reception status tags. */
 function IdentityBlock({ req }: { req: ListaDetailData }) {
   const { center } = req;
@@ -173,11 +196,13 @@ function IdentityBlock({ req }: { req: ListaDetailData }) {
         {req.centerName}
       </h1>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {center.verifiedAt && (
+        {req.verified ? (
           <Tag variant="fulfilled">
             <CheckGlyph size={12} />
             Verificado
           </Tag>
+        ) : (
+          <Tag variant="soon">Sin verificar</Tag>
         )}
         {receiving ? (
           <Tag variant="fulfilled" dot>

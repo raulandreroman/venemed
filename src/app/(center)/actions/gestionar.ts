@@ -7,6 +7,7 @@ import { notFound, redirect } from "next/navigation";
 import { db } from "@/db";
 import { center, lista } from "@/db/schema";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
+import { canManageLista } from "@/lib/auth/lista-access";
 import { requireCenter } from "@/lib/auth/require-center";
 
 // NOTE: a "use server" module may export ONLY async functions (gotcha #1).
@@ -33,8 +34,8 @@ function revalidateLista(listaId: string): void {
  */
 export async function finalizeLista(listaId: string): Promise<void> {
   const current = await requireCenter();
-  if (current.status !== "approved") {
-    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
+  if (!canManageLista(current.status)) {
+    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/rechazado");
   }
   const { centerId } = current;
 
@@ -73,8 +74,8 @@ export async function finalizeLista(listaId: string): Promise<void> {
  */
 export async function reactivateLista(listaId: string): Promise<void> {
   const current = await requireCenter();
-  if (current.status !== "approved") {
-    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
+  if (!canManageLista(current.status)) {
+    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/rechazado");
   }
   const { centerId } = current;
 
@@ -157,8 +158,8 @@ function isUniqueViolation(err: unknown): boolean {
  */
 export async function confirmVigente(): Promise<void> {
   const current = await requireCenter();
-  if (current.status !== "approved") {
-    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
+  if (!canManageLista(current.status)) {
+    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/rechazado");
   }
   const { centerId } = current;
 

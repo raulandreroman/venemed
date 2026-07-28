@@ -24,15 +24,19 @@ export function RequestCard({ request }: { request: ListaCardData }) {
       data-testid="request-card"
       data-center-name={request.centerName}
       data-has-urgent={request.hasUrgent || undefined}
+      data-verified={request.verified || undefined}
     >
       {/* header pills */}
       <div className="flex items-center justify-between gap-2">
         {request.city ? <Tag variant="neutral">{request.city}</Tag> : <span />}
-        {request.hasUrgent && (
-          <Tag variant="urgent" dot>
-            Urgente
-          </Tag>
-        )}
+        <div className="flex items-center gap-1.5">
+          {!request.verified && <Tag variant="soon">Sin verificar</Tag>}
+          {request.hasUrgent && (
+            <Tag variant="urgent" dot>
+              Urgente
+            </Tag>
+          )}
+        </div>
       </div>
 
       {/* center */}

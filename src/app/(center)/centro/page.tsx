@@ -15,6 +15,7 @@ import { FreshnessCard } from "./_components/freshness-card";
 import { ModoOperadorBanner } from "./_components/modo-operador-banner";
 import { ReactivateButton } from "./_components/reactivate-button";
 import { ShareListaButton } from "./_components/share-lista-button";
+import { VerificacionBanner } from "./_components/verificacion-banner";
 
 const EDITOR_HREF = "/centro/lista/editar";
 
@@ -26,15 +27,19 @@ const EDITOR_HREF = "/centro/lista/editar";
  */
 export default async function CenterDashboardPage() {
   const center = await requireCenter();
-  if (center.status === "pending_review") redirect("/centro/en-revision");
   if (center.status === "rejected" || center.status === "suspended") {
     redirect("/centro/rechazado");
   }
-  // status === "approved" → render dashboard
+  // approved AND pending_review both render the dashboard — a center awaiting
+  // verification is not blocked, it just carries the banner (and its lista is
+  // labelled "Sin verificar" on the donor surface).
+  const unverified = center.status === "pending_review";
 
   // Only the Responsable (center_admin) can invite — the equipo page is
   // requireResponsable-gated, so an Operador shortcut would be a dead link.
-  const canInvite = center.role === "center_admin";
+  // Unverified centers can't invite either (team stays approved-only), so the
+  // affordance is hidden rather than left to bounce.
+  const canInvite = center.role === "center_admin" && !unverified;
 
   let lista;
   try {
@@ -42,11 +47,16 @@ export default async function CenterDashboardPage() {
   } catch {
     return (
       <>
-        <DashboardHeader centerName={center.centerName} canInvite={canInvite} />
+        <DashboardHeader
+          centerName={center.centerName}
+          canInvite={canInvite}
+          verified={!unverified}
+        />
         <ConnectionBanner />
-        {center.role === "center_member" && (
-          <div className="px-4 pt-4">
-            <ModoOperadorBanner />
+        {(unverified || center.role === "center_member") && (
+          <div className="flex flex-col gap-3 px-4 pt-4">
+            {unverified && <VerificacionBanner />}
+            {center.role === "center_member" && <ModoOperadorBanner />}
           </div>
         )}
         <DashboardError />
@@ -57,11 +67,16 @@ export default async function CenterDashboardPage() {
   if (!lista) {
     return (
       <>
-        <DashboardHeader centerName={center.centerName} canInvite={canInvite} />
+        <DashboardHeader
+          centerName={center.centerName}
+          canInvite={canInvite}
+          verified={!unverified}
+        />
         <ConnectionBanner />
-        {center.role === "center_member" && (
-          <div className="px-4 pt-4">
-            <ModoOperadorBanner />
+        {(unverified || center.role === "center_member") && (
+          <div className="flex flex-col gap-3 px-4 pt-4">
+            {unverified && <VerificacionBanner />}
+            {center.role === "center_member" && <ModoOperadorBanner />}
           </div>
         )}
         <EmptyState />
@@ -83,10 +98,16 @@ export default async function CenterDashboardPage() {
 
   return (
     <>
-      <DashboardHeader centerName={center.centerName} canInvite={canInvite} />
+      <DashboardHeader
+        centerName={center.centerName}
+        canInvite={canInvite}
+        verified={!unverified}
+      />
       <ConnectionBanner />
 
       <main className={`flex flex-1 flex-col gap-5 px-4 pb-24 pt-4 ${pageBg}`}>
+        {unverified && <VerificacionBanner />}
+
         <div>
           <p className="text-sm font-semibold text-neutral-900">
             {insumos} {insumos === 1 ? "insumo" : "insumos"} · {urgentes}{" "}
