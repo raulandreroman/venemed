@@ -9,7 +9,7 @@ const inter = Inter({
   display: "swap",
 });
 
-const title = "VeneMed — El puente directo entre tu ayuda y quien la necesita";
+const title = "VeneMed — El puente entre la ayuda y quien más la necesita";
 const description =
   "Comunidades organizadas publican lo que necesitan. Los donantes lo ven y lo comparten. Sin que nada se pierda.";
 

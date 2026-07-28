@@ -5,9 +5,12 @@ const nextConfig: NextConfig = {
   /* config options here */
   // Donor share links to the old /solicitudes routes circulate indefinitely
   // (lista-model-v2 §5, decision D6) — keep this redirect permanently.
+  // The lista INDEX now lives on "/" (hero + filters + feed on one page), so
+  // /listas and /solicitudes both land there; /listas/<id> stays a real route.
   async redirects() {
     return [
-      { source: "/solicitudes", destination: "/listas", permanent: true },
+      { source: "/listas", destination: "/", permanent: true },
+      { source: "/solicitudes", destination: "/", permanent: true },
       { source: "/solicitudes/:path*", destination: "/listas/:path*", permanent: true },
     ];
   },

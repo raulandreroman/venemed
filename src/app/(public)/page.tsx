@@ -2,9 +2,26 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Button, Logo, RequestCard } from "@/components/ui";
-import { getActiveListas, getLandingStats } from "@/db/queries";
-import { LANDING_STATS_ENABLED } from "@/lib/flags";
-import { formatRelativeTime } from "@/lib/format";
+import {
+  getActiveListas,
+  getActiveListaCategories,
+  getLandingStats,
+  type ListaFilters,
+} from "@/db/queries";
+import { centerType } from "@/db/schema";
+import { CENTER_TYPE_ENABLED, LANDING_STATS_ENABLED } from "@/lib/flags";
+import {
+  CATEGORY_GROUPS,
+  CATEGORY_GROUP_ORDER,
+  categoryGroupOf,
+  centerTypeLabel,
+  formatRelativeTime,
+} from "@/lib/format";
+import { VE_STATES } from "@/lib/geo/ve-states";
+import type { CenterType } from "@/lib/registro/validation";
+
+import { FilterSelect } from "./_components/filter-select";
+import { SearchBox } from "./_components/search-box";
 
 // Surge-facing read path: ISR, regenerated at most once per minute.
 // Underlying queries are additionally memoized via unstable_cache.
@@ -16,33 +33,83 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-const STEPS = [
-  {
-    n: 1,
-    title: "El centro publica su lista",
-    body: "El solicitante detalla qué necesita, y qué no.",
-  },
-  {
-    n: 2,
-    title: "Donantes ven y comparten",
-    body: "Organizaciones o donantes individuales saben a dónde distribuir los recursos.",
-  },
-  {
-    n: 3,
-    title: "La lista se mantiene al día",
-    body: "Los centros confirman lo que sigue vigente; lo desactualizado baja de prioridad.",
-  },
-];
+type SearchParams = {
+  search?: string;
+  state?: string;
+  type?: string;
+  category?: string;
+  sort?: string;
+};
 
-export default async function LandingPage() {
-  const [stats, requests] = await Promise.all([
+/** Federal entities present in the feed, kept in the canonical VE_STATES order. */
+function statesPresent(values: (string | null | undefined)[]): string[] {
+  const present = new Set(values.filter((v): v is string => Boolean(v)));
+  return VE_STATES.filter((s) => present.has(s));
+}
+
+function uniqueSorted(values: (string | null | undefined)[]): string[] {
+  return Array.from(
+    new Set(values.filter((v): v is string => Boolean(v))),
+  ).sort((a, b) => a.localeCompare(b, "es"));
+}
+
+/**
+ * Donor home. The full lista feed lives here — hero, search, facets and cards on
+ * one page; there is no separate /listas index (it permanently redirects here).
+ */
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const sp = await searchParams;
+
+  const search = sp.search?.trim().slice(0, 64) || undefined;
+  const type =
+    CENTER_TYPE_ENABLED &&
+    (centerType.enumValues as readonly string[]).includes(sp.type ?? "")
+      ? sp.type
+      : undefined;
+
+  const filters: ListaFilters = {
+    search,
+    state: sp.state,
+    type,
+    category: sp.category,
+    sort: sp.sort === "alphabetical" ? "alphabetical" : "recent",
+  };
+
+  // Facets come from the FULL active feed (so an option never disappears while
+  // filtering); only the last call is narrowed by the donor's selection.
+  const [stats, allActive, activeCategories, requests] = await Promise.all([
     LANDING_STATS_ENABLED ? getLandingStats() : null,
-    getActiveListas(),
+    getActiveListas({}),
+    getActiveListaCategories(),
+    getActiveListas(filters),
   ]);
-  const featured = requests.slice(0, 3);
+
   const lastUpdated = stats?.lastUpdated
     ? formatRelativeTime(stats.lastUpdated)
     : "—";
+
+  const states = statesPresent(allActive.map((r) => r.state));
+  // Enum values present in the feed collapse into donor-facing GROUPS (the six
+  // medical departments become one «Medicinas» option) — field-insight §2.
+  const groupsPresent = new Set(activeCategories.map(categoryGroupOf));
+  const categoryOptions = CATEGORY_GROUP_ORDER.filter((g) =>
+    groupsPresent.has(g),
+  ).map((g) => ({ value: g, label: CATEGORY_GROUPS[g].label }));
+  const types = CENTER_TYPE_ENABLED
+    ? uniqueSorted(
+        allActive
+          .map((r) => r.centerType)
+          .filter((t): t is CenterType => t != null),
+      )
+    : [];
+
+  const hasFilters = Boolean(
+    sp.search || sp.state || (CENTER_TYPE_ENABLED && sp.type) || sp.category,
+  );
 
   return (
     <>
@@ -54,29 +121,29 @@ export default async function LandingPage() {
         </Link>
         <Link
           href="/centro"
-          className="rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 py-2 text-[15px] font-semibold text-neutral-900"
+          className="text-[15px] font-semibold text-accent hover:underline"
         >
-          Ingresar
+          Iniciar sesión
         </Link>
       </header>
 
-      {/* Hero */}
-      <section className="flex flex-col gap-5 bg-surface px-6 pb-8 pt-10">
+      {/* Hero — one block: the promise, who it is for, and the single action */}
+      <section className="flex flex-col items-center gap-4 border-b border-neutral-100 bg-surface px-6 pb-7 pt-9 text-center">
         <h1 className="text-[28px] font-bold leading-[34px] text-neutral-900">
-          El puente directo entre tu ayuda y quien la necesita.
+          El puente entre la ayuda y quien más la necesita.
         </h1>
         <p className="text-base leading-6 text-neutral-500">
-          Comunidades organizadas publican lo que necesitan. Los donantes lo ven
-          y lo comparten. Sin que nada se pierda.
+          Listas claras y fáciles de compartir para que la ayuda llegue de
+          forma eficiente.
         </p>
-        <Button href="/listas" variant="primary" fullWidth>
-          Ver listas activas
+        <Button href="/centro/registro" variant="primary" fullWidth>
+          Crear una lista
         </Button>
       </section>
 
       {/* Live stats (flag-gated, off by default) */}
       {stats && (
-        <section className="flex items-center justify-between border-y border-neutral-300 bg-surface px-6 py-4">
+        <section className="flex items-center justify-between border-b border-neutral-300 bg-surface px-6 py-4">
           <Stat value={String(stats.activeRequests)} label="listas" />
           <div className="h-8 w-px bg-neutral-300" />
           <Stat value={String(stats.approvedCenters)} label="centros" />
@@ -85,53 +152,68 @@ export default async function LandingPage() {
         </section>
       )}
 
-      {/* Cómo funciona */}
-      <section className="flex flex-col gap-4 bg-neutral-50 px-6 py-6">
-        <h2 className="text-[22px] font-bold text-neutral-900">Cómo funciona</h2>
-        <ol className="flex flex-col gap-4">
-          {STEPS.map((step) => (
-            <li key={step.n} className="flex items-center gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-base font-bold text-neutral-700">
-                {step.n}
-              </span>
-              <div className="flex flex-col gap-1">
-                <p className="text-base font-semibold text-neutral-900">
-                  {step.title}
-                </p>
-                <p className="text-sm leading-5 text-neutral-500">{step.body}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {/* Filtros — one control shape: search + dropdown pills */}
+      <section className="flex flex-col gap-3 bg-surface px-6 pb-4 pt-5">
+        <SearchBox />
 
-      {/* Featured active requests */}
-      <section className="flex flex-col gap-3 bg-surface px-6 pt-6">
-        {featured.map((req) => (
-          <RequestCard key={req.id} request={req} />
-        ))}
-        <Link
-          href="/listas"
-          className="flex items-center justify-center py-4 text-sm font-semibold text-accent"
-        >
-          Ver todas las listas  →
-        </Link>
-      </section>
-
-      {/* Center CTA */}
-      <section className="bg-surface p-6">
-        <div className="flex flex-col gap-3 rounded-2xl border border-accent-border bg-accent-subtle p-5">
-          <p className="text-lg font-semibold leading-6 text-neutral-900">
-            ¿Trabajas en un hospital, refugio o centro de acopio?
-          </p>
-          <p className="text-sm leading-5 text-neutral-700">
-            Crea una lista fácil de compartir que permitirá mayor claridad en las
-            donaciones.
-          </p>
-          <Button href="/centro" variant="primary" fullWidth>
-            Registrar mi centro
-          </Button>
+        <div className="-mx-6 flex gap-2 overflow-x-auto px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {categoryOptions.length > 0 && (
+            <FilterSelect
+              param="category"
+              label="Categoría"
+              placeholder="Todo"
+              allLabel="Todo"
+              options={categoryOptions}
+            />
+          )}
+          {types.length > 0 && (
+            <FilterSelect
+              param="type"
+              label="Sector"
+              placeholder="Sector"
+              allLabel="Todos los sectores"
+              options={types.map((t) => ({
+                value: t,
+                label: centerTypeLabel(t),
+              }))}
+            />
+          )}
+          {states.length > 0 && (
+            <FilterSelect
+              param="state"
+              label="Estado"
+              placeholder="Estado"
+              allLabel="Todos los estados"
+              options={states.map((s) => ({ value: s, label: s }))}
+            />
+          )}
         </div>
+      </section>
+
+      {/* Lista */}
+      <section className="flex flex-1 flex-col gap-3 bg-surface px-6 pb-6">
+        <div className="flex items-center justify-between gap-2 pb-1">
+          <p className="text-sm font-semibold text-neutral-900">
+            {requests.length === 1
+              ? "1 lista activa"
+              : `${requests.length} listas activas`}
+          </p>
+          <FilterSelect
+            param="sort"
+            label="Ordenar listas"
+            placeholder="Recientes"
+            allLabel="Recientes"
+            options={[{ value: "alphabetical", label: "A–Z" }]}
+          />
+        </div>
+
+        {requests.length > 0 ? (
+          requests.map((request) => (
+            <RequestCard key={request.id} request={request} />
+          ))
+        ) : (
+          <EmptyState hasFilters={hasFilters} />
+        )}
       </section>
 
       {/* Privacy reassurance */}
@@ -177,7 +259,7 @@ export default async function LandingPage() {
         <nav className="flex flex-wrap gap-[18px] pt-2 text-sm font-medium text-neutral-700">
           <Link href="/">Sobre</Link>
           <Link href="/centro">Centros</Link>
-          <Link href="/listas">Cómo ayudar</Link>
+          <Link href="/">Cómo ayudar</Link>
           <Link href="/privacidad">Privacidad</Link>
         </nav>
         <div className="flex gap-[18px] text-xs font-medium text-neutral-500">
@@ -188,6 +270,21 @@ export default async function LandingPage() {
         <p className="text-xs text-neutral-500">© 2026 VeneMed</p>
       </footer>
     </>
+  );
+}
+
+function EmptyState({ hasFilters }: { hasFilters: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-neutral-300 px-6 py-12 text-center">
+      <p className="text-base font-semibold text-neutral-900">
+        {hasFilters ? "No hay listas que coincidan" : "No hay listas activas"}
+      </p>
+      <p className="max-w-[260px] text-sm text-neutral-500">
+        {hasFilters
+          ? "Prueba con otros filtros o limpia la búsqueda."
+          : "Vuelve pronto: los centros publican nuevas listas con frecuencia."}
+      </p>
+    </div>
   );
 }
 
@@ -226,4 +323,3 @@ function ShieldIcon() {
     </svg>
   );
 }
-

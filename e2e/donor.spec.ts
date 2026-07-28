@@ -19,23 +19,27 @@ test.describe("donor surge path", () => {
     expect(errors, errors.map((e) => e.message).join("\n")).toEqual([]);
   });
 
-  test("landing renders hero + CTA", async ({ page }) => {
+  test("home renders hero + CTA + the lista feed controls", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: /El puente directo/ }),
+      page.getByRole("heading", { name: /El puente entre la ayuda/ }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: "Ver listas activas" }),
+      page.getByRole("link", { name: "Crear una lista" }),
+    ).toBeVisible();
+    // The feed lives on "/" now: search + the sort facet render inline.
+    await expect(page.getByRole("searchbox", { name: "Buscar listas" })).toBeVisible();
+    await expect(
+      page.getByRole("combobox", { name: "Ordenar listas" }),
     ).toBeVisible();
     await expectNoErrorOverlay(page);
   });
 
-  test("listas list renders", async ({ page }) => {
-    await page.goto("/");
-    await page.getByRole("link", { name: "Ver listas activas" }).click();
-    await expect(page).toHaveURL(/\/listas$/);
+  test("/listas permanently redirects to the home feed", async ({ page }) => {
+    await page.goto("/listas");
+    await expect(page).toHaveURL(/\/$/);
     await expect(
-      page.getByRole("heading", { name: "Listas activas" }),
+      page.getByRole("heading", { name: /El puente entre la ayuda/ }),
     ).toBeVisible();
     await expectNoErrorOverlay(page);
   });
@@ -43,7 +47,7 @@ test.describe("donor surge path", () => {
   test("Ver más opens the detail full page matching the card", async ({
     page,
   }) => {
-    await page.goto("/listas");
+    await page.goto("/");
     const cards = page.locator('[data-testid="request-card"]');
     const count = await cards.count();
     test.skip(count === 0, "no active requests available to open");

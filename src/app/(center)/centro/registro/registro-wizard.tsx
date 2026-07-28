@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
-import { AppBar, Button } from "@/components/ui";
+import { AppBar, Button, ConfirmDialog } from "@/components/ui";
 import { OTP_COOLDOWN_SECONDS, requestOtp } from "@/lib/auth/otp-request";
 import {
   normalizeEmail,
   type CreateCenterInput,
 } from "@/lib/registro/validation";
 import { OtpStep } from "../../_components/otp-step";
+import { signOutToRegistro } from "../../actions/auth";
 import { createCenterForCurrentUser } from "../../actions/registro";
 import {
   CenterDatosForm,
@@ -20,7 +21,15 @@ import {
 type Mode = "anon" | "authed";
 type Step = "intro" | "datos" | "otp";
 
-export function RegistroWizard({ mode }: { mode: Mode }) {
+export function RegistroWizard({
+  mode,
+  sessionEmail = null,
+}: {
+  mode: Mode;
+  /** Verified email pinned to the session in "authed" mode (shown so the user
+   * can tell which identity they are registering with, and switch away). */
+  sessionEmail?: string | null;
+}) {
   const [step, setStep] = useState<Step>(mode === "authed" ? "datos" : "intro");
   // Wizard owns the datos values so they survive the datos → otp → datos
   // round-trip (the shared form unmounts while the OTP step is on screen).
@@ -31,6 +40,8 @@ export function RegistroWizard({ mode }: { mode: Mode }) {
   const [otpCooldown, setOtpCooldown] = useState(OTP_COOLDOWN_SECONDS);
   const [otpNotice, setOtpNotice] = useState<string | null>(null);
   const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signOutPending, startSignOut] = useTransition();
   const captchaRef = useRef<CaptchaHandle>(null);
 
   const submitWrite = useCallback(async () => {
@@ -99,53 +110,42 @@ export function RegistroWizard({ mode }: { mode: Mode }) {
   if (step === "intro") {
     return (
       <>
-        <AppBar title="Registrar centro" backHref="/centro/login" />
-        <main className="flex flex-1 flex-col p-4">
-          <h1 className="text-2xl font-bold text-neutral-900">
-            Crea la cuenta de tu centro
-          </h1>
-          <p className="mt-2 text-[15px] leading-relaxed text-neutral-500">
-            En pocos minutos podrás publicar lo que tu centro necesita.
-          </p>
+        {/* R0 is entered from the public home CTA, so back returns there —
+            not to login, which is a sibling entry point, not the parent. */}
+        <AppBar title="Registro" backHref="/" />
+        <main className="flex flex-1 flex-col px-6 pb-6 pt-2">
+          {/* Centered composition (medallion → título → qué pedimos), with the
+              action block pinned to the bottom. */}
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
+            <span className="flex size-28 items-center justify-center rounded-full bg-accent-subtle">
+              <span className="flex size-[72px] items-center justify-center rounded-[20px] bg-accent text-accent-on">
+                <PlusIcon />
+              </span>
+            </span>
 
-          <ul className="mt-6 flex flex-col gap-4">
-            <Benefit
-              icon={<BuildingIcon />}
-              title="Datos básicos del centro"
-              desc="Nombre, ubicación y responsable."
-            />
-            <Benefit
-              icon={<PhoneIcon />}
-              title="Un correo electrónico"
-              desc="Lo verificamos con un código."
-            />
-            <Benefit
-              icon={<ClockIcon />}
-              title="Unos 2 a 3 minutos"
-              desc="Puedes pausar y seguir después."
-            />
-          </ul>
-
-          <div className="mt-5 rounded-xl border-l-4 border-accent bg-neutral-50 p-4">
-            <p className="text-sm leading-relaxed text-neutral-700">
-              Verificaremos tu centro antes de activarlo, para proteger la red
-              de ayuda.
+            <h1 className="mt-8 text-2xl font-bold leading-tight text-neutral-900">
+              Crea la cuenta de tu centro
+            </h1>
+            <p className="mt-3 text-[15px] leading-relaxed text-neutral-600">
+              Solo te pediremos datos básicos y la verificación de tu correo
+              electrónico.
             </p>
           </div>
 
-          <div className="mt-auto flex flex-col items-center gap-3 pt-6">
+          <div className="flex flex-col items-center gap-4 pt-8">
+            <p className="flex w-full items-center justify-center gap-2 rounded-xl border border-accent-border bg-accent-subtle px-4 py-3.5 text-[15px] font-semibold text-accent">
+              <ClockIcon />
+              Toma menos de 5 minutos
+            </p>
             <Button type="button" fullWidth onClick={() => setStep("datos")}>
               Comenzar
             </Button>
-            <p className="text-sm text-neutral-500">
-              ¿Ya tienes cuenta?{" "}
-              <Link
-                href="/centro/login"
-                className="font-semibold text-accent"
-              >
-                Iniciar sesión
-              </Link>
-            </p>
+            <Link
+              href="/centro/login"
+              className="text-sm font-semibold text-accent"
+            >
+              Ya tengo cuenta · Iniciar sesión
+            </Link>
           </div>
         </main>
       </>
@@ -156,10 +156,33 @@ export function RegistroWizard({ mode }: { mode: Mode }) {
   return (
     <>
       <AppBar
-        title="Registrar centro"
-        backHref={mode === "authed" ? null : undefined}
-        onBack={mode === "authed" ? undefined : () => setStep("intro")}
+        title="Registro"
+        // "authed" mode has no earlier step to go back to — the session pins the
+        // email — so the affordance is an ✕ that signs out instead.
+        backIcon={mode === "authed" ? "close" : "arrow"}
+        onBack={
+          mode === "authed"
+            ? () => setSignOutOpen(true)
+            : () => setStep("intro")
+        }
         trailing={<span className="text-sm text-neutral-400">1 de 3</span>}
+      />
+      <ConfirmDialog
+        open={signOutOpen}
+        title="¿Cerrar sesión?"
+        body={
+          sessionEmail
+            ? `Saldrás de la cuenta de ${sessionEmail} y podrás registrarte con otro correo.`
+            : "Saldrás de tu cuenta y podrás registrarte con otro correo."
+        }
+        confirmLabel="Cerrar sesión"
+        pending={signOutPending}
+        onCancel={() => setSignOutOpen(false)}
+        onConfirm={() =>
+          startSignOut(async () => {
+            await signOutToRegistro();
+          })
+        }
       />
       <CenterDatosForm
         initialValues={datosValues}
@@ -210,66 +233,19 @@ function Stepper({ current, label }: { current: 1 | 2 | 3; label: string }) {
   );
 }
 
-function Benefit({
-  icon,
-  title,
-  desc,
-}: {
-  icon: ReactNode;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <li className="flex gap-3">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-subtle text-accent">
-        {icon}
-      </span>
-      <span>
-        <span className="block text-[15px] font-semibold text-neutral-900">
-          {title}
-        </span>
-        <span className="block text-sm text-neutral-500">{desc}</span>
-      </span>
-    </li>
-  );
-}
-
-function BuildingIcon() {
+function PlusIcon() {
   return (
     <svg
-      width="20"
-      height="20"
+      width="32"
+      height="32"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="2.5"
       strokeLinecap="round"
-      strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M3 21h18" />
-      <path d="M5 21V7l7-4 7 4v14" />
-      <path d="M9 21v-6h6v6" />
-      <path d="M9 9h.01M15 9h.01" />
-    </svg>
-  );
-}
-
-function PhoneIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="6" y="2" width="12" height="20" rx="2" />
-      <path d="M11 18h2" />
+      <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }

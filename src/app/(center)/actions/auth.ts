@@ -19,3 +19,15 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/centro/login");
 }
+
+/**
+ * Escape hatch for a half-finished registration: the user verified an email but
+ * never created a center, so the wizard is pinned to that identity. Clearing the
+ * session and returning to /centro/registro restarts the flow (anon mode) with a
+ * different email.
+ */
+export async function signOutToRegistro() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/centro/registro");
+}

@@ -4,8 +4,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 /**
- * Debounced search input. Writes ?search= so the RSC list re-renders
- * server-side (no client data fetching). Placeholder per Figma 30:15734.
+ * Debounced search input on the home feed. Writes ?search= so the RSC list
+ * re-renders server-side (no client data fetching).
  */
 export function SearchBox() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export function SearchBox() {
   return (
     <div
       data-pending={isPending || undefined}
-      className="flex h-[52px] w-full items-center gap-2.5 rounded-md border-[1.5px] border-neutral-300 bg-surface px-4 text-neutral-700 focus-within:border-2 focus-within:border-accent"
+      className="flex h-[52px] w-full items-center gap-2.5 rounded-xl border border-neutral-200 bg-neutral-50 px-4 text-neutral-700 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30"
     >
       <SearchIcon />
       <input
@@ -46,7 +46,7 @@ export function SearchBox() {
         enterKeyHint="search"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="Buscar por centro, ciudad o ayuda…"
+        placeholder="Buscar centro, ciudad o insumo…"
         aria-label="Buscar listas"
         // text-base (16px) — iOS Safari zooms the viewport on focus for any
         // input under 16px; keep it ≥16px to prevent the zoom (issue #66).

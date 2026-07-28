@@ -383,7 +383,7 @@ function FallbackCard({ spec }: { spec: FormatSpec }): ReactElement {
       <img src={LOGO_DATA_URI} alt="" width={96 * scale} height={96 * scale / LOGO_ASPECT} style={{ objectFit: "contain" }} />
       <div style={{ display: "flex", fontSize: 28 * scale, fontWeight: 700, color: WORDMARK }}>VeneMed</div>
       <div style={{ display: "flex", fontSize: 16 * scale, fontWeight: 500, color: NEUTRAL_500 }}>
-        El puente directo entre tu ayuda y quien la necesita
+        El puente entre la ayuda y quien más la necesita
       </div>
     </div>
   );

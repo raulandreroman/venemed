@@ -46,7 +46,7 @@ Spanish (es-VE), mobile-first, design viewport ~390px.
 
 ### Donor (public, no auth, read-only)
 
-- `/` — landing. `<h1>` = `El puente directo entre tu ayuda y los hospitales.`
+- `/` — landing. `<h1>` = `El puente entre la ayuda y quien más la necesita.`
   CTA link **`Ver solicitudes activas`** → `/solicitudes`.
   (`src/app/(public)/page.tsx`)
 - `/solicitudes` — `AppBar` with `<h1>` title **`Solicitudes activas`**, then a
@@ -109,7 +109,7 @@ Selects are **native `<select>`** → use Playwright `selectOption({ index: 1 })
 **Prefer role + accessible name / text. Add `data-testid` only where a selector
 is genuinely ambiguous.** As verified, the app is already e2e-friendly:
 
-- Landing hero → `page.getByRole("heading", { name: /El puente directo/ })`.
+- Landing hero → `page.getByRole("heading", { name: /El puente entre la ayuda/ })`.
 - CTA → `page.getByRole("link", { name: "Ver solicitudes activas" })`.
 - Solicitudes title → `page.getByRole("heading", { name: "Solicitudes activas" })`.
 - A card → scope by center name: `page.getByText("Hospital J.M. de los Ríos")`
@@ -257,7 +257,7 @@ test.describe("donor surge path", () => {
   test("landing renders hero + CTA", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: /El puente directo/ }),
+      page.getByRole("heading", { name: /El puente entre la ayuda/ }),
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Ver solicitudes activas" }),

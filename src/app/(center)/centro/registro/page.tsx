@@ -18,7 +18,7 @@ export default async function RegistroPage() {
   }
 
   if (session.kind === "no-membership") {
-    return <RegistroWizard mode="authed" />;
+    return <RegistroWizard mode="authed" sessionEmail={session.email} />;
   }
 
   return <RegistroWizard mode="anon" />;
