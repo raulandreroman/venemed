@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useCallback, useRef, useState, type FormEvent } from "react";
 import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
+import { OTP_COOLDOWN_SECONDS, requestOtp } from "@/lib/auth/otp-request";
 import { normalizeEmail } from "@/lib/registro/validation";
-import { createClient } from "@/lib/supabase/client";
 import { OtpStep } from "../../_components/otp-step";
 import { finishLogin } from "../../actions/auth";
 
@@ -21,6 +21,8 @@ export function LoginForm() {
   const [emailInput, setEmailInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [otpCooldown, setOtpCooldown] = useState(OTP_COOLDOWN_SECONDS);
+  const [otpNotice, setOtpNotice] = useState<string | null>(null);
   const [captchaReady, setCaptchaReady] = useState(!CAPTCHA_ENABLED);
   const captchaRef = useRef<CaptchaHandle>(null);
 
@@ -35,28 +37,20 @@ export function LoginForm() {
       }
       setLoading(true);
       setError(null);
-      const supabase = createClient();
-      let captchaToken: string | undefined;
-      try {
-        captchaToken = await captchaRef.current?.getToken();
-      } catch {
-        setLoading(false);
-        setError("No pudimos verificar que no eres un robot. Recarga e inténtalo de nuevo.");
-        return;
-      }
-      const { error: sendError } = await supabase.auth.signInWithOtp({
+      const result = await requestOtp({
         email,
-        options: { captchaToken },
+        getCaptchaToken: () =>
+          captchaRef.current?.getToken() ?? Promise.resolve(undefined),
       });
       setLoading(false);
-      if (sendError) {
-        setError(
-          sendError.status === 429
-            ? "Demasiados intentos. Inténtalo de nuevo en un momento."
-            : "No pudimos enviar el código. Inténtalo de nuevo en un momento.",
-        );
+      if (result.status === "error" && !result.codeAlreadySent) {
+        setError(result.message);
         return;
       }
+      // A reused / recently-sent code still lets the user in — go to the code
+      // step instead of stranding them on the email field.
+      setOtpCooldown(result.cooldown);
+      setOtpNotice(result.status === "error" ? result.message : result.notice);
       setStep("otp");
     },
     [email],
@@ -71,6 +65,8 @@ export function LoginForm() {
           setError(null);
         }}
         onVerified={finishLogin}
+        initialResendIn={otpCooldown}
+        notice={otpNotice}
         backHref="/"
       />
     );

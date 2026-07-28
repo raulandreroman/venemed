@@ -242,6 +242,17 @@ test.describe("center auth + registration", () => {
     await page.getByRole("button", { name: "Continuar" }).click();
 
     await expect(page.getByRole("textbox", { name: "Dígito 1" })).toBeVisible();
+
+    // Regression: leaving the code step and re-submitting the same email inside
+    // Supabase's per-address send window used to 429 and strand the user on the
+    // datos step with "Demasiados intentos" — no way to get a code. The wizard
+    // must now reuse the live code and return to the code step.
+    await page.getByRole("button", { name: "Cambiar correo" }).click();
+    await expect(page.getByLabel("Nombre del centro")).toBeVisible();
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await expect(page.getByRole("textbox", { name: "Dígito 1" })).toBeVisible();
+    await expect(page.getByRole("status")).toContainText(/Ya te enviamos un código/);
+
     await fillOtp(page, EMAIL_REG);
 
     // The POINT: wait for the server action to actually COMPLETE and redirect

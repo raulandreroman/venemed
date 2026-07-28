@@ -13,9 +13,10 @@ import {
 } from "react";
 import { Captcha, CAPTCHA_ENABLED, type CaptchaHandle } from "@/components/captcha";
 import { AppBar, Button } from "@/components/ui";
+import { OTP_COOLDOWN_SECONDS, requestOtp } from "@/lib/auth/otp-request";
 import { createClient } from "@/lib/supabase/client";
 
-const RESEND_SECONDS = 60;
+const RESEND_SECONDS = OTP_COOLDOWN_SECONDS;
 const OTP_LENGTH = 6;
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_SECONDS = 15 * 60; // display-only; Supabase enforces the real window
@@ -37,6 +38,17 @@ export type OtpStepProps = {
   backToChangeNumber?: boolean;
   /** AppBar trailing label, e.g. "2 de 3" (registro). */
   stepLabel?: string;
+  /**
+   * Seconds left on the send cooldown when this step mounts. Comes from
+   * `requestOtp`, so returning to a still-live code shows the real remaining
+   * wait instead of restarting a fresh 60s.
+   */
+  initialResendIn?: number;
+  /**
+   * Optional message from the caller's send attempt — e.g. "already sent a code
+   * moments ago" when the code was reused rather than re-issued.
+   */
+  notice?: string | null;
   /** Optional progress region rendered under the AppBar (registro stepper). */
   progressSlot?: ReactNode;
 };
@@ -56,13 +68,16 @@ export function OtpStep({
   backToChangeNumber = false,
   stepLabel,
   progressSlot,
+  initialResendIn = RESEND_SECONDS,
+  notice = null,
 }: OtpStepProps) {
   const [digits, setDigits] = useState<string[]>(() =>
     Array(OTP_LENGTH).fill(""),
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resendIn, setResendIn] = useState(RESEND_SECONDS);
+  const [resendIn, setResendIn] = useState(initialResendIn);
+  const [info, setInfo] = useState<string | null>(notice);
   const [attemptsLeft, setAttemptsLeft] = useState(MAX_ATTEMPTS);
   const [locked, setLocked] = useState(false);
   const [lockIn, setLockIn] = useState(0);
@@ -95,30 +110,22 @@ export function OtpStep({
   const resend = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const supabase = createClient();
-    let captchaToken: string | undefined;
-    try {
-      captchaToken = await captchaRef.current?.getToken();
-    } catch {
-      setLoading(false);
-      setError("No pudimos verificar que no eres un robot. Recarga e inténtalo de nuevo.");
-      return;
-    }
-    const { error: sendError } = await supabase.auth.signInWithOtp({
+    setInfo(null);
+    const result = await requestOtp({
       email,
-      options: { captchaToken },
+      getCaptchaToken: () => captchaRef.current?.getToken() ?? Promise.resolve(undefined),
     });
     setLoading(false);
-    if (sendError) {
-      if (sendError.status === 429) {
-        enterLockout();
-        return;
-      }
-      setError("No pudimos enviar el código. Inténtalo de nuevo en un momento.");
+    setResendIn(result.cooldown);
+    if (result.status === "error") {
+      // A send-side 429 is a short per-address cooldown, NOT the wrong-code
+      // lockout — surface the wait and keep the code boxes usable.
+      if (result.codeAlreadySent) setInfo(result.message);
+      else setError(result.message);
       return;
     }
-    setResendIn(RESEND_SECONDS);
-  }, [email, enterLockout]);
+    setInfo(result.notice);
+  }, [email]);
 
   const onVerify = useCallback(
     async (e: FormEvent) => {
@@ -316,6 +323,12 @@ export function OtpStep({
           <p role="alert" className="mt-3 flex items-center gap-1.5 text-sm text-error">
             {hasCodeError && <ErrorDot />}
             {error}
+          </p>
+        )}
+
+        {!error && info && (
+          <p role="status" className="mt-3 rounded-xl bg-neutral-50 p-3 text-sm text-neutral-500">
+            {info}
           </p>
         )}
 
