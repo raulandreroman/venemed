@@ -1,16 +1,22 @@
 import { CenterMenu } from "./center-menu";
 
 /**
- * Dashboard header (Figma 32:4898): center name + green "Verificado" chip,
- * with a trailing overflow menu. Sticky, white, bottom border. NOT AppBar
- * (which is back-arrow/centered-title oriented).
+ * Dashboard header (Figma 32:4898): center name + status chip, with a trailing
+ * overflow menu. Sticky, white, bottom border. NOT AppBar (which is
+ * back-arrow/centered-title oriented).
+ *
+ * A `pending_review` center now reaches this dashboard, so the chip has to tell
+ * the truth — a green "Verificado" sitting above the verification banner would
+ * contradict it.
  */
 export function DashboardHeader({
   centerName,
   canInvite,
+  verified = true,
 }: {
   centerName: string;
   canInvite: boolean;
+  verified?: boolean;
 }) {
   return (
     <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-neutral-100 bg-surface px-4 py-3">
@@ -18,10 +24,16 @@ export function DashboardHeader({
         <h1 className="truncate text-lg font-bold leading-tight text-neutral-900">
           {centerName}
         </h1>
-        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-success-tint px-2 py-0.5 text-xs font-medium text-success">
-          <CheckIcon />
-          Verificado
-        </span>
+        {verified ? (
+          <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-success-tint px-2 py-0.5 text-xs font-medium text-success">
+            <CheckIcon />
+            Verificado
+          </span>
+        ) : (
+          <span className="mt-1 inline-flex items-center rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-medium text-accent">
+            Pendiente de verificación
+          </span>
+        )}
       </div>
       <CenterMenu canInvite={canInvite} />
     </header>

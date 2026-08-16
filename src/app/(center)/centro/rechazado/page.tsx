@@ -12,7 +12,7 @@ import { SignOutButton } from "../../_components/sign-out-button";
 export default async function RechazadoPage() {
   const center = await requireCenter();
   if (center.status === "approved") redirect("/centro");
-  if (center.status === "pending_review") redirect("/centro/en-revision");
+  if (center.status === "pending_review") redirect("/centro");
   // status === "rejected" | "suspended" → render
 
   const reason =

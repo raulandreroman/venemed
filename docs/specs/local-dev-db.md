@@ -174,6 +174,13 @@ pnpm exec supabase status        # or: supabase status -o env
 # 3. Overwrite .env.local with LOCAL creds (template below; fill keys from status).
 ```
 
+> ⚠️ **Superseded (2026-07-28).** The `TEST_CENTER_PHONE*` / `TEST_OTP_CODE` vars
+> and the `[auth.sms.test_otp]` map below belong to the retired phone-OTP era
+> (pre-migration 0008). Auth is email OTP now, there is NO fixed-code map, and
+> the e2e reads the real code from Mailpit (`e2e/_mail.ts`). The identities are
+> `TEST_CENTER_EMAIL`, `TEST_CENTER_EMAIL_2`, `TEST_ADMIN_EMAIL`,
+> `TEST_CENTER_EMAIL_3`. See AGENTS.md → "Offline email OTP".
+
 **`.env.local` (LOCAL — what everything uses by default):**
 
 ```dotenv

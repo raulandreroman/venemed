@@ -11,7 +11,11 @@ import { getCurrentCenter } from "./current-center";
  * way login does. */
 export const ROUTE_BY_STATUS = {
   approved: "/centro",
-  pending_review: "/centro/en-revision",
+  // Pending centers are NOT blocked: they get the dashboard (with a
+  // verification banner) and can publish immediately. `/centro/en-revision` is
+  // still shown once, right after registration, as the wizard's "3 de 3"
+  // confirmation — the registro action redirects there explicitly.
+  pending_review: "/centro",
   rejected: "/centro/rechazado",
   suspended: "/centro/rechazado", // suspended reuses the "needs attention" screen in v1
 } as const;

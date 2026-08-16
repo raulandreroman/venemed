@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { center, lista } from "@/db/schema";
 import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
+import { canManageLista } from "@/lib/auth/lista-access";
 import { requireResponsable } from "@/lib/auth/require-responsable";
 
 // NOTE: a "use server" module may export ONLY async functions (gotcha #1). This
@@ -35,8 +36,8 @@ import { requireResponsable } from "@/lib/auth/require-responsable";
  */
 export async function setReception(pause: boolean): Promise<void> {
   const current = await requireResponsable();
-  if (current.status !== "approved") {
-    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/en-revision");
+  if (!canManageLista(current.status)) {
+    redirect(ROUTE_BY_STATUS[current.status] ?? "/centro/rechazado");
   }
   const { centerId } = current;
 

@@ -20,7 +20,9 @@ import { PendingInvitationRow } from "./_components/pending-invitation-row";
  */
 export default async function EquipoPage() {
   const current = await requireResponsable();
-  if (current.status === "pending_review") redirect("/centro/en-revision");
+  // Team invitations stay approved-only: an unvetted center must not recruit
+  // members (lib/auth/lista-access.ts). Bounce to the dashboard, not a dead end.
+  if (current.status === "pending_review") redirect("/centro");
   if (current.status === "rejected" || current.status === "suspended") {
     redirect("/centro/rechazado");
   }

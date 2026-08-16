@@ -26,15 +26,19 @@ const EDITOR_HREF = "/centro/lista/editar";
  */
 export default async function CenterDashboardPage() {
   const center = await requireCenter();
-  if (center.status === "pending_review") redirect("/centro/en-revision");
   if (center.status === "rejected" || center.status === "suspended") {
     redirect("/centro/rechazado");
   }
-  // status === "approved" → render dashboard
+  // approved AND pending_review both render the dashboard — a center awaiting
+  // verification is not blocked, it just carries the banner (and its lista is
+  // labelled "Sin verificar" on the donor surface).
+  const unverified = center.status === "pending_review";
 
   // Only the Responsable (center_admin) can invite — the equipo page is
   // requireResponsable-gated, so an Operador shortcut would be a dead link.
-  const canInvite = center.role === "center_admin";
+  // Unverified centers can't invite either (team stays approved-only), so the
+  // affordance is hidden rather than left to bounce.
+  const canInvite = center.role === "center_admin" && !unverified;
 
   let lista;
   try {
@@ -42,10 +46,14 @@ export default async function CenterDashboardPage() {
   } catch {
     return (
       <>
-        <DashboardHeader centerName={center.centerName} canInvite={canInvite} />
+        <DashboardHeader
+          centerName={center.centerName}
+          canInvite={canInvite}
+          verified={!unverified}
+        />
         <ConnectionBanner />
         {center.role === "center_member" && (
-          <div className="px-4 pt-4">
+          <div className="flex flex-col gap-3 px-4 pt-4">
             <ModoOperadorBanner />
           </div>
         )}
@@ -57,10 +65,14 @@ export default async function CenterDashboardPage() {
   if (!lista) {
     return (
       <>
-        <DashboardHeader centerName={center.centerName} canInvite={canInvite} />
+        <DashboardHeader
+          centerName={center.centerName}
+          canInvite={canInvite}
+          verified={!unverified}
+        />
         <ConnectionBanner />
         {center.role === "center_member" && (
-          <div className="px-4 pt-4">
+          <div className="flex flex-col gap-3 px-4 pt-4">
             <ModoOperadorBanner />
           </div>
         )}
@@ -83,7 +95,11 @@ export default async function CenterDashboardPage() {
 
   return (
     <>
-      <DashboardHeader centerName={center.centerName} canInvite={canInvite} />
+      <DashboardHeader
+        centerName={center.centerName}
+        canInvite={canInvite}
+        verified={!unverified}
+      />
       <ConnectionBanner />
 
       <main className={`flex flex-1 flex-col gap-5 px-4 pb-24 pt-4 ${pageBg}`}>
