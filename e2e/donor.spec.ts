@@ -64,9 +64,8 @@ test.describe("donor surge path", () => {
         "a verified card must never appear after an unverified one",
       ).toBe(false);
       await expect(
-        cards.nth(firstUnverified).getByText("Sin verificar"),
+        cards.nth(firstUnverified).getByText("Pendiente de verificación"),
       ).toBeVisible();
-      await expect(page.getByText("Sin verificar aún")).toBeVisible();
     }
     await expectNoErrorOverlay(page);
   });

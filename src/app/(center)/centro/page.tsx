@@ -15,7 +15,6 @@ import { FreshnessCard } from "./_components/freshness-card";
 import { ModoOperadorBanner } from "./_components/modo-operador-banner";
 import { ReactivateButton } from "./_components/reactivate-button";
 import { ShareListaButton } from "./_components/share-lista-button";
-import { VerificacionBanner } from "./_components/verificacion-banner";
 
 const EDITOR_HREF = "/centro/lista/editar";
 
@@ -53,10 +52,9 @@ export default async function CenterDashboardPage() {
           verified={!unverified}
         />
         <ConnectionBanner />
-        {(unverified || center.role === "center_member") && (
+        {center.role === "center_member" && (
           <div className="flex flex-col gap-3 px-4 pt-4">
-            {unverified && <VerificacionBanner />}
-            {center.role === "center_member" && <ModoOperadorBanner />}
+            <ModoOperadorBanner />
           </div>
         )}
         <DashboardError />
@@ -73,10 +71,9 @@ export default async function CenterDashboardPage() {
           verified={!unverified}
         />
         <ConnectionBanner />
-        {(unverified || center.role === "center_member") && (
+        {center.role === "center_member" && (
           <div className="flex flex-col gap-3 px-4 pt-4">
-            {unverified && <VerificacionBanner />}
-            {center.role === "center_member" && <ModoOperadorBanner />}
+            <ModoOperadorBanner />
           </div>
         )}
         <EmptyState />
@@ -106,8 +103,6 @@ export default async function CenterDashboardPage() {
       <ConnectionBanner />
 
       <main className={`flex flex-1 flex-col gap-5 px-4 pb-24 pt-4 ${pageBg}`}>
-        {unverified && <VerificacionBanner />}
-
         <div>
           <p className="text-sm font-semibold text-neutral-900">
             {insumos} {insumos === 1 ? "insumo" : "insumos"} · {urgentes}{" "}

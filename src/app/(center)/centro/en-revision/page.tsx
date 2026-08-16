@@ -44,11 +44,11 @@ export default async function EnRevisionPage() {
             <span className="h-1.5 flex-1 rounded-full bg-accent" />
           </div>
 
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-warning-tint text-warning">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-subtle text-accent">
             <ClockIcon />
           </div>
 
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-warning-tint py-1.5 pl-2.5 pr-3 text-[13px] font-semibold text-warning">
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent-subtle py-1.5 pl-2.5 pr-3 text-[13px] font-semibold text-accent">
             <span aria-hidden className="text-[10px]">
               ●
             </span>

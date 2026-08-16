@@ -29,14 +29,9 @@ export function RequestCard({ request }: { request: ListaCardData }) {
       {/* header pills */}
       <div className="flex items-center justify-between gap-2">
         {request.city ? <Tag variant="neutral">{request.city}</Tag> : <span />}
-        <div className="flex items-center gap-1.5">
-          {!request.verified && <Tag variant="soon">Sin verificar</Tag>}
-          {request.hasUrgent && (
-            <Tag variant="urgent" dot>
-              Urgente
-            </Tag>
-          )}
-        </div>
+        {!request.verified && (
+          <Tag variant="pending">Pendiente de verificación</Tag>
+        )}
       </div>
 
       {/* center */}

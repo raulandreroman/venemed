@@ -30,8 +30,8 @@ export function DashboardHeader({
             Verificado
           </span>
         ) : (
-          <span className="mt-1 inline-flex items-center rounded-full bg-warning-tint px-2 py-0.5 text-xs font-medium text-warning">
-            Sin verificar
+          <span className="mt-1 inline-flex items-center rounded-full bg-accent-subtle px-2 py-0.5 text-xs font-medium text-accent">
+            Pendiente de verificación
           </span>
         )}
       </div>
