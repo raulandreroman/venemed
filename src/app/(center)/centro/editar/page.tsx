@@ -54,7 +54,7 @@ export default async function EditarPage() {
     cargo: row?.cargo ?? "",
   };
 
-  const statusRoute = ROUTE_BY_STATUS[status] ?? "/centro/en-revision";
+  const statusRoute = ROUTE_BY_STATUS[status] ?? "/centro";
 
   return (
     <>

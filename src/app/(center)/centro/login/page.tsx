@@ -1,13 +1,9 @@
 import { redirect } from "next/navigation";
 import { getCurrentCenter } from "@/lib/auth/current-center";
+// Shared with resolveLoginDestination — a local copy silently drifted from it
+// when pending_review stopped routing to /centro/en-revision.
+import { ROUTE_BY_STATUS } from "@/lib/auth/on-login";
 import { LoginForm } from "./login-form";
-
-const ROUTE_BY_STATUS = {
-  approved: "/centro",
-  pending_review: "/centro/en-revision",
-  rejected: "/centro/rechazado",
-  suspended: "/centro/rechazado",
-} as const;
 
 /**
  * Login RSC wrapper. If already authed, redirect to the correct status
@@ -17,7 +13,7 @@ const ROUTE_BY_STATUS = {
 export default async function LoginPage() {
   const session = await getCurrentCenter();
   if (session.kind === "center") {
-    redirect(ROUTE_BY_STATUS[session.center.status] ?? "/centro/en-revision");
+    redirect(ROUTE_BY_STATUS[session.center.status] ?? "/centro");
   }
   if (session.kind === "no-membership") {
     redirect("/centro/registro");

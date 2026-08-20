@@ -173,11 +173,13 @@ function IdentityBlock({ req }: { req: ListaDetailData }) {
         {req.centerName}
       </h1>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {center.verifiedAt && (
+        {req.verified ? (
           <Tag variant="fulfilled">
             <CheckGlyph size={12} />
             Verificado
           </Tag>
+        ) : (
+          <Tag variant="soon">Sin verificar</Tag>
         )}
         {receiving ? (
           <Tag variant="fulfilled" dot>

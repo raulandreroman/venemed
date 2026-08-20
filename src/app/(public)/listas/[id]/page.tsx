@@ -32,6 +32,10 @@ export async function generateMetadata({
     title: `${req.centerName} · VeneMed`,
     description,
     alternates: { canonical: path },
+    // An unverified center is shareable by link but must not accumulate search
+    // presence before a moderator has looked at it. Lifted on approval (the
+    // page is ISR + tagged, so it re-renders indexable within the window).
+    ...(req.verified ? {} : { robots: { index: false, follow: false } }),
     // Metadata objects merge shallowly per top-level key: setting `openGraph`
     // here fully replaces the root layout's, so siteName + locale are re-set.
     openGraph: {

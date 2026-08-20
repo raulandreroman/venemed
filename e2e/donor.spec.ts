@@ -44,6 +44,32 @@ test.describe("donor surge path", () => {
     await expectNoErrorOverlay(page);
   });
 
+  test("unverified centers are labelled and ranked below verified ones", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const cards = page.locator('[data-testid="request-card"]');
+    const count = await cards.count();
+    test.skip(count === 0, "no active listas available");
+
+    // Data-independent: whatever the mix, the vetted block must come first and
+    // every unverified card must carry the label.
+    const verified = await cards.evaluateAll((els) =>
+      els.map((el) => el.hasAttribute("data-verified")),
+    );
+    const firstUnverified = verified.indexOf(false);
+    if (firstUnverified !== -1) {
+      expect(
+        verified.slice(firstUnverified).some(Boolean),
+        "a verified card must never appear after an unverified one",
+      ).toBe(false);
+      await expect(
+        cards.nth(firstUnverified).getByText("Pendiente de verificación"),
+      ).toBeVisible();
+    }
+    await expectNoErrorOverlay(page);
+  });
+
   test("Ver más opens the detail full page matching the card", async ({
     page,
   }) => {

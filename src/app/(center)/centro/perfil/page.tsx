@@ -31,7 +31,6 @@ import {
  */
 export default async function CenterProfilePage() {
   const current = await requireCenter();
-  if (current.status === "pending_review") redirect("/centro/en-revision");
   if (current.status === "rejected" || current.status === "suspended") {
     redirect("/centro/rechazado");
   }

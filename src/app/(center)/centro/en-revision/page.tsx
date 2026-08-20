@@ -4,8 +4,11 @@ import { requireCenter } from "@/lib/auth/require-center";
 import { supportWhatsappHref } from "@/lib/support";
 
 /**
- * "Casi listo" — pending_review centers (Figma 8:733). The email is verified;
- * a moderator must approve the center before it can publish.
+ * "Casi listo" — the wizard's "3 de 3" confirmation, shown ONCE right after
+ * registration (`actions/registro.ts` redirects here explicitly). Verification
+ * no longer blocks anything: the center can already publish and share, so this
+ * screen hands off to the dashboard instead of dead-ending. Later logins land
+ * on /centro directly (ROUTE_BY_STATUS.pending_review).
  */
 export default async function EnRevisionPage() {
   const center = await requireCenter();
@@ -16,9 +19,9 @@ export default async function EnRevisionPage() {
   // status === "pending_review" → render
 
   const steps = [
-    `Te escribiremos por correo a ${center.email ?? "tu correo"} en un plazo de 24 a 48 horas.`,
+    "Ya puedes crear y compartir tu lista. Aparece marcada como «sin verificar» hasta que completemos la revisión.",
     "Confirmaremos la identidad del responsable y la legitimidad del centro.",
-    "Activamos tu cuenta y podrás publicar tus alertas de necesidades.",
+    `Te escribiremos por correo a ${center.email ?? "tu correo"} en un plazo de 24 a 48 horas.`,
   ];
 
   return (
@@ -41,11 +44,11 @@ export default async function EnRevisionPage() {
             <span className="h-1.5 flex-1 rounded-full bg-accent" />
           </div>
 
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-warning-tint text-warning">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent-subtle text-accent">
             <ClockIcon />
           </div>
 
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-warning-tint py-1.5 pl-2.5 pr-3 text-[13px] font-semibold text-warning">
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-accent-subtle py-1.5 pl-2.5 pr-3 text-[13px] font-semibold text-accent">
             <span aria-hidden className="text-[10px]">
               ●
             </span>
@@ -54,12 +57,12 @@ export default async function EnRevisionPage() {
 
           <div className="flex flex-col gap-2">
             <h1 className="text-[22px] font-bold leading-7 text-neutral-900">
-              Estamos verificando tu centro
+              Tu centro quedó registrado
             </h1>
             <p className="text-[15px] leading-[22px] text-neutral-500">
-              Tu correo quedó verificado. Ahora nuestro equipo confirmará la
-              veracidad del centro y de la persona responsable antes de activar
-              tus alertas.
+              Tu correo quedó verificado y ya puedes empezar. Mientras tanto,
+              nuestro equipo confirmará la veracidad del centro y de la persona
+              responsable.
             </p>
           </div>
 
@@ -93,16 +96,16 @@ export default async function EnRevisionPage() {
 
         {/* footer */}
         <div className="mt-auto flex flex-col gap-2.5 border-t border-neutral-100 px-5 pb-5 pt-3.5">
-          <Button href={supportWhatsappHref()} variant="primary" fullWidth>
-            Contactar a soporte
+          <Button href="/centro" variant="primary" fullWidth>
+            Ir a mi panel
           </Button>
           <Button
-            href="/centro/editar"
+            href={supportWhatsappHref()}
             variant="ghost"
             fullWidth
             className="border-[1.5px] border-neutral-300 bg-surface text-neutral-900 hover:bg-neutral-50"
           >
-            Editar datos del centro
+            Contactar a soporte
           </Button>
         </div>
       </main>

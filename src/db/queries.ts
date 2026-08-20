@@ -83,6 +83,10 @@ type ListaBase = {
  */
 export type ListaCardData = ListaBase & {
   state: string | null; // center.state — powers the donor "Estado" facet
+  // false while the center is still `pending_review`: it publishes and shares
+  // immediately, but the donor surface labels it and sinks it below the vetted
+  // centers until a moderator approves.
+  verified: boolean;
   urgentItems: ListaItemData[]; // bucket=need & isUrgent
   needItems: ListaItemData[]; // bucket=need & !isUrgent
   excessItems: ListaItemData[]; // bucket=excess
@@ -90,6 +94,7 @@ export type ListaCardData = ListaBase & {
 };
 
 export type ListaDetailData = ListaBase & {
+  verified: boolean; // center.status === "approved" — see ListaCardData.verified
   status: "active" | "paused" | "closed" | "draft";
   deliveryInstructions: string | null; // per-lista drop-off note
   excessReason: string | null; // "No aceptamos" caption
@@ -180,13 +185,17 @@ async function queryActiveListas(
       centerDescription: center.description,
       centerType: center.type,
       state: center.state,
+      centerStatus: center.status,
     })
     .from(lista)
     .innerJoin(center, eq(center.id, lista.centerId))
     .where(
       and(
         eq(lista.status, "active"),
-        eq(center.status, "approved"),
+        // Unverified (`pending_review`) centers publish too — moderation no
+        // longer blocks them, it only ranks and labels them. `rejected` and
+        // `suspended` stay out entirely.
+        inArray(center.status, ["approved", "pending_review"]),
         filters.state ? eq(center.state, filters.state) : undefined,
         filters.type
           ? eq(center.type, filters.type as typeof center.type.enumValues[number])
@@ -216,10 +225,13 @@ async function queryActiveListas(
           : undefined,
       ),
     )
-    // Alfabético: center name A→Z. Reciente (default): fresh-first, but sink
-    // listas untouched > 7 days to the bottom (§4.2 D5). SQL-side so `now()` is
-    // evaluated at query time, not frozen by unstable_cache's cached closure.
+    // Verified centers always rank above unverified ones, under BOTH sorts —
+    // the donor list stays a vetted directory with the pending ones appended.
+    // Then: Alfabético: center name A→Z. Reciente (default): fresh-first, but
+    // sink listas untouched > 7 days to the bottom (§4.2 D5). SQL-side so
+    // `now()` is evaluated at query time, not frozen by unstable_cache.
     .orderBy(
+      sql`(${center.status} <> 'approved')`,
       ...(filters.sort === "alphabetical"
         ? [asc(center.name)]
         : [
@@ -271,6 +283,7 @@ async function queryActiveListas(
       id: r.id,
       city: r.city,
       state: r.state,
+      verified: r.centerStatus === "approved",
       centerName: r.centerName,
       centerDescription: r.centerDescription,
       centerType: r.centerType,
@@ -321,7 +334,8 @@ async function queryActiveListaCategories(): Promise<string[]> {
     SELECT DISTINCT unnest(${lista.categories}) AS category
     FROM ${lista}
     INNER JOIN ${center} ON ${center.id} = ${lista.centerId}
-    WHERE ${lista.status} = 'active' AND ${center.status} = 'approved'
+    WHERE ${lista.status} = 'active'
+      AND ${center.status} IN ('approved', 'pending_review')
   `)) as unknown as { category: string | null }[];
   return rows
     .map((r) => r.category)
@@ -365,13 +379,16 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
       regularScheduleText: center.regularScheduleText,
       verifiedAt: center.verifiedAt,
       receptionPausedAt: center.receptionPausedAt,
+      centerStatus: center.status,
     })
     .from(lista)
     .innerJoin(center, eq(center.id, lista.centerId))
     .where(
       and(
         eq(lista.id, id),
-        eq(center.status, "approved"),
+        // Same rule as the feed: unverified centers are reachable and
+        // shareable; rejected/suspended 404.
+        inArray(center.status, ["approved", "pending_review"]),
         inArray(lista.status, ["active", "closed"]),
       ),
     )
@@ -398,6 +415,7 @@ async function queryListaById(id: string): Promise<ListaDetailData | null> {
   return {
     id: r.id,
     city: r.city,
+    verified: r.centerStatus === "approved",
     deliveryInstructions: r.deliveryInstructions,
     excessReason: r.excessReason,
     receptionContactName: r.receptionContactName,

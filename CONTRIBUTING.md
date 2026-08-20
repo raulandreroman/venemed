@@ -85,7 +85,7 @@ To work against the real cloud env locally, `vercel env pull .env.local` restore
 
 ### Key env vars
 
-`POSTGRES_URL` (pooler, runtime, `prepare:false`), `POSTGRES_URL_NON_POOLING` (direct, migrations), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `TEST_CENTER_EMAIL`, `TEST_CENTER_EMAIL_2`, `TEST_ADMIN_EMAIL`, `TEST_OTP_CODE`. The feature flag `NEXT_PUBLIC_FEATURE_CENTER_TYPE` (default `false`) hides the "Tipo de centro" registration field and the donor "Sector" filter.
+`POSTGRES_URL` (pooler, runtime, `prepare:false`), `POSTGRES_URL_NON_POOLING` (direct, migrations), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `TEST_CENTER_EMAIL`, `TEST_CENTER_EMAIL_2`, `TEST_ADMIN_EMAIL`, `TEST_CENTER_EMAIL_3`. (There is no OTP secret: the e2e reads the real code from Mailpit via `e2e/_mail.ts`.) The feature flag `NEXT_PUBLIC_FEATURE_CENTER_TYPE` (default `false`) hides the "Tipo de centro" registration field and the donor "Sector" filter.
 
 ## Day-to-day commands
 
@@ -218,7 +218,7 @@ Para trabajar contra el entorno cloud real desde local, `vercel env pull .env.lo
 
 ### Variables de entorno clave
 
-`POSTGRES_URL` (pooler, runtime, `prepare:false`), `POSTGRES_URL_NON_POOLING` (directa, migraciones), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `TEST_CENTER_EMAIL`, `TEST_CENTER_EMAIL_2`, `TEST_ADMIN_EMAIL`, `TEST_OTP_CODE`. El feature flag `NEXT_PUBLIC_FEATURE_CENTER_TYPE` (por defecto `false`) oculta el campo "Tipo de centro" del registro y el filtro "Sector" del donante.
+`POSTGRES_URL` (pooler, runtime, `prepare:false`), `POSTGRES_URL_NON_POOLING` (directa, migraciones), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, `TEST_CENTER_EMAIL`, `TEST_CENTER_EMAIL_2`, `TEST_ADMIN_EMAIL`, `TEST_CENTER_EMAIL_3`. (No hay secreto de OTP: el e2e lee el código real desde Mailpit vía `e2e/_mail.ts`.) El feature flag `NEXT_PUBLIC_FEATURE_CENTER_TYPE` (por defecto `false`) oculta el campo "Tipo de centro" del registro y el filtro "Sector" del donante.
 
 ## Comandos del día a día
 
